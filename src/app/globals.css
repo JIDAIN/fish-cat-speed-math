@@ -1,0 +1,625 @@
+:root {
+  --green-900: #1f5d49;
+  --green-700: #2f8566;
+  --green-100: #e4f4ec;
+  --green-50: #f4fbf7;
+  --ink: #183b31;
+  --muted: #6d887e;
+  --line: #d8ebe1;
+  --card: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--green-50);
+  color: var(--ink);
+  font-family: Arial, "Microsoft YaHei", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: var(--green-100);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+button.primary {
+  background: var(--green-700);
+  color: #fff;
+}
+
+main {
+  width: 100%;
+  min-height: 100dvh;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 18px
+    max(24px, env(safe-area-inset-bottom));
+}
+
+/* Home screen */
+.home > header,
+main > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+h1 {
+  margin: 5px 0 22px;
+  font-size: 28px;
+  line-height: 1.2;
+}
+h2 {
+  margin: 25px 0 12px;
+  font-size: 17px;
+}
+
+.userbar,
+.modes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.userbar button,
+.modes button {
+  flex: 1 1 120px;
+}
+.selected {
+  outline: 3px solid #abd8c0;
+  background: #d4eddf !important;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.grid button {
+  min-height: 72px;
+  padding: 12px;
+  text-align: left;
+  line-height: 1.35;
+}
+.wide {
+  width: 100%;
+  min-height: 54px;
+  margin-top: 26px;
+  font-size: 17px;
+}
+.hint {
+  margin: 15px 0 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.storageError {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #efc3bf;
+  border-radius: 12px;
+  background: #fff4f2;
+  color: #9a342b;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.questionCountTrigger {
+  display: grid;
+  width: 100%;
+  min-height: 76px;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  padding: 14px 16px;
+  text-align: left;
+}
+.questionCountTrigger span,
+.questionCountTrigger small {
+  color: var(--muted);
+}
+.questionCountTrigger strong {
+  align-self: center;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: 22px;
+}
+.questionCountTrigger small {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* Exercise screen */
+.training {
+  padding-top: 7vh;
+  text-align: center;
+}
+.training h1 {
+  margin: 36px 0 30px;
+  font-size: clamp(38px, 12vw, 58px);
+  letter-spacing: 0.02em;
+}
+.rule {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.answer {
+  display: grid;
+  min-height: 64px;
+  place-items: center;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  font-size: 30px;
+}
+.restart {
+  margin-bottom: 14px;
+  background: transparent;
+  color: var(--muted);
+}
+.pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgb(36 112 83 / 12%);
+}
+.pad button {
+  min-height: 54px;
+  font-size: 20px;
+  border-color: rgb(73 148 111 / 26%);
+  background: rgb(224 247 229 / 90%);
+}
+.pad .submit {
+  min-height: 56px;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.comparison button {
+  min-height: 76px;
+  font-size: 32px;
+}
+.comparison .primary {
+  grid-column: span 3;
+  min-height: 54px;
+  font-size: 17px;
+}
+
+.optionPad {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.optionPad button {
+  min-height: 64px;
+  font-size: 22px;
+}
+.optionPad .primary {
+  grid-column: span 2;
+  min-height: 54px;
+  font-size: 17px;
+}
+.optionPad button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/*
+ * Scratch canvas: a 10% green veil makes the writing area obvious while
+ * keeping the exercise, answer field, and number pad readable underneath.
+ */
+.scratch {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: max(10px, env(safe-area-inset-top)) 10px
+    calc(10px + env(safe-area-inset-bottom));
+  background: rgb(228 244 236 / 10%);
+  pointer-events: none;
+}
+.scratch canvas {
+  width: 100%;
+  height: calc(100% - 70px);
+  background: rgb(255 255 255 / 10%);
+  touch-action: none;
+  pointer-events: auto;
+}
+.scratchTools {
+  display: flex;
+  gap: 10px;
+  padding-top: 10px;
+  pointer-events: auto;
+}
+.scratchTools button {
+  flex: 1;
+}
+
+/* Result and history screens */
+.panel {
+  background: var(--card);
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.metrics b {
+  padding: 16px 7px;
+  border-radius: 14px;
+  background: var(--green-100);
+  text-align: center;
+  font-size: 18px;
+}
+.metrics small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.rating {
+  margin: 16px 0 22px;
+  padding: 13px 15px;
+  border-radius: 14px;
+  background: var(--green-100);
+  text-align: center;
+}
+
+.rating strong {
+  color: var(--green-900);
+  font-size: 20px;
+}
+
+.historyCharts {
+  margin: 0 0 24px;
+}
+.historyCharts > h2 {
+  margin-bottom: 6px;
+}
+.historyChartsHint {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.trackCharts {
+  margin: 0 0 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--green-50);
+}
+.trackTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.trackTitle h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.trackTitle span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.targetHeader {
+  margin: 8px 0 12px;
+  color: var(--green-900);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.userChartGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.userChart {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--card);
+}
+.userChartHeading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 38px;
+}
+.userChartHeading strong {
+  font-size: 14px;
+}
+.userChartHeading span {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.chart {
+  width: 100%;
+}
+.chartEmpty {
+  min-height: 170px;
+  margin: 0;
+  padding: 36px 8px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ok {
+  color: #167052;
+}
+.wrong {
+  color: #b33d3d;
+}
+.history {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--line);
+}
+.history span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.homeHeaderActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.homeHeaderActions button {
+  min-height: 40px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.sessionSubtitle {
+  margin: -12px 0 16px;
+  color: var(--muted);
+}
+.questionDetails {
+  margin-top: 28px;
+}
+.questionDetails h2 {
+  margin-bottom: 12px;
+}
+.questionTableHead,
+.questionRow {
+  display: grid;
+  grid-template-columns: 1.7rem minmax(4.2rem, 1fr) 2rem 3rem 3rem 2.3rem;
+  gap: 6px;
+  align-items: center;
+}
+
+.questionTableHead {
+  padding: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.questionRows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.questionRow {
+  min-height: 44px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.questionRow span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.questionRow.correct {
+  color: #167052;
+}
+.questionRow.incorrect {
+  color: #bf3f34;
+}
+
+.datePicker {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 0 12px;
+}
+.datePicker button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 7px 11px;
+  font-size: 13px;
+}
+.historyUserSection {
+  margin: 10px 0 24px;
+}
+.historyUserSection h2 {
+  margin: 0 0 10px;
+}
+.historySession {
+  display: flex;
+  width: 100%;
+  min-height: 66px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  text-align: left;
+}
+.historySession > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.historySession strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.historySession small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.historySessionMetrics {
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 13px;
+}
+.emptyHistory,
+.emptyUser {
+  color: var(--muted);
+  text-align: center;
+}
+
+.modalBackdrop {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(24 59 49 / 36%);
+}
+.activeSessionDialog {
+  display: grid;
+  width: min(100%, 360px);
+  gap: 12px;
+  padding: 22px;
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: 0 18px 48px rgb(24 59 49 / 24%);
+}
+.activeSessionDialog p,
+.activeSessionDialog span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.activeSessionDialog h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.questionCountDialog {
+  display: grid;
+  width: min(100%, 390px);
+  max-height: calc(100dvh - 32px);
+  gap: 10px;
+  overflow-y: auto;
+  padding: 20px;
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: 0 18px 48px rgb(24 59 49 / 24%);
+}
+.questionCountDialog > header {
+  align-items: center;
+}
+.questionCountDialog > header h2 {
+  margin: 2px 0 0;
+  font-size: 21px;
+}
+.questionCountDialog > header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.questionCountDialog > header button {
+  width: 44px;
+  padding: 0;
+  font-size: 28px;
+  line-height: 1;
+}
+.countMode {
+  display: grid;
+  gap: 3px;
+  min-height: 62px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.countMode span {
+  font-size: 16px;
+}
+.countMode small,
+.countRange small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.countRange {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--green-50);
+}
+.countRange > span {
+  display: flex;
+  justify-content: space-between;
+}
+.countRange strong {
+  color: var(--green-900);
+  font-size: 18px;
+}
+.countRange input {
+  width: 100%;
+  min-height: 32px;
+  accent-color: var(--green-700);
+}
+.countRange small {
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (min-width: 700px) {
+  body {
+    background: #eaf5ef;
+  }
+  main {
+    min-height: 100vh;
+    margin-top: 22px;
+    margin-bottom: 22px;
+    border-radius: 24px;
+    background: var(--green-50);
+    box-shadow: 0 12px 40px rgb(31 93 73 / 10%);
+  }
+}
