@@ -6,12 +6,14 @@ import {
   GenerationContext,
   THREE_DIGIT_ADD_SUBTRACT_QUOTAS,
   THREE_BY_TWO_DIVISION_QUOTAS,
+  MULTI_DIGIT_DIVISION_QUOTAS,
   TWO_BY_ONE_MULTIPLY_QUOTAS,
   TWO_BY_TWO_MULTIPLY_QUOTAS,
   TWO_DIGIT_ADD_SUBTRACT_QUOTAS,
   allocateStructureQuota,
   classifyThreeDigitAddSubtract,
   classifyThreeByTwoDivision,
+  classifyMultiDigitDivision,
   classifyFractionComparison,
   classifyMultiNumberAddSubtract,
   classifyTwoByOneMultiply,
@@ -604,6 +606,13 @@ describe("question generators", () => {
         allocateStructureQuota(count, THREE_BY_TWO_DIVISION_QUOTAS)[0].count,
       );
     });
+  });
+
+  it("creates multi-digit quotient structures with exact quotas", () => {
+    const questions = generateSet("multi_digit_division", "quotient_two", 100, deterministicContext(800));
+    const expected = allocateStructureQuota(100, MULTI_DIGIT_DIVISION_QUOTAS);
+    expected.forEach(({ primaryStructure, count }) => expect(questions.filter((question) => question.primaryStructure === primaryStructure)).toHaveLength(count));
+    questions.forEach((question) => expect(classifyMultiDigitDivision(question.data.a as number, question.data.b as number)).toBe(question.primaryStructure));
   });
 
   it("creates exact multi-number quotas with nonnegative, correct answers", () => {

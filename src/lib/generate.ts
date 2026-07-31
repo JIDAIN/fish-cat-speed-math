@@ -114,6 +114,25 @@ export const THREE_BY_TWO_DIVISION_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "near_estimate_boundary", ratio: 0.2 },
 ];
 
+export type MultiDigitDivisionStructure =
+  | "quotient_less_than_one"
+  | "quotient_one_to_ten"
+  | "quotient_ten_to_one_hundred"
+  | "quotient_one_hundred_or_more"
+  | "near_estimate_boundary";
+export const MULTI_DIGIT_DIVISION_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "quotient_less_than_one", ratio: 0.15 },
+  { primaryStructure: "quotient_one_to_ten", ratio: 0.25 },
+  { primaryStructure: "quotient_ten_to_one_hundred", ratio: 0.3 },
+  { primaryStructure: "quotient_one_hundred_or_more", ratio: 0.15 },
+  { primaryStructure: "near_estimate_boundary", ratio: 0.15 },
+];
+const MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "3", ratio: 0.75 },
+  { primaryStructure: "4", ratio: 0.15 },
+  { primaryStructure: "5", ratio: 0.1 },
+];
+
 /**
  * Converts structure ratios into an exact set size. Remaining slots go to the
  * largest fractional remainders, with declaration order resolving ties.
@@ -692,6 +711,84 @@ export function classifyThreeByTwoDivision(
   if (Math.min(value % 1, 1 - (value % 1)) <= 0.08)
     return "near_estimate_boundary";
   return value < 10 ? "quotient_one_to_ten" : "quotient_ten_to_one_hundred";
+}
+
+export function classifyMultiDigitDivision(
+  a: number,
+  b: number,
+): MultiDigitDivisionStructure | undefined {
+  if (
+    !Number.isInteger(a) ||
+    !Number.isInteger(b) ||
+    a < 10000 ||
+    a > 99999 ||
+    b < 100 ||
+    b > 99999
+  )
+    return undefined;
+  const value = a / b;
+  if (Math.min(value % 1, 1 - (value % 1)) <= 0.03)
+    return "near_estimate_boundary";
+  if (value < 1) return "quotient_less_than_one";
+  if (value < 10) return "quotient_one_to_ten";
+  if (value < 100) return "quotient_ten_to_one_hundred";
+  return "quotient_one_hundred_or_more";
+}
+
+function buildMultiDigitDivisionQuestion(
+  context: GenerationContext,
+  structure: MultiDigitDivisionStructure,
+  divisorDigits: number,
+): GeneratedQuestion {
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    const a = nonRound(context, 10023, 99897);
+    const b = nonRound(
+      context,
+      10 ** (divisorDigits - 1),
+      10 ** divisorDigits - 1,
+    );
+    if (classifyMultiDigitDivision(a, b) !== structure) continue;
+    const quotient = a / b;
+    return q(
+      context,
+      "multi_digit_division",
+      "quotient_two",
+      `${a}÷${b}`,
+      sig(quotient, 2),
+      { a, b, quotient, rule: "quotient_two", divisorDigits },
+      5,
+      ["直除", "干扰数字"],
+      undefined,
+      {
+        primaryStructure: structure,
+        secondaryTags: [`divisor_${divisorDigits}_digit`],
+      },
+    );
+  }
+  const fallback: Record<MultiDigitDivisionStructure, [number, number]> = {
+    quotient_less_than_one: [12347, 58291],
+    quotient_one_to_ten: [81256, 39548],
+    quotient_ten_to_one_hundred: [81256, 395],
+    quotient_one_hundred_or_more: [81256, 123],
+    near_estimate_boundary: [50011, 499],
+  };
+  const [a, b] = fallback[structure];
+  const quotient = a / b;
+  return q(
+    context,
+    "multi_digit_division",
+    "quotient_two",
+    `${a}÷${b}`,
+    sig(quotient, 2),
+    { a, b, quotient, rule: "quotient_two", divisorDigits: String(b).length },
+    5,
+    ["直除", "fallback"],
+    undefined,
+    {
+      primaryStructure: structure,
+      secondaryTags: [`divisor_${String(b).length}_digit`],
+    },
+  );
 }
 
 function generateThreeByTwoDivisionByStructure(
@@ -1349,24 +1446,10 @@ export function generateQuestion(
     );
   }
   if (type === "multi_digit_division") {
-    const a = nonRound(context, 10023, 99897);
-    const divisorDigits =
-      context.random() < 0.75 ? 3 : context.random() < 0.6 ? 4 : 5;
-    const b = nonRound(
+    return buildMultiDigitDivisionQuestion(
       context,
-      10 ** (divisorDigits - 1),
-      10 ** divisorDigits - 1,
-    );
-    const value = a / b;
-    return q(
-      context,
-      type,
-      "quotient_two",
-      `${a}÷${b}`,
-      sig(value, 2),
-      { a, b, quotient: value, rule: "quotient_two" },
-      5,
-      ["直除", "干扰数字"],
+      "quotient_ten_to_one_hundred",
+      3,
     );
   }
   if (type === "fraction_percent_conversion") {
@@ -1543,6 +1626,29 @@ export function generateSet(
               primaryStructure as ThreeByTwoDivisionStructure,
             ),
           ),
+      ),
+    );
+  }
+  if (type === "multi_digit_division") {
+    const structures = allocateStructureQuota(
+      count,
+      MULTI_DIGIT_DIVISION_QUOTAS,
+    ).flatMap(({ primaryStructure, count: structureCount }) =>
+      Array.from(
+        { length: structureCount },
+        () => primaryStructure as MultiDigitDivisionStructure,
+      ),
+    );
+    const digits = allocateStructureQuota(
+      count,
+      MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS,
+    ).flatMap(({ primaryStructure, count: digitCount }) =>
+      Array.from({ length: digitCount }, () => Number(primaryStructure)),
+    );
+    return shuffle(
+      context,
+      structures.map((structure, index) =>
+        buildMultiDigitDivisionQuestion(context, structure, digits[index]),
       ),
     );
   }
