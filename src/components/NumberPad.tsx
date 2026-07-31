@@ -18,7 +18,7 @@ export function NumberPad({ value, onChange, onSubmit }: NumberPadProps) {
   const cannotSubmit = !value || value === "-" || value.endsWith(".");
 
   return (
-    <div className="pad" aria-label="计算器数字键盘">
+    <div className="pad trainingKeypad" aria-label="计算器数字键盘">
       <button
         aria-label="切换正负号"
         onClick={() => onChange(toggleSign(value))}

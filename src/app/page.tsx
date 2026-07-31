@@ -225,8 +225,8 @@ export default function Home() {
   };
   if (view === "training" && session && current)
     return (
-      <main>
-        <header>
+      <main className="trainingPage">
+        <header className="trainingHeader">
           <button
             onClick={() => {
               const pausedSession = pauseSessionTimer(session);
@@ -243,7 +243,7 @@ export default function Home() {
           <b>{(elapsed / 1000).toFixed(1)} 秒</b>
           <button onClick={() => setScratch(true)}>✎ 草稿</button>
         </header>
-        <section className="training">
+        <section className="training trainingMain">
           <p className="rule">
             {subtype === "quotient_first"
               ? "求商首位，不四舍五入"
@@ -262,7 +262,7 @@ export default function Home() {
               : ""}
           </button>
           {type === "fraction_comparison" ? (
-            <div className="comparison">
+            <div className="comparison trainingKeypad">
               {["＜", "＝", "＞"].map((x) => (
                 <button
                   key={x}
@@ -277,7 +277,7 @@ export default function Home() {
             </div>
           ) : type === "fraction_percent_conversion" &&
             subtype === "percent_to_fraction" ? (
-            <div className="optionPad">
+            <div className="optionPad trainingKeypad">
               {(Array.isArray(current.data.options)
                 ? current.data.options
                 : []
