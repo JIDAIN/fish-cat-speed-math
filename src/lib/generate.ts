@@ -770,7 +770,7 @@ function buildMultiDigitDivisionQuestion(
     quotient_one_to_ten: [81256, 39548],
     quotient_ten_to_one_hundred: [81256, 395],
     quotient_one_hundred_or_more: [81256, 123],
-    near_estimate_boundary: [50011, 499],
+    near_estimate_boundary: [49901, 499],
   };
   const [a, b] = fallback[structure];
   const quotient = a / b;
