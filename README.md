@@ -9,6 +9,7 @@
 - 两名固定用户：🐟 小鱼、🐱 小猫。
 - 9 类基础题型：整数加减、两位数乘法、有效位直除、多数加减、分数—百分数转换、分数比较。
 - 浏览器内出题、自动判题、单题/整组有效计时、后台自动暂停、暂存与刷新后恢复。
+- 手机竖屏训练页采用 `100dvh` 单屏布局：题目、计时、答案、草稿入口、重开和完整键盘同时可见；键盘避让 iPhone 底部安全区，页面锁定仅作用于训练页。
 - 统一计算器式数值键盘：`± / 清空 / 退格 / 数字 / 小数点 / 确定`；分数比较和百分数转分数使用专用作答控件。
 - 临时手写草稿：可写、撤销、清空、关闭；不识别、不上传、不保存。
 - 结算页、题目明细、按日期和用户查看的历史记录。
@@ -72,7 +73,7 @@ npm.cmd run build
 
 当前九类基础题型均已完成结构化生成；分数—百分数转换覆盖标准、基准和直除分数策略。
 
-最近一次完整验证：`npm.cmd run format`、`npm.cmd run format:check`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`（110 项）和 `npm.cmd run build` 均已通过。GitHub Actions 会在每次推送和拉取请求时自动重复执行只读格式检查、类型检查、Lint、测试与构建。
+最近一次完整验证：`npm.cmd run format`、`npm.cmd run format:check`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`（116 项）和 `npm.cmd run build` 均已通过。GitHub Actions 会在每次推送和拉取请求时自动重复执行只读格式检查、类型检查、Lint、测试与构建。
 
 ## 多标签页说明
 

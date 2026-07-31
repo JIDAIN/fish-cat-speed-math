@@ -193,6 +193,47 @@ describe("Home active-session interactions", () => {
     expect(screen.getByRole("button", { name: /重开本题（2）/ })).toBeTruthy();
   });
 
+  it.each([
+    [360, 640],
+    [375, 667],
+    [390, 844],
+    [412, 915],
+  ])(
+    "uses the single-screen training layout at %ix%i",
+    async (width, height) => {
+      Object.defineProperties(window, {
+        innerWidth: { configurable: true, value: width },
+        innerHeight: { configurable: true, value: height },
+      });
+      await saveSession(
+        activeSession({
+          currentIndex: 0,
+          records: [],
+          currentAnswer: "",
+          currentRestartCount: 0,
+        }),
+      );
+      render(<Home />);
+
+      await screen.findByRole("dialog");
+      fireEvent.click(screen.getByRole("button", { name: "继续原训练" }));
+      await screen.findByText("4+4");
+
+      const trainingPage = document.querySelector("main.trainingPage");
+      expect(trainingPage).toBeTruthy();
+      expect(trainingPage?.querySelector(".trainingHeader")).toBeTruthy();
+      expect(trainingPage?.querySelector(".trainingMain")).toBeTruthy();
+
+      const keypad = trainingPage?.querySelector(".trainingKeypad");
+      expect(keypad).toBeTruthy();
+      expect(keypad?.querySelectorAll("button")).toHaveLength(15);
+
+      // Scrolling is locked by the training-page class, never by a global
+      // body mutation that would also break home and history screens.
+      expect(document.body.style.overflow).toBe("");
+    },
+  );
+
   it("abandons the old active session before creating a different new one", async () => {
     const saved = activeSession();
     await saveSession(saved);

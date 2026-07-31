@@ -153,81 +153,125 @@ h2 {
 }
 
 /* Exercise screen */
+.trainingPage {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  max-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: max(6px, env(safe-area-inset-top)) 10px 0;
+  overscroll-behavior: none;
+}
+.trainingPage > .trainingHeader {
+  flex: 0 0 auto;
+  align-items: center;
+  min-height: 44px;
+  gap: 6px;
+}
+.trainingHeader button {
+  min-width: 44px;
+  padding: 8px 10px;
+}
+.trainingHeader span,
+.trainingHeader b {
+  white-space: nowrap;
+  font-size: 14px;
+}
 .training {
-  padding-top: 7vh;
   text-align: center;
 }
+.trainingMain {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding-top: clamp(2px, 1dvh, 8px);
+}
 .training h1 {
-  margin: 36px 0 30px;
-  font-size: clamp(38px, 12vw, 58px);
+  margin: clamp(7px, 1.8dvh, 16px) 0;
+  font-size: clamp(30px, min(10vw, 6dvh), 48px);
+  line-height: 1.08;
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
 }
 .rule {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.25;
 }
 .answer {
   display: grid;
-  min-height: 64px;
+  min-height: 46px;
   place-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 5px;
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 14px;
   background: var(--card);
-  font-size: 30px;
+  font-size: clamp(24px, 7vw, 30px);
 }
 .restart {
-  margin-bottom: 14px;
+  flex-shrink: 0;
+  margin-bottom: 4px;
   background: transparent;
   color: var(--muted);
+}
+.trainingKeypad {
+  flex-shrink: 0;
+  margin-top: auto;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 .pad {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
-  padding: 10px;
+  gap: clamp(5px, 0.8dvh, 8px);
+  padding: 8px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
   border-radius: 18px;
   background: rgb(36 112 83 / 12%);
 }
 .pad button {
-  min-height: 54px;
-  font-size: 20px;
+  min-height: clamp(44px, 6.5dvh, 54px);
+  padding: 6px 10px;
+  font-size: clamp(18px, 5vw, 20px);
   border-color: rgb(73 148 111 / 26%);
   background: rgb(224 247 229 / 90%);
 }
 .pad .submit {
-  min-height: 56px;
+  min-height: clamp(44px, 6.5dvh, 54px);
 }
 .comparison {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 .comparison button {
-  min-height: 76px;
-  font-size: 32px;
+  min-height: clamp(52px, 8dvh, 72px);
+  font-size: clamp(26px, 8vw, 32px);
 }
 .comparison .primary {
   grid-column: span 3;
-  min-height: 54px;
+  min-height: 48px;
   font-size: 17px;
 }
 
 .optionPad {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 8px;
 }
 
 .optionPad button {
-  min-height: 64px;
-  font-size: 22px;
+  min-height: clamp(52px, 8dvh, 64px);
+  font-size: clamp(18px, 6vw, 22px);
 }
 .optionPad .primary {
   grid-column: span 2;
-  min-height: 54px;
+  min-height: 48px;
   font-size: 17px;
 }
 .optionPad button:disabled {
@@ -621,5 +665,11 @@ h2 {
     border-radius: 24px;
     background: var(--green-50);
     box-shadow: 0 12px 40px rgb(31 93 73 / 10%);
+  }
+
+  .trainingPage {
+    margin-top: 0;
+    margin-bottom: 0;
+    border-radius: 0;
   }
 }
