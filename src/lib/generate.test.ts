@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GENERATOR_VERSION,
   FRACTION_COMPARISON_QUOTAS,
+  FRACTION_PERCENT_QUOTAS,
   FRACTION_CANDIDATES,
   MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
   GenerationContext,
@@ -75,7 +76,45 @@ describe("question generators", () => {
   });
 
   it("includes extended reciprocal fractions in the candidate pool", () => {
-    expect(FRACTION_CANDIDATES).toEqual(expect.arrayContaining(["1/9", "1/10", "1/11", "1/12", "1/13", "1/14", "1/15"]));
+    expect(FRACTION_CANDIDATES).toEqual(
+      expect.arrayContaining([
+        "1/9",
+        "1/10",
+        "1/11",
+        "1/12",
+        "1/13",
+        "1/14",
+        "1/15",
+      ]),
+    );
+  });
+
+  it("uses exact fraction-percent structure quotas for both subtypes", () => {
+    const subtypes = ["fraction_to_percent", "percent_to_fraction"] as const;
+    subtypes.forEach((subtype) => {
+      [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
+        const questions = generateSet(
+          "fraction_percent_conversion",
+          subtype,
+          count,
+          deterministicContext(count + subtype.length),
+        );
+        allocateStructureQuota(count, FRACTION_PERCENT_QUOTAS).forEach(
+          ({ primaryStructure, count: expected }) => {
+            expect(
+              questions.filter(
+                (question) => question.primaryStructure === primaryStructure,
+              ),
+            ).toHaveLength(expected);
+          },
+        );
+        questions.forEach((question) => {
+          if (subtype === "percent_to_fraction")
+            expect(question.data.options).toContain(question.answer);
+          else expect(question.acceptedRange).toBeDefined();
+        });
+      });
+    });
   });
 
   it("reproduces question content, order and deterministic IDs from the same generation context", () => {
