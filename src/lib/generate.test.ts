@@ -73,6 +73,21 @@ describe("question generators", () => {
     }
   });
 
+  it("includes extended reciprocal fractions in percent-to-fraction options", () => {
+    const seen = new Set<string>();
+    for (let index = 0; index < 500; index += 1) {
+      const question = generateQuestion(
+        "fraction_percent_conversion",
+        "fraction_to_percent",
+        deterministicContext(index + 900),
+      );
+      seen.add(`${question.data.numerator}/${question.data.denominator}`);
+    }
+    ["1/9", "1/10", "1/11", "1/12", "1/13", "1/14", "1/15"].forEach(
+      (fraction) => expect(seen.has(fraction)).toBe(true),
+    );
+  });
+
   it("reproduces question content, order and deterministic IDs from the same generation context", () => {
     const first = generateSet(
       "fraction_percent_conversion",
@@ -90,7 +105,7 @@ describe("question generators", () => {
     expect(first).toEqual(second);
     expect(
       first.every(
-        (question) => question.primaryStructure === "baseline_random",
+        (question) => question.primaryStructure !== "baseline_random",
       ),
     ).toBe(true);
     expect(first.every((question) => question.secondaryTags.length === 0)).toBe(
@@ -609,10 +624,28 @@ describe("question generators", () => {
   });
 
   it("creates multi-digit quotient structures with exact quotas", () => {
-    const questions = generateSet("multi_digit_division", "quotient_two", 100, deterministicContext(800));
+    const questions = generateSet(
+      "multi_digit_division",
+      "quotient_two",
+      100,
+      deterministicContext(800),
+    );
     const expected = allocateStructureQuota(100, MULTI_DIGIT_DIVISION_QUOTAS);
-    expected.forEach(({ primaryStructure, count }) => expect(questions.filter((question) => question.primaryStructure === primaryStructure)).toHaveLength(count));
-    questions.forEach((question) => expect(classifyMultiDigitDivision(question.data.a as number, question.data.b as number)).toBe(question.primaryStructure));
+    expected.forEach(({ primaryStructure, count }) =>
+      expect(
+        questions.filter(
+          (question) => question.primaryStructure === primaryStructure,
+        ),
+      ).toHaveLength(count),
+    );
+    questions.forEach((question) =>
+      expect(
+        classifyMultiDigitDivision(
+          question.data.a as number,
+          question.data.b as number,
+        ),
+      ).toBe(question.primaryStructure),
+    );
   });
 
   it("creates exact multi-number quotas with nonnegative, correct answers", () => {

@@ -127,6 +127,38 @@ export const MULTI_DIGIT_DIVISION_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "quotient_one_hundred_or_more", ratio: 0.15 },
   { primaryStructure: "near_estimate_boundary", ratio: 0.15 },
 ];
+export type FractionPercentStructure =
+  "standard_fraction" | "near_benchmark_fraction" | "direct_division_fraction";
+export const FRACTION_PERCENT_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "standard_fraction", ratio: 0.45 },
+  { primaryStructure: "near_benchmark_fraction", ratio: 0.25 },
+  { primaryStructure: "direct_division_fraction", ratio: 0.3 },
+];
+const FRACTION_CANDIDATES = [
+  "1/2",
+  "1/3",
+  "1/4",
+  "1/5",
+  "1/6",
+  "1/7",
+  "1/8",
+  "1/9",
+  "1/10",
+  "1/11",
+  "1/12",
+  "1/13",
+  "1/14",
+  "1/15",
+  "2/3",
+  "3/4",
+  "2/5",
+  "3/5",
+  "3/8",
+  "5/8",
+  "3/7",
+  "4/7",
+  "5/7",
+] as const;
 const MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "3", ratio: 0.75 },
   { primaryStructure: "4", ratio: 0.15 },
@@ -788,6 +820,80 @@ function buildMultiDigitDivisionQuestion(
       primaryStructure: structure,
       secondaryTags: [`divisor_${String(b).length}_digit`],
     },
+  );
+}
+
+function fractionForStructure(
+  context: GenerationContext,
+  structure: FractionPercentStructure,
+): [number, number] {
+  if (structure === "standard_fraction") {
+    const [numerator, denominator] = FRACTION_CANDIDATES[
+      randomInteger(context, 0, FRACTION_CANDIDATES.length - 1)
+    ]
+      .split("/")
+      .map(Number);
+    return [numerator, denominator];
+  }
+  if (structure === "near_benchmark_fraction") {
+    const denominator = randomInteger(context, 9, 15);
+    const base = [1 / 2, 1 / 3, 1 / 4][randomInteger(context, 0, 2)];
+    const numerator = Math.max(
+      1,
+      Math.min(
+        denominator - 1,
+        Math.round(denominator * base) + (context.random() < 0.5 ? -1 : 1),
+      ),
+    );
+    return [numerator, denominator];
+  }
+  return [randomInteger(context, 2, 13), randomInteger(context, 14, 15)];
+}
+
+function buildFractionPercentQuestion(
+  context: GenerationContext,
+  subtype: Subtype,
+  structure: FractionPercentStructure,
+): GeneratedQuestion {
+  const [numerator, denominator] = fractionForStructure(context, structure);
+  const value = (numerator / denominator) * 100;
+  if (subtype === "percent_to_fraction") {
+    const answer = `${numerator}/${denominator}`;
+    const options = shuffle(context, [
+      answer,
+      ...FRACTION_CANDIDATES.filter((candidate) => candidate !== answer)
+        .sort(
+          (left, right) =>
+            Math.abs(evalFraction(left) - numerator / denominator) -
+            Math.abs(evalFraction(right) - numerator / denominator),
+        )
+        .slice(0, 3),
+    ]);
+    return q(
+      context,
+      "fraction_percent_conversion",
+      subtype,
+      `${value.toFixed(1)}% 最接近？`,
+      answer,
+      { numerator, denominator, options },
+      3,
+      ["常用分数"],
+      undefined,
+      { primaryStructure: structure, secondaryTags: [] },
+    );
+  }
+  const exact = Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return q(
+    context,
+    "fraction_percent_conversion",
+    "fraction_to_percent",
+    `${numerator}/${denominator} ≈？`,
+    exact,
+    { numerator, denominator },
+    3,
+    ["百化分"],
+    { min: value - 0.11, max: value + 0.11 },
+    { primaryStructure: structure, secondaryTags: [] },
   );
 }
 
@@ -1453,9 +1559,25 @@ export function generateQuestion(
     );
   }
   if (type === "fraction_percent_conversion") {
+    const structure = FRACTION_PERCENT_QUOTAS[randomInteger(context, 0, 2)]
+      .primaryStructure as FractionPercentStructure;
+    return buildFractionPercentQuestion(context, subtype, structure);
+  }
+  if (type === "fraction_percent_conversion") {
     const denominator = randomInteger(context, 3, 15);
     const numerator = randomInteger(context, 1, denominator - 1);
     const value = (numerator / denominator) * 100;
+    const benchmarkDistance = Math.min(
+      ...[1 / 2, 1 / 3, 1 / 4].map((benchmark) =>
+        Math.abs(numerator / denominator - benchmark),
+      ),
+    );
+    const structure =
+      denominator <= 8
+        ? "standard_fraction"
+        : benchmarkDistance <= 0.025
+          ? "near_benchmark_fraction"
+          : "direct_division_fraction";
     if (subtype === "percent_to_fraction") {
       const candidates = [
         "1/2",
@@ -1465,6 +1587,13 @@ export function generateQuestion(
         "1/6",
         "1/7",
         "1/8",
+        "1/9",
+        "1/10",
+        "1/11",
+        "1/12",
+        "1/13",
+        "1/14",
+        "1/15",
         "2/3",
         "3/4",
         "2/5",
@@ -1500,7 +1629,7 @@ export function generateQuestion(
         subtype,
         `${value.toFixed(1)}% 最接近？`,
         answer,
-        { numerator, denominator, options },
+        { numerator, denominator, options, structure },
         3,
         ["常用分数"],
       );
@@ -1512,7 +1641,7 @@ export function generateQuestion(
       "fraction_to_percent",
       `${numerator}/${denominator} ≈ ？%`,
       exact,
-      { numerator, denominator },
+      { numerator, denominator, structure },
       3,
       ["百化分"],
       { min: value - 0.11, max: value + 0.11 },
@@ -1649,6 +1778,21 @@ export function generateSet(
       context,
       structures.map((structure, index) =>
         buildMultiDigitDivisionQuestion(context, structure, digits[index]),
+      ),
+    );
+  }
+  if (type === "fraction_percent_conversion") {
+    return shuffle(
+      context,
+      allocateStructureQuota(count, FRACTION_PERCENT_QUOTAS).flatMap(
+        ({ primaryStructure, count: structureCount }) =>
+          Array.from({ length: structureCount }, () =>
+            buildFractionPercentQuestion(
+              context,
+              subtype,
+              primaryStructure as FractionPercentStructure,
+            ),
+          ),
       ),
     );
   }
