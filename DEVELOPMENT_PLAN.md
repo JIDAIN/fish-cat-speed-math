@@ -3,7 +3,7 @@
 更新时间：2026-07-31  
 适用版本：V1 本地 MVP
 
-> 本计划只安排尚未完成的工作。每个任务完成后，必须同步更新 `PROJECT_STATUS.md`、`PROJECT_LOGIC_AUDIT.md`、本文件和对应测试；未达到验收标准不得进入下一项。质量门槛固定为 `format`、`typecheck`、`lint`、`test`、`build` 全部通过。
+> 本计划只安排尚未完成的工作。每个任务完成后，必须同步更新 `PROJECT_STATUS.md`、`PROJECT_LOGIC_AUDIT.md`、本文件和对应测试；未达到验收标准不得进入下一项。质量门槛固定为 `format:check`、`typecheck`、`lint`、`test`、`build` 全部通过；本地整理代码时可先运行会写入文件的 `format`。
 
 ## 阶段 0：当前已完成基线
 
@@ -11,8 +11,8 @@
 
 - 本地单浏览器训练闭环：9 类基础题、数值/专用键盘、草稿、判题、结算、历史和趋势。
 - 训练数据可信：单一 active 会话约束；继续、放弃、取消；重开次数与重开计时；后台暂停和刷新恢复。
-- 测试基线：Vitest 纯逻辑测试、React Testing Library 组件交互测试、`fake-indexeddb` 真实存储测试，共 103 项且最近一次通过。
-- 最近一次完整验证已通过：`npm.cmd run format`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run build`。
+- 测试基线：Vitest 纯逻辑测试、React Testing Library 组件交互测试、`fake-indexeddb` 真实存储测试，共 110 项且最近一次通过。
+- 最近一次完整本地验证已通过：`npm.cmd run format`、`npm.cmd run format:check`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`、`npm.cmd run build`；GitHub Actions 已配置为在推送与拉取请求时自动执行只读质量门槛。
 
 ### 明确未完成
 

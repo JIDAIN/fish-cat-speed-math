@@ -1,5 +1,7 @@
 # 鱼猫速算训练营
 
+[![CI](https://github.com/JIDAIN/fish-cat-speed-math/actions/workflows/ci.yml/badge.svg)](https://github.com/JIDAIN/fish-cat-speed-math/actions/workflows/ci.yml)
+
 面向 PWA 的手机优先行测资料分析基础算力训练本地 Web MVP。本项目尚未具备正式 Service Worker、离线缓存、安装与更新验证；当前只训练列式后的基础计算，不包含基期量、增长量、比重等资料分析公式题。
 
 ## 当前已实现
@@ -39,6 +41,7 @@ npm.cmd run dev
 
 ```powershell
 npm.cmd run format
+npm.cmd run format:check
 npm.cmd run typecheck
 npm.cmd run lint
 npm.cmd run test
@@ -69,7 +72,7 @@ npm.cmd run build
 
 当前九类基础题型均已完成结构化生成；分数—百分数转换覆盖标准、基准和直除分数策略。
 
-最近一次完整验证：`npm.cmd run format`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`（108 项）和 `npm.cmd run build` 均已通过。
+最近一次完整验证：`npm.cmd run format`、`npm.cmd run format:check`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`（110 项）和 `npm.cmd run build` 均已通过。GitHub Actions 会在每次推送和拉取请求时自动重复执行只读格式检查、类型检查、Lint、测试与构建。
 
 ## 多标签页说明
 
