@@ -134,7 +134,7 @@ export const FRACTION_PERCENT_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "near_benchmark_fraction", ratio: 0.25 },
   { primaryStructure: "direct_division_fraction", ratio: 0.3 },
 ];
-const FRACTION_CANDIDATES = [
+export const FRACTION_CANDIDATES = [
   "1/2",
   "1/3",
   "1/4",

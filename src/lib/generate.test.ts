@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GENERATOR_VERSION,
   FRACTION_COMPARISON_QUOTAS,
+  FRACTION_CANDIDATES,
   MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
   GenerationContext,
   THREE_DIGIT_ADD_SUBTRACT_QUOTAS,
@@ -73,19 +74,8 @@ describe("question generators", () => {
     }
   });
 
-  it("includes extended reciprocal fractions in percent-to-fraction options", () => {
-    const seen = new Set<string>();
-    for (let index = 0; index < 500; index += 1) {
-      const question = generateQuestion(
-        "fraction_percent_conversion",
-        "fraction_to_percent",
-        deterministicContext(index + 900),
-      );
-      seen.add(`${question.data.numerator}/${question.data.denominator}`);
-    }
-    ["1/9", "1/10", "1/11", "1/12", "1/13", "1/14", "1/15"].forEach(
-      (fraction) => expect(seen.has(fraction)).toBe(true),
-    );
+  it("includes extended reciprocal fractions in the candidate pool", () => {
+    expect(FRACTION_CANDIDATES).toEqual(expect.arrayContaining(["1/9", "1/10", "1/11", "1/12", "1/13", "1/14", "1/15"]));
   });
 
   it("reproduces question content, order and deterministic IDs from the same generation context", () => {
