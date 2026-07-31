@@ -101,6 +101,19 @@ export const MULTI_NUMBER_ADD_SUBTRACT_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "mixed_add_subtract", ratio: 0.2 },
 ];
 
+export type ThreeByTwoDivisionStructure =
+  | "quotient_one_to_ten"
+  | "quotient_ten_to_one_hundred"
+  | "leading_digit_mislead"
+  | "near_estimate_boundary";
+
+export const THREE_BY_TWO_DIVISION_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "quotient_one_to_ten", ratio: 0.25 },
+  { primaryStructure: "quotient_ten_to_one_hundred", ratio: 0.35 },
+  { primaryStructure: "leading_digit_mislead", ratio: 0.2 },
+  { primaryStructure: "near_estimate_boundary", ratio: 0.2 },
+];
+
 /**
  * Converts structure ratios into an exact set size. Remaining slots go to the
  * largest fractional remainders, with declaration order resolving ties.
@@ -658,6 +671,74 @@ function randomMultiNumberStructure(
   );
   return MULTI_NUMBER_ADD_SUBTRACT_QUOTAS[index]
     .primaryStructure as MultiNumberAddSubtractStructure;
+}
+
+export function classifyThreeByTwoDivision(
+  a: number,
+  b: number,
+): ThreeByTwoDivisionStructure | undefined {
+  if (
+    !Number.isInteger(a) ||
+    !Number.isInteger(b) ||
+    a < 100 ||
+    a > 999 ||
+    b < 10 ||
+    b > 99
+  )
+    return undefined;
+  const value = a / b;
+  if (Math.floor(a / 100) < Math.floor(b / 10) && value >= 5 && value < 10)
+    return "leading_digit_mislead";
+  if (Math.min(value % 1, 1 - (value % 1)) <= 0.08)
+    return "near_estimate_boundary";
+  return value < 10 ? "quotient_one_to_ten" : "quotient_ten_to_one_hundred";
+}
+
+function generateThreeByTwoDivisionByStructure(
+  context: GenerationContext,
+  subtype: Subtype,
+  structure: ThreeByTwoDivisionStructure,
+): GeneratedQuestion {
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    const a = nonRound(context, 103, 997);
+    const b = nonRound(context, 11, 99);
+    if (classifyThreeByTwoDivision(a, b) !== structure) continue;
+    const quotient = a / b;
+    return q(
+      context,
+      "three_by_two_division",
+      subtype,
+      `${a}÷${b}`,
+      subtype === "quotient_first" ? sig(quotient, 1) : sig(quotient, 2),
+      { a, b, quotient, rule: subtype },
+      4,
+      ["直除", "有效位"],
+      undefined,
+      { primaryStructure: structure, secondaryTags: [] },
+    );
+  }
+  const fallback =
+    structure === "leading_digit_mislead"
+      ? [398, 79]
+      : structure === "near_estimate_boundary"
+        ? [473, 47]
+        : structure === "quotient_one_to_ten"
+          ? [523, 83]
+          : [523, 47];
+  const [a, b] = fallback;
+  const quotient = a / b;
+  return q(
+    context,
+    "three_by_two_division",
+    subtype,
+    `${a}÷${b}`,
+    subtype === "quotient_first" ? sig(quotient, 1) : sig(quotient, 2),
+    { a, b, quotient, rule: subtype },
+    4,
+    ["直除", "有效位", "fallback"],
+    undefined,
+    { primaryStructure: structure, secondaryTags: [] },
+  );
 }
 
 function fallbackTwoDigitAddSubtract(
@@ -1255,19 +1336,16 @@ export function generateQuestion(
       randomMultiNumberStructure(context),
     );
   if (type === "three_by_two_division") {
-    const a = nonRound(context, 103, 997);
-    const b = nonRound(context, 11, 99);
-    const value = a / b;
-    const answer = subtype === "quotient_first" ? sig(value, 1) : sig(value, 2);
-    return q(
+    const index = randomInteger(
       context,
-      type,
+      0,
+      THREE_BY_TWO_DIVISION_QUOTAS.length - 1,
+    );
+    return generateThreeByTwoDivisionByStructure(
+      context,
       subtype,
-      `${a}÷${b}`,
-      answer,
-      { a, b, quotient: value, rule: subtype },
-      4,
-      ["直除", "有效位"],
+      THREE_BY_TWO_DIVISION_QUOTAS[index]
+        .primaryStructure as ThreeByTwoDivisionStructure,
     );
   }
   if (type === "multi_digit_division") {
@@ -1452,6 +1530,21 @@ export function generateSet(
       ),
     );
     return shuffle(context, questions);
+  }
+  if (type === "three_by_two_division") {
+    return shuffle(
+      context,
+      allocateStructureQuota(count, THREE_BY_TWO_DIVISION_QUOTAS).flatMap(
+        ({ primaryStructure, count: structureCount }) =>
+          Array.from({ length: structureCount }, () =>
+            generateThreeByTwoDivisionByStructure(
+              context,
+              subtype,
+              primaryStructure as ThreeByTwoDivisionStructure,
+            ),
+          ),
+      ),
+    );
   }
   if (type === "fraction_comparison") {
     const questions = allocateStructureQuota(

@@ -5,11 +5,13 @@ import {
   MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
   GenerationContext,
   THREE_DIGIT_ADD_SUBTRACT_QUOTAS,
+  THREE_BY_TWO_DIVISION_QUOTAS,
   TWO_BY_ONE_MULTIPLY_QUOTAS,
   TWO_BY_TWO_MULTIPLY_QUOTAS,
   TWO_DIGIT_ADD_SUBTRACT_QUOTAS,
   allocateStructureQuota,
   classifyThreeDigitAddSubtract,
+  classifyThreeByTwoDivision,
   classifyFractionComparison,
   classifyMultiNumberAddSubtract,
   classifyTwoByOneMultiply,
@@ -575,6 +577,33 @@ describe("question generators", () => {
     expect(classifyMultiNumberAddSubtract([4000, 3000, 2000], ["+", "-"])).toBe(
       "mixed_add_subtract",
     );
+  });
+
+  it("keeps three-by-two division inside its real quotient range and exact quotas", () => {
+    [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
+      const questions = generateSet(
+        "three_by_two_division",
+        "quotient_two",
+        count,
+        deterministicContext(count + 700),
+      );
+      expect(questions).toHaveLength(count);
+      questions.forEach((question) => {
+        const { a, b, quotient } = question.data;
+        expect(quotient as number).toBeGreaterThan(1);
+        expect(quotient as number).toBeLessThan(100);
+        expect(classifyThreeByTwoDivision(a as number, b as number)).toBe(
+          question.primaryStructure,
+        );
+      });
+      expect(
+        questions.filter(
+          (question) => question.primaryStructure === "quotient_one_to_ten",
+        ).length,
+      ).toBe(
+        allocateStructureQuota(count, THREE_BY_TWO_DIVISION_QUOTAS)[0].count,
+      );
+    });
   });
 
   it("creates exact multi-number quotas with nonnegative, correct answers", () => {
