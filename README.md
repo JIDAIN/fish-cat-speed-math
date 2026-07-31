@@ -67,7 +67,7 @@ npm.cmd run build
 - 三位数加减：逐位进借位分类、所有合法题量的精确配额、答案与原始数据一致性，以及固定生成上下文复现。
 - 两位数×一位数、两位数×两位数：真实进位/策略分类、所有合法题量的精确配额、低价值题过滤与固定生成上下文复现。
 
-最近一次完整验证：`npm.cmd run format`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`（103 项）和 `npm.cmd run build` 均已通过。
+最近一次完整验证：`npm.cmd run format`、`npm.cmd run typecheck`、`npm.cmd run lint`、`npm.cmd run test`（106 项）和 `npm.cmd run build` 均已通过。
 
 ## 多标签页说明
 

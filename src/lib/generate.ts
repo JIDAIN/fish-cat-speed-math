@@ -86,6 +86,21 @@ export const FRACTION_COMPARISON_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "equal_fractions", ratio: 0.1 },
 ];
 
+export type MultiNumberAddSubtractStructure =
+  | "three_three_digit_add"
+  | "four_three_digit_add"
+  | "three_large_add"
+  | "total_minus_parts"
+  | "mixed_add_subtract";
+
+export const MULTI_NUMBER_ADD_SUBTRACT_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "three_three_digit_add", ratio: 0.2 },
+  { primaryStructure: "four_three_digit_add", ratio: 0.2 },
+  { primaryStructure: "three_large_add", ratio: 0.2 },
+  { primaryStructure: "total_minus_parts", ratio: 0.2 },
+  { primaryStructure: "mixed_add_subtract", ratio: 0.2 },
+];
+
 /**
  * Converts structure ratios into an exact set size. Remaining slots go to the
  * largest fractional remainders, with declaration order resolving ties.
@@ -190,6 +205,10 @@ const structuredFractionComparisonQuestion = (
   primaryStructure,
   secondaryTags: [],
 });
+
+const structuredMultiNumberQuestion = (
+  primaryStructure: MultiNumberAddSubtractStructure,
+) => ({ primaryStructure, secondaryTags: [] });
 
 const randomInteger = (context: GenerationContext, min: number, max: number) =>
   Math.floor(context.random() * (max - min + 1)) + min;
@@ -542,6 +561,103 @@ function randomFractionComparisonStructure(
   if (choice < 0.7) return "near_half";
   if (choice < 0.9) return "general_comparison";
   return "equal_fractions";
+}
+
+export function classifyMultiNumberAddSubtract(
+  values: readonly number[],
+  operators: readonly ("+" | "-")[],
+): MultiNumberAddSubtractStructure | undefined {
+  if (!values.length || operators.length !== values.length - 1)
+    return undefined;
+  if (
+    !values.every(Number.isInteger) ||
+    !operators.every((operator) => operator === "+" || operator === "-")
+  )
+    return undefined;
+  const allThreeDigit = values.every((value) => value >= 100 && value <= 999);
+  const allLarge = values.every((value) => value >= 1000 && value <= 99999);
+  if (operators.every((operator) => operator === "+") && allThreeDigit)
+    return values.length === 3
+      ? "three_three_digit_add"
+      : values.length === 4
+        ? "four_three_digit_add"
+        : undefined;
+  if (
+    operators.every((operator) => operator === "+") &&
+    values.length === 3 &&
+    allLarge
+  )
+    return "three_large_add";
+  if (operators.every((operator) => operator === "-") && values.length === 3)
+    return "total_minus_parts";
+  if (values.length === 3 && operators[0] === "+" && operators[1] === "-")
+    return "mixed_add_subtract";
+  return undefined;
+}
+
+function buildMultiNumberQuestion(
+  context: GenerationContext,
+  primaryStructure: MultiNumberAddSubtractStructure,
+): GeneratedQuestion {
+  let values: number[];
+  let operators: ("+" | "-")[];
+  if (primaryStructure === "three_three_digit_add") {
+    values = Array.from({ length: 3 }, () => nonRound(context, 101, 999));
+    operators = ["+", "+"];
+  } else if (primaryStructure === "four_three_digit_add") {
+    values = Array.from({ length: 4 }, () => nonRound(context, 101, 999));
+    operators = ["+", "+", "+"];
+  } else if (primaryStructure === "three_large_add") {
+    values = Array.from({ length: 3 }, () => nonRound(context, 1001, 99999));
+    operators = ["+", "+"];
+  } else if (primaryStructure === "total_minus_parts") {
+    const b = nonRound(context, 101, 9999);
+    const c = nonRound(context, 101, 9999);
+    values = [b + c + nonRound(context, 101, 9999), b, c];
+    operators = ["-", "-"];
+  } else {
+    const a = nonRound(context, 1001, 9999);
+    const b = nonRound(context, 1001, 9999);
+    values = [a, b, nonRound(context, 101, a + b - 1)];
+    operators = ["+", "-"];
+  }
+  const answer = values
+    .slice(1)
+    .reduce(
+      (total, value, index) =>
+        operators[index] === "+" ? total + value : total - value,
+      values[0],
+    );
+  const prompt = values
+    .slice(1)
+    .reduce(
+      (text, value, index) => `${text}${operators[index]}${value}`,
+      String(values[0]),
+    );
+  return q(
+    context,
+    "multi_number_add_subtract",
+    "standard",
+    `${prompt}=`,
+    String(answer),
+    { values: values.map(String), operators },
+    4,
+    ["多项", "凑整"],
+    undefined,
+    structuredMultiNumberQuestion(primaryStructure),
+  );
+}
+
+function randomMultiNumberStructure(
+  context: GenerationContext,
+): MultiNumberAddSubtractStructure {
+  const index = randomInteger(
+    context,
+    0,
+    MULTI_NUMBER_ADD_SUBTRACT_QUOTAS.length - 1,
+  );
+  return MULTI_NUMBER_ADD_SUBTRACT_QUOTAS[index]
+    .primaryStructure as MultiNumberAddSubtractStructure;
 }
 
 function fallbackTwoDigitAddSubtract(
@@ -1102,19 +1218,7 @@ export function generateQuestion(
   type: QuestionType,
   subtype: Subtype = "standard",
   context: GenerationContext = productionGenerationContext,
-  attempt = 0,
 ): GeneratedQuestion {
-  const retry = () => {
-    if (attempt + 1 < MAX_GENERATION_ATTEMPTS)
-      return generateQuestion(type, subtype, context, attempt + 1);
-    context.onFallback?.({
-      type,
-      subtype,
-      attempts: MAX_GENERATION_ATTEMPTS,
-    });
-    return fallbackQuestion(type, subtype, context);
-  };
-
   if (type === "two_digit_add_subtract") {
     return generateTwoDigitAddSubtractByStructure(
       context,
@@ -1145,6 +1249,11 @@ export function generateQuestion(
       randomFractionComparisonStructure(context),
     );
   }
+  if (type === "multi_number_add_subtract")
+    return buildMultiNumberQuestion(
+      context,
+      randomMultiNumberStructure(context),
+    );
   if (type === "three_by_two_division") {
     const a = nonRound(context, 103, 997);
     const b = nonRound(context, 11, 99);
@@ -1180,24 +1289,6 @@ export function generateQuestion(
       { a, b, quotient: value, rule: "quotient_two" },
       5,
       ["直除", "干扰数字"],
-    );
-  }
-  if (type === "multi_number_add_subtract") {
-    const a = nonRound(context, 1000, 9999);
-    const b = nonRound(context, 1000, 8999);
-    const c = nonRound(context, 1000, 7999);
-    const subtract = context.random() < 0.35;
-    if (subtract && a < b + c) return retry();
-    const prompt = subtract ? `${a}－${b}－${c}＝` : `${a}＋${b}＋${c}＝`;
-    return q(
-      context,
-      type,
-      subtype,
-      prompt,
-      String(subtract ? a - b - c : a + b + c),
-      { a, b, c, subtract },
-      4,
-      ["多项", "凑整"],
     );
   }
   if (type === "fraction_percent_conversion") {
@@ -1343,6 +1434,20 @@ export function generateSet(
         generateTwoByTwoMultiplyByStructure(
           context,
           primaryStructure as TwoByTwoMultiplyStructure,
+        ),
+      ),
+    );
+    return shuffle(context, questions);
+  }
+  if (type === "multi_number_add_subtract") {
+    const questions = allocateStructureQuota(
+      count,
+      MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
+    ).flatMap(({ primaryStructure, count: structureCount }) =>
+      Array.from({ length: structureCount }, () =>
+        buildMultiNumberQuestion(
+          context,
+          primaryStructure as MultiNumberAddSubtractStructure,
         ),
       ),
     );

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   GENERATOR_VERSION,
   FRACTION_COMPARISON_QUOTAS,
+  MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
   GenerationContext,
   THREE_DIGIT_ADD_SUBTRACT_QUOTAS,
   TWO_BY_ONE_MULTIPLY_QUOTAS,
@@ -10,6 +11,7 @@ import {
   allocateStructureQuota,
   classifyThreeDigitAddSubtract,
   classifyFractionComparison,
+  classifyMultiNumberAddSubtract,
   classifyTwoByOneMultiply,
   classifyTwoByTwoMultiply,
   classifyTwoDigitAddSubtract,
@@ -97,7 +99,7 @@ describe("question generators", () => {
     ).toBe(true);
   });
 
-  it("uses a deterministic fallback when bounded retries cannot satisfy a generator constraint", () => {
+  it("finishes multi-number generation when an injected random source repeats", () => {
     const fallbackEvents: { attempts: number }[] = [];
     const constrainedContext: GenerationContext = {
       random: () => 0,
@@ -111,10 +113,10 @@ describe("question generators", () => {
       constrainedContext,
     );
 
-    expect(question.prompt).toBe("9876－2345－1234＝");
-    expect(question.answer).toBe("6297");
-    expect(question.difficulty.tags).toContain("fallback");
-    expect(fallbackEvents).toMatchObject([{ attempts: 24 }]);
+    expect(question.prompt).toBe("101+101+101=");
+    expect(question.answer).toBe("303");
+    expect(question.primaryStructure).toBe("three_three_digit_add");
+    expect(fallbackEvents).toEqual([]);
   });
 
   it("finishes structured multiplication when an injected random source repeats", () => {
@@ -555,5 +557,82 @@ describe("question generators", () => {
     );
 
     expect(first).toEqual(second);
+  });
+
+  it("classifies every multi-number add/subtract structure", () => {
+    expect(classifyMultiNumberAddSubtract([123, 234, 345], ["+", "+"])).toBe(
+      "three_three_digit_add",
+    );
+    expect(
+      classifyMultiNumberAddSubtract([123, 234, 345, 456], ["+", "+", "+"]),
+    ).toBe("four_three_digit_add");
+    expect(classifyMultiNumberAddSubtract([1234, 2345, 3456], ["+", "+"])).toBe(
+      "three_large_add",
+    );
+    expect(classifyMultiNumberAddSubtract([9000, 1234, 2345], ["-", "-"])).toBe(
+      "total_minus_parts",
+    );
+    expect(classifyMultiNumberAddSubtract([4000, 3000, 2000], ["+", "-"])).toBe(
+      "mixed_add_subtract",
+    );
+  });
+
+  it("creates exact multi-number quotas with nonnegative, correct answers", () => {
+    [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
+      const questions = generateSet(
+        "multi_number_add_subtract",
+        "standard",
+        count,
+        deterministicContext(count + 500),
+      );
+      const expected = new Map(
+        allocateStructureQuota(count, MULTI_NUMBER_ADD_SUBTRACT_QUOTAS).map(
+          ({ primaryStructure, count: structureCount }) => [
+            primaryStructure,
+            structureCount,
+          ],
+        ),
+      );
+      const actual = new Map<string, number>();
+      questions.forEach((question) => {
+        const values = (question.data.values as string[]).map(Number);
+        const operators = question.data.operators as ("+" | "-")[];
+        expect(classifyMultiNumberAddSubtract(values, operators)).toBe(
+          question.primaryStructure,
+        );
+        const answer = values
+          .slice(1)
+          .reduce(
+            (total, value, index) =>
+              operators[index] === "+" ? total + value : total - value,
+            values[0],
+          );
+        expect(answer).toBeGreaterThanOrEqual(0);
+        expect(question.answer).toBe(String(answer));
+        actual.set(
+          question.primaryStructure,
+          (actual.get(question.primaryStructure) ?? 0) + 1,
+        );
+      });
+      expect(Object.fromEntries(actual)).toEqual(Object.fromEntries(expected));
+    });
+  });
+
+  it("reproduces a structured multi-number set with a fixed generation context", () => {
+    expect(
+      generateSet(
+        "multi_number_add_subtract",
+        "standard",
+        30,
+        deterministicContext(596),
+      ),
+    ).toEqual(
+      generateSet(
+        "multi_number_add_subtract",
+        "standard",
+        30,
+        deterministicContext(596),
+      ),
+    );
   });
 });
