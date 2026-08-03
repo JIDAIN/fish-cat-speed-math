@@ -106,8 +106,21 @@ describe("QuestionDetails", () => {
     render(<QuestionDetails session={session} />);
 
     fireEvent.click(screen.getByRole("button", { name: "打开复盘草稿" }));
-    expect(screen.getByText("完成草稿")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "完成草稿" }));
-    expect(screen.queryByText("完成草稿")).toBeNull();
+    expect(screen.getByRole("toolbar", { name: "草稿工具" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "选择画笔颜色" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "清空草稿" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "选择画笔颜色" }));
+    const redPen = screen.getByRole("button", { name: "使用红色画笔" });
+    fireEvent.click(redPen);
+    expect(
+      screen
+        .getByRole("button", { name: "选择画笔颜色" })
+        .getAttribute("aria-expanded"),
+    ).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "清空草稿" }));
+    fireEvent.click(screen.getByRole("button", { name: "关闭草稿" }));
+    expect(screen.queryByRole("toolbar", { name: "草稿工具" })).toBeNull();
   });
 });

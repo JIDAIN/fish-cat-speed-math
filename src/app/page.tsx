@@ -143,6 +143,7 @@ function FractionConversionDisplay({
       <span className="fractionAnswerSlots">
         <button
           aria-label="输入分子"
+          aria-pressed={activePart === "numerator"}
           className={activePart === "numerator" ? "active" : ""}
           onClick={() => onSelectPart("numerator")}
         >
@@ -151,6 +152,7 @@ function FractionConversionDisplay({
         <span className="fractionAnswerLine" aria-hidden="true" />
         <button
           aria-label="输入分母"
+          aria-pressed={activePart === "denominator"}
           className={activePart === "denominator" ? "active" : ""}
           onClick={() => onSelectPart("denominator")}
         >

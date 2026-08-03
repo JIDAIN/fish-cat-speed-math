@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
 import { readActive, saveSession } from "@/lib/storage";
 import { GeneratedQuestion, TrainingSession } from "@/lib/types";
@@ -90,6 +90,7 @@ describe("Home active-session interactions", () => {
 
   afterEach(async () => {
     cleanup();
+    vi.restoreAllMocks();
     await deleteDatabase();
   });
 
@@ -153,9 +154,13 @@ describe("Home active-session interactions", () => {
     const numeratorInput = screen.getByRole("button", { name: "输入分子" });
     const denominatorInput = screen.getByRole("button", { name: "输入分母" });
     expect(numeratorInput.classList.contains("active")).toBe(true);
+    expect(numeratorInput.getAttribute("aria-pressed")).toBe("true");
+    expect(denominatorInput.getAttribute("aria-pressed")).toBe("false");
 
     fireEvent.click(screen.getByRole("button", { name: numerator[0] }));
     expect(denominatorInput.classList.contains("active")).toBe(true);
+    expect(numeratorInput.getAttribute("aria-pressed")).toBe("false");
+    expect(denominatorInput.getAttribute("aria-pressed")).toBe("true");
 
     fireEvent.click(numeratorInput);
     fireEvent.click(screen.getByRole("button", { name: "清空答案" }));
@@ -165,6 +170,8 @@ describe("Home active-session interactions", () => {
         fireEvent.click(screen.getByRole("button", { name: digit })),
       );
     expect(numeratorInput.classList.contains("active")).toBe(true);
+    expect(numeratorInput.getAttribute("aria-pressed")).toBe("true");
+    expect(denominatorInput.getAttribute("aria-pressed")).toBe("false");
 
     fireEvent.click(screen.getByRole("button", { name: "输入分母" }));
     fireEvent.click(screen.getByRole("button", { name: "清空答案" }));
@@ -454,6 +461,7 @@ describe("Home active-session interactions", () => {
   });
 
   it("discards the old run and starts a fresh training set with frozen settings", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     const saved = activeSession({
       currentAnswer: "10",
     });
@@ -465,7 +473,9 @@ describe("Home active-session interactions", () => {
     await screen.findByText("5+5");
 
     fireEvent.click(screen.getByRole("button", { name: /草稿/ }));
-    expect(await screen.findByText("完成草稿")).toBeTruthy();
+    expect(
+      await screen.findByRole("toolbar", { name: "草稿工具" }),
+    ).toBeTruthy();
     const restartButton = screen.getByRole("button", { name: "重开训练" });
     fireEvent.click(restartButton);
     fireEvent.click(restartButton);
@@ -488,7 +498,7 @@ describe("Home active-session interactions", () => {
       expect(active?.questions).toHaveLength(saved.questionCount);
       expect(active?.questions.map(({ id }) => id)).not.toEqual(oldQuestionIds);
     });
-    expect(screen.queryByText("完成草稿")).toBeNull();
+    expect(screen.queryByRole("toolbar", { name: "草稿工具" })).toBeNull();
     expect(document.querySelector(".answer")?.textContent).toBe("");
     expect(screen.getByText(`1/${saved.questionCount}`)).toBeTruthy();
     expect(screen.getByRole("button", { name: "重开训练" })).toBeTruthy();

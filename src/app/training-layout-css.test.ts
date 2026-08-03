@@ -51,6 +51,9 @@ describe("mobile training layout CSS contract", () => {
     expect(stylesheet).not.toMatch(
       /\.fractionAnswerSlots button\s*\{[^}]*border-bottom:/s,
     );
+    expect(stylesheet).toMatch(
+      /\.fractionAnswerSlots button\.active\s*\{[^}]*background:\s*var\(--green-100\);[^}]*box-shadow:\s*inset 0 0 0 2px var\(--green-700\);/s,
+    );
   });
 
   it("keeps division sub-rules compact and touch friendly", () => {
@@ -74,6 +77,21 @@ describe("mobile training layout CSS contract", () => {
     );
     expect(stylesheet).toMatch(
       /\.questionCellLabel\s*\{[^}]*display:\s*block;/s,
+    );
+  });
+
+  it("keeps review scratch accessible and uses a three-icon safe-area toolbar", () => {
+    expect(stylesheet).toMatch(
+      /\.reviewScratchButton\s*\{[^}]*position:\s*fixed;[^}]*safe-area-inset-right[^}]*safe-area-inset-bottom/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.scratchTools\s*\{[^}]*grid-template-columns:\s*repeat\(3, 56px\)/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.scratchToolButton\s*\{[^}]*width:\s*56px;[^}]*min-height:\s*56px;/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.scratchPalette\s*\{[^}]*position:\s*absolute;[^}]*bottom:\s*64px;/s,
     );
   });
 });
