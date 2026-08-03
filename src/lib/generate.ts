@@ -1,6 +1,6 @@
 import { GeneratedQuestion, QuestionType, Subtype } from "./types";
 
-export const GENERATOR_VERSION = "2.3.0";
+export const GENERATOR_VERSION = "2.5.0";
 export const MAX_GENERATION_ATTEMPTS = 24;
 const MAX_NON_ROUND_ATTEMPTS = 12;
 
@@ -126,37 +126,90 @@ export const MULTI_DIGIT_DIVISION_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "near_estimate_boundary", ratio: 0.15 },
 ];
 export type FractionPercentStructure =
-  "standard_fraction" | "near_benchmark_fraction" | "direct_division_fraction";
-export const FRACTION_PERCENT_QUOTAS: readonly StructureQuota[] = [
-  { primaryStructure: "standard_fraction", ratio: 0.45 },
-  { primaryStructure: "near_benchmark_fraction", ratio: 0.25 },
-  { primaryStructure: "direct_division_fraction", ratio: 0.3 },
+  "unit_fraction" | "common_non_unit_fraction";
+
+export interface FractionPercentRelation {
+  numerator: number;
+  denominator: number;
+  percentAnswer: string;
+  primaryStructure: FractionPercentStructure;
+}
+
+export const FRACTION_PERCENT_CATEGORY_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "unit_fraction", ratio: 0.5 },
+  { primaryStructure: "common_non_unit_fraction", ratio: 0.5 },
 ];
-export const FRACTION_CANDIDATES = [
-  "1/2",
-  "1/3",
-  "1/4",
-  "1/5",
-  "1/6",
-  "1/7",
-  "1/8",
-  "1/9",
-  "1/10",
-  "1/11",
-  "1/12",
-  "1/13",
-  "1/14",
-  "1/15",
-  "2/3",
-  "3/4",
-  "2/5",
-  "3/5",
-  "3/8",
-  "5/8",
-  "3/7",
-  "4/7",
-  "5/7",
-] as const;
+
+const unitFraction = (
+  denominator: number,
+  percentAnswer: string,
+): FractionPercentRelation => ({
+  numerator: 1,
+  denominator,
+  percentAnswer,
+  primaryStructure: "unit_fraction",
+});
+
+const commonFraction = (
+  numerator: number,
+  denominator: number,
+  percentAnswer: string,
+): FractionPercentRelation => ({
+  numerator,
+  denominator,
+  percentAnswer,
+  primaryStructure: "common_non_unit_fraction",
+});
+
+/** Fixed public-exam percentage-to-fraction relations used by both directions. */
+export const FRACTION_PERCENT_LIBRARY: readonly FractionPercentRelation[] = [
+  unitFraction(3, "33.3"),
+  unitFraction(4, "25"),
+  unitFraction(5, "20"),
+  unitFraction(6, "16.7"),
+  unitFraction(7, "14.3"),
+  unitFraction(8, "12.5"),
+  unitFraction(9, "11.1"),
+  unitFraction(10, "10"),
+  unitFraction(11, "9.1"),
+  unitFraction(12, "8.3"),
+  unitFraction(13, "7.7"),
+  unitFraction(14, "7.1"),
+  unitFraction(15, "6.7"),
+  unitFraction(16, "6.25"),
+  unitFraction(17, "5.9"),
+  unitFraction(18, "5.6"),
+  unitFraction(19, "5.3"),
+  unitFraction(20, "5"),
+  unitFraction(25, "4"),
+  unitFraction(40, "2.5"),
+  unitFraction(50, "2"),
+  commonFraction(2, 3, "66.7"),
+  commonFraction(3, 4, "75"),
+  commonFraction(2, 5, "40"),
+  commonFraction(3, 5, "60"),
+  commonFraction(4, 5, "80"),
+  commonFraction(5, 6, "83.3"),
+  commonFraction(2, 7, "28.6"),
+  commonFraction(3, 7, "42.9"),
+  commonFraction(4, 7, "57.1"),
+  commonFraction(5, 7, "71.4"),
+  commonFraction(6, 7, "85.7"),
+  commonFraction(3, 8, "37.5"),
+  commonFraction(5, 8, "62.5"),
+  commonFraction(7, 8, "87.5"),
+  commonFraction(2, 9, "22.2"),
+  commonFraction(4, 9, "44.4"),
+  commonFraction(5, 9, "55.6"),
+  commonFraction(7, 9, "77.8"),
+  commonFraction(8, 9, "88.9"),
+  commonFraction(5, 12, "41.7"),
+  commonFraction(7, 12, "58.3"),
+  commonFraction(11, 12, "91.7"),
+  commonFraction(3, 16, "18.75"),
+  commonFraction(5, 16, "31.25"),
+  commonFraction(7, 16, "43.75"),
+];
 const MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "3", ratio: 0.75 },
   { primaryStructure: "4", ratio: 0.15 },
@@ -352,11 +405,6 @@ function threeByTwoAnswerSpec(
       },
     };
   return { answer: sig(quotient, 2) };
-}
-
-function evalFraction(value: string) {
-  const [numerator, denominator] = value.split("/").map(Number);
-  return numerator / denominator;
 }
 
 /**
@@ -901,78 +949,74 @@ function buildMultiDigitDivisionQuestion(
   );
 }
 
-function fractionForStructure(
-  context: GenerationContext,
-  structure: FractionPercentStructure,
-): [number, number] {
-  if (structure === "standard_fraction") {
-    const [numerator, denominator] = FRACTION_CANDIDATES[
-      randomInteger(context, 0, FRACTION_CANDIDATES.length - 1)
-    ]
-      .split("/")
-      .map(Number);
-    return [numerator, denominator];
-  }
-  if (structure === "near_benchmark_fraction") {
-    const denominator = randomInteger(context, 9, 15);
-    const base = [1 / 2, 1 / 3, 1 / 4][randomInteger(context, 0, 2)];
-    const numerator = Math.max(
-      1,
-      Math.min(
-        denominator - 1,
-        Math.round(denominator * base) + (context.random() < 0.5 ? -1 : 1),
-      ),
-    );
-    return [numerator, denominator];
-  }
-  return [randomInteger(context, 2, 13), randomInteger(context, 14, 15)];
-}
-
 function buildFractionPercentQuestion(
   context: GenerationContext,
   subtype: Subtype,
-  structure: FractionPercentStructure,
+  relation: FractionPercentRelation,
 ): GeneratedQuestion {
-  const [numerator, denominator] = fractionForStructure(context, structure);
-  const value = (numerator / denominator) * 100;
+  const { numerator, denominator, percentAnswer, primaryStructure } = relation;
   if (subtype === "percent_to_fraction") {
     const answer = `${numerator}/${denominator}`;
-    const options = shuffle(context, [
-      answer,
-      ...FRACTION_CANDIDATES.filter((candidate) => candidate !== answer)
-        .sort(
-          (left, right) =>
-            Math.abs(evalFraction(left) - numerator / denominator) -
-            Math.abs(evalFraction(right) - numerator / denominator),
-        )
-        .slice(0, 3),
-    ]);
     return q(
       context,
       "fraction_percent_conversion",
       subtype,
-      `${value.toFixed(1)}% 最接近？`,
+      `${percentAnswer}% ≈ __ / __`,
       answer,
-      { numerator, denominator, options },
+      { numerator, denominator, percent: Number(percentAnswer), percentAnswer },
       3,
-      ["常用分数"],
+      ["百化分", "反向关系"],
       undefined,
-      { primaryStructure: structure, secondaryTags: [] },
+      { primaryStructure, secondaryTags: [] },
     );
   }
-  const exact = Number.isInteger(value) ? String(value) : value.toFixed(1);
   return q(
     context,
     "fraction_percent_conversion",
     "fraction_to_percent",
-    `${numerator}/${denominator} ≈？`,
-    exact,
-    { numerator, denominator },
+    `${numerator}/${denominator} ≈ ___%`,
+    percentAnswer,
+    { numerator, denominator, percentAnswer },
     3,
     ["百化分"],
-    { min: value - 0.11, max: value + 0.11 },
-    { primaryStructure: structure, secondaryTags: [] },
+    undefined,
+    { primaryStructure, secondaryTags: [] },
   );
+}
+
+function relationsForStructure(
+  structure: FractionPercentStructure,
+): FractionPercentRelation[] {
+  return FRACTION_PERCENT_LIBRARY.filter(
+    (relation) => relation.primaryStructure === structure,
+  );
+}
+
+/**
+ * Samples without replacement inside each pass through a category. Repetition
+ * begins only when the requested count exceeds that category's fixed pool.
+ */
+function selectFractionPercentRelations(
+  context: GenerationContext,
+  structure: FractionPercentStructure,
+  count: number,
+): FractionPercentRelation[] {
+  const candidates = relationsForStructure(structure);
+  const selected: FractionPercentRelation[] = [];
+  while (selected.length < count) {
+    const cycle = shuffle(context, candidates);
+    const previous = selected.at(-1);
+    if (
+      previous &&
+      cycle.length > 1 &&
+      cycle[0].numerator === previous.numerator &&
+      cycle[0].denominator === previous.denominator
+    ) {
+      [cycle[0], cycle[1]] = [cycle[1], cycle[0]];
+    }
+    selected.push(...cycle.slice(0, count - selected.length));
+  }
+  return selected;
 }
 
 function generateThreeByTwoDivisionByStructure(
@@ -1540,26 +1584,15 @@ function fallbackQuestion(
     return buildFourThreeDigitAdditionQuestion(context, "triple_column_carry");
   if (type === "fraction_percent_conversion") {
     if (subtype === "percent_to_fraction")
-      return q(
+      return buildFractionPercentQuestion(
         context,
-        type,
         subtype,
-        "25.0% 最接近？",
-        "1/4",
-        { numerator: 1, denominator: 4, options: ["1/4", "1/5", "1/3", "1/6"] },
-        3,
-        ["常用分数", "fallback"],
+        FRACTION_PERCENT_LIBRARY[1],
       );
-    return q(
+    return buildFractionPercentQuestion(
       context,
-      type,
       "fraction_to_percent",
-      "1/4 ≈ ？%",
-      "25",
-      { numerator: 1, denominator: 4 },
-      3,
-      ["百化分", "fallback"],
-      { min: 24.89, max: 25.11 },
+      FRACTION_PERCENT_LIBRARY[1],
     );
   }
   return q(
@@ -1635,95 +1668,12 @@ export function generateQuestion(
     );
   }
   if (type === "fraction_percent_conversion") {
-    const structure = FRACTION_PERCENT_QUOTAS[randomInteger(context, 0, 2)]
-      .primaryStructure as FractionPercentStructure;
-    return buildFractionPercentQuestion(context, subtype, structure);
-  }
-  if (type === "fraction_percent_conversion") {
-    const denominator = randomInteger(context, 3, 15);
-    const numerator = randomInteger(context, 1, denominator - 1);
-    const value = (numerator / denominator) * 100;
-    const benchmarkDistance = Math.min(
-      ...[1 / 2, 1 / 3, 1 / 4].map((benchmark) =>
-        Math.abs(numerator / denominator - benchmark),
-      ),
-    );
-    const structure =
-      denominator <= 8
-        ? "standard_fraction"
-        : benchmarkDistance <= 0.025
-          ? "near_benchmark_fraction"
-          : "direct_division_fraction";
-    if (subtype === "percent_to_fraction") {
-      const candidates = [
-        "1/2",
-        "1/3",
-        "1/4",
-        "1/5",
-        "1/6",
-        "1/7",
-        "1/8",
-        "1/9",
-        "1/10",
-        "1/11",
-        "1/12",
-        "1/13",
-        "1/14",
-        "1/15",
-        "2/3",
-        "3/4",
-        "2/5",
-        "3/5",
-        "3/8",
-        "5/8",
-        "3/7",
-        "4/7",
-        "5/7",
+    const relation =
+      FRACTION_PERCENT_LIBRARY[
+        randomInteger(context, 0, FRACTION_PERCENT_LIBRARY.length - 1)
       ];
-      const answer = candidates.reduce(
-        (best, current) =>
-          Math.abs(evalFraction(current) - value / 100) <
-          Math.abs(evalFraction(best) - value / 100)
-            ? current
-            : best,
-        candidates[0],
-      );
-      const options = shuffle(context, [
-        answer,
-        ...candidates
-          .filter((candidate) => candidate !== answer)
-          .sort(
-            (left, right) =>
-              Math.abs(evalFraction(left) - value / 100) -
-              Math.abs(evalFraction(right) - value / 100),
-          )
-          .slice(0, 3),
-      ]);
-      return q(
-        context,
-        type,
-        subtype,
-        `${value.toFixed(1)}% 最接近？`,
-        answer,
-        { numerator, denominator, options, structure },
-        3,
-        ["常用分数"],
-      );
-    }
-    const exact = Number.isInteger(value) ? String(value) : value.toFixed(1);
-    return q(
-      context,
-      type,
-      "fraction_to_percent",
-      `${numerator}/${denominator} ≈ ？%`,
-      exact,
-      { numerator, denominator, structure },
-      3,
-      ["百化分"],
-      { min: value - 0.11, max: value + 0.11 },
-    );
+    return buildFractionPercentQuestion(context, subtype, relation);
   }
-
   const a = randomInteger(context, 10, 999);
   const b = randomInteger(context, a + 1, 1200);
   const c = randomInteger(context, 10, 999);
@@ -1858,19 +1808,19 @@ export function generateSet(
     );
   }
   if (type === "fraction_percent_conversion") {
-    return shuffle(
-      context,
-      allocateStructureQuota(count, FRACTION_PERCENT_QUOTAS).flatMap(
-        ({ primaryStructure, count: structureCount }) =>
-          Array.from({ length: structureCount }, () =>
-            buildFractionPercentQuestion(
-              context,
-              subtype,
-              primaryStructure as FractionPercentStructure,
-            ),
-          ),
+    const questions = allocateStructureQuota(
+      count,
+      FRACTION_PERCENT_CATEGORY_QUOTAS,
+    ).flatMap(({ primaryStructure, count: structureCount }) =>
+      selectFractionPercentRelations(
+        context,
+        primaryStructure as FractionPercentStructure,
+        structureCount,
+      ).map((relation) =>
+        buildFractionPercentQuestion(context, subtype, relation),
       ),
     );
+    return shuffle(context, questions);
   }
   if (type === "fraction_comparison") {
     const questions = allocateStructureQuota(
@@ -1904,6 +1854,32 @@ export function grade(question: GeneratedQuestion, input: string) {
     };
   }
   if (
+    question.type === "fraction_percent_conversion" &&
+    question.subtype === "percent_to_fraction"
+  ) {
+    const match = input.match(/^(-?\d+)\/(-?\d+)$/);
+    const numerator = question.data.numerator;
+    const denominator = question.data.denominator;
+    if (
+      !match ||
+      typeof numerator !== "number" ||
+      typeof denominator !== "number"
+    )
+      return { isCorrect: false, accuracyLevel: "wrong" as const };
+
+    const inputNumerator = Number(match[1]);
+    const inputDenominator = Number(match[2]);
+    if (inputDenominator === 0)
+      return { isCorrect: false, accuracyLevel: "wrong" as const };
+
+    const isCorrect =
+      inputNumerator === numerator && inputDenominator === denominator;
+    return {
+      isCorrect,
+      accuracyLevel: isCorrect ? ("exact" as const) : ("wrong" as const),
+    };
+  }
+  if (
     question.type === "three_by_two_division" &&
     question.subtype === "quotient_estimate_3_percent"
   ) {
@@ -1933,23 +1909,16 @@ export function grade(question: GeneratedQuestion, input: string) {
   }
   if (
     question.type === "fraction_percent_conversion" &&
-    question.acceptedRange
+    question.subtype === "fraction_to_percent"
   ) {
     const numberInput = Number(input.replace("%", ""));
-    if (Number.isNaN(numberInput))
+    const expected = Number(question.answer);
+    if (!Number.isFinite(numberInput) || !Number.isFinite(expected))
       return { isCorrect: false, accuracyLevel: "wrong" as const };
-    const exact = Number(question.answer);
+    const isCorrect = numberInput === expected;
     return {
-      isCorrect:
-        numberInput >= question.acceptedRange.min &&
-        numberInput <= question.acceptedRange.max,
-      accuracyLevel:
-        Math.abs(numberInput - exact) < 0.001
-          ? ("exact" as const)
-          : numberInput >= question.acceptedRange.min &&
-              numberInput <= question.acceptedRange.max
-            ? ("accepted" as const)
-            : ("wrong" as const),
+      isCorrect,
+      accuracyLevel: isCorrect ? ("exact" as const) : ("wrong" as const),
     };
   }
   return {

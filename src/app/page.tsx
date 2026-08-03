@@ -89,6 +89,78 @@ function FractionComparisonDisplay({
   );
 }
 
+type FractionEntryPart = "numerator" | "denominator";
+
+function splitFractionAnswer(value: string): [string, string] {
+  const [numerator = "", denominator = ""] = value.split("/", 2);
+  return [numerator, denominator];
+}
+
+function FractionConversionDisplay({
+  data,
+  subtype,
+  value,
+  activePart,
+  onSelectPart,
+  fallbackPrompt,
+}: {
+  data: TrainingSession["questions"][number]["data"];
+  subtype: Subtype;
+  value: string;
+  activePart: FractionEntryPart;
+  onSelectPart: (part: FractionEntryPart) => void;
+  fallbackPrompt: string;
+}) {
+  const numerator = data.numerator;
+  const denominator = data.denominator;
+  if (typeof numerator !== "number" || typeof denominator !== "number") {
+    return <h1>{fallbackPrompt}</h1>;
+  }
+
+  if (subtype === "fraction_to_percent") {
+    return (
+      <div className="fractionConversionQuestion" aria-label={fallbackPrompt}>
+        <span>
+          {numerator}/{denominator} ≈
+        </span>
+        <strong className="percentAnswerSlot">{value || "___"}</strong>
+        <span>%</span>
+      </div>
+    );
+  }
+
+  const [answerNumerator, answerDenominator] = splitFractionAnswer(value);
+  const percent =
+    typeof data.percentAnswer === "string"
+      ? data.percentAnswer
+      : typeof data.percent === "number"
+        ? String(data.percent)
+        : String((numerator / denominator) * 100);
+
+  return (
+    <div className="fractionConversionQuestion" aria-label={fallbackPrompt}>
+      <span>{percent}% ≈</span>
+      <span className="fractionAnswerSlots">
+        <button
+          aria-label="输入分子"
+          className={activePart === "numerator" ? "active" : ""}
+          onClick={() => onSelectPart("numerator")}
+        >
+          {answerNumerator || "__"}
+        </button>
+        <span>/</span>
+        <button
+          aria-label="输入分母"
+          className={activePart === "denominator" ? "active" : ""}
+          onClick={() => onSelectPart("denominator")}
+        >
+          {answerDenominator || "__"}
+        </button>
+      </span>
+    </div>
+  );
+}
+
 export default function Home() {
   const [view, setView] = useState<
     "home" | "training" | "result" | "history" | "stats" | "historyDetail"
@@ -107,6 +179,8 @@ export default function Home() {
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [now, setNow] = useState(Date.now());
   const [scratch, setScratch] = useState(false);
+  const [fractionEntryPart, setFractionEntryPart] =
+    useState<FractionEntryPart>("numerator");
   const [history, setHistory] = useState<TrainingSession[]>([]);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<TrainingSession | null>(null);
@@ -158,6 +232,9 @@ export default function Home() {
   }, [view]);
   const elapsed = session ? currentElapsedMs(session, now) : 0;
   const current = session?.questions[session.currentIndex];
+  useEffect(() => {
+    setFractionEntryPart("numerator");
+  }, [current?.id]);
   const beginNewSession = () => {
     if (!isValidQuestionCount(count)) {
       setStorageError("题量无效，请重新选择 10～100 题。");
@@ -296,7 +373,11 @@ export default function Home() {
                   ? "输入近似商，相对误差不超过 3%"
                   : session.subtype === "comparison"
                     ? "请选择两个分数的大小关系"
-                    : "请输入答案"}
+                    : session.subtype === "fraction_to_percent"
+                      ? "输入近似百分数，可保留一位小数"
+                      : session.subtype === "percent_to_fraction"
+                        ? "先输入分子，再点击分母继续输入"
+                        : "请输入答案"}
           </p>
           {session.questionType === "fraction_comparison" ? (
             <FractionComparisonDisplay
@@ -304,6 +385,24 @@ export default function Home() {
               fallbackPrompt={current.prompt}
               selectedRelation={session.currentAnswer}
             />
+          ) : session.questionType === "fraction_percent_conversion" ? (
+            <>
+              <FractionConversionDisplay
+                activePart={fractionEntryPart}
+                data={current.data}
+                fallbackPrompt={current.prompt}
+                onSelectPart={setFractionEntryPart}
+                subtype={session.subtype}
+                value={session.currentAnswer}
+              />
+              <button
+                className="restart"
+                disabled={isRestartingTraining}
+                onClick={restartTraining}
+              >
+                {isRestartingTraining ? "正在重开…" : "重开训练"}
+              </button>
+            </>
           ) : (
             <>
               <h1>{current.prompt}</h1>
@@ -358,29 +457,29 @@ export default function Home() {
             </div>
           ) : session.questionType === "fraction_percent_conversion" &&
             session.subtype === "percent_to_fraction" ? (
-            <div className="optionPad trainingKeypad">
-              {(Array.isArray(current.data.options)
-                ? current.data.options
-                : []
-              ).map((option) => (
-                <button
-                  className={session.currentAnswer === option ? "selected" : ""}
-                  key={option}
-                  onClick={() =>
-                    setSession({ ...session, currentAnswer: option })
-                  }
-                >
-                  {option}
-                </button>
-              ))}
-              <button
-                className="primary"
-                disabled={!session.currentAnswer}
-                onClick={submit}
-              >
-                确定
-              </button>
-            </div>
+            <NumberPad
+              submitDisabled={splitFractionAnswer(session.currentAnswer).some(
+                (part) => !part,
+              )}
+              value={
+                splitFractionAnswer(session.currentAnswer)[
+                  fractionEntryPart === "numerator" ? 0 : 1
+                ]
+              }
+              onChange={(partValue) => {
+                const [numerator, denominator] = splitFractionAnswer(
+                  session.currentAnswer,
+                );
+                setSession({
+                  ...session,
+                  currentAnswer:
+                    fractionEntryPart === "numerator"
+                      ? `${partValue}/${denominator}`
+                      : `${numerator}/${partValue}`,
+                });
+              }}
+              onSubmit={submit}
+            />
           ) : (
             <NumberPad
               value={session.currentAnswer}

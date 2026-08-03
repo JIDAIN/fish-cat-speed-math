@@ -6,6 +6,7 @@ type NumberPadProps = {
   value: string;
   onChange: (value: string) => void;
   onSubmit: () => void;
+  submitDisabled?: boolean;
 };
 
 /**
@@ -13,9 +14,15 @@ type NumberPadProps = {
  * Fraction comparison and multiple-choice questions intentionally use their
  * own controls because they do not accept a numeric string as an answer.
  */
-export function NumberPad({ value, onChange, onSubmit }: NumberPadProps) {
+export function NumberPad({
+  value,
+  onChange,
+  onSubmit,
+  submitDisabled = false,
+}: NumberPadProps) {
   const append = (digit: string) => onChange(`${value}${digit}`);
-  const cannotSubmit = !value || value === "-" || value.endsWith(".");
+  const cannotSubmit =
+    submitDisabled || !value || value === "-" || value.endsWith(".");
 
   return (
     <div className="pad trainingKeypad" aria-label="计算器数字键盘">

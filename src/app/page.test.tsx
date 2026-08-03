@@ -132,6 +132,91 @@ describe("Home active-session interactions", () => {
     });
   });
 
+  it("enters percent-to-fraction answers through separate numerator and denominator slots", async () => {
+    render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "百分数转分数" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
+
+    const active = await waitFor(async () => {
+      const stored = await readActive();
+      expect(stored?.subtype).toBe("percent_to_fraction");
+      return stored;
+    });
+    const question = active?.questions[0];
+    const numerator = String(question?.data.numerator);
+    const denominator = String(question?.data.denominator);
+
+    expect(screen.getByLabelText(question?.prompt ?? "")).toBeTruthy();
+    numerator
+      .split("")
+      .forEach((digit) =>
+        fireEvent.click(screen.getByRole("button", { name: digit })),
+      );
+    fireEvent.click(screen.getByRole("button", { name: "输入分母" }));
+    denominator
+      .split("")
+      .forEach((digit) =>
+        fireEvent.click(screen.getByRole("button", { name: digit })),
+      );
+
+    expect(screen.getByRole("button", { name: "输入分子" }).textContent).toBe(
+      numerator,
+    );
+    expect(screen.getByRole("button", { name: "输入分母" }).textContent).toBe(
+      denominator,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确定" }));
+
+    await waitFor(async () => {
+      const stored = await readActive();
+      expect(stored?.records[0]).toMatchObject({
+        userAnswer: `${numerator}/${denominator}`,
+        isCorrect: true,
+      });
+    });
+  });
+
+  it("renders the preset two-decimal percentage without rounding it to one decimal", async () => {
+    const percentQuestion: GeneratedQuestion = {
+      ...question,
+      id: "one-sixteenth-percent",
+      type: "fraction_percent_conversion",
+      subtype: "percent_to_fraction",
+      prompt: "6.25% ≈ __ / __",
+      answer: "1/16",
+      data: {
+        numerator: 1,
+        denominator: 16,
+        percent: 6.25,
+        percentAnswer: "6.25",
+      },
+      primaryStructure: "unit_fraction",
+      generationRuleVersion: "2.5.0",
+    };
+    await saveSession(
+      activeSession({
+        questionType: "fraction_percent_conversion",
+        subtype: "percent_to_fraction",
+        questionCount: 10,
+        questions: Array.from({ length: 10 }, (_, index) => ({
+          ...percentQuestion,
+          id: `${percentQuestion.id}-${index}`,
+        })),
+        currentIndex: 0,
+        records: [],
+        currentAnswer: "",
+        currentRestartCount: 0,
+      }),
+    );
+    render(<Home />);
+
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "继续原训练" }));
+
+    expect(await screen.findByText("6.25% ≈")).toBeTruthy();
+    expect(screen.queryByText("6.3% ≈")).toBeNull();
+  });
+
   it("commits a custom seventy-question choice into the active session", async () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: /当前题量/ }));

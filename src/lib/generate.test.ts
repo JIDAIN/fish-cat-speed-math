@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   GENERATOR_VERSION,
   FRACTION_COMPARISON_QUOTAS,
-  FRACTION_PERCENT_QUOTAS,
-  FRACTION_CANDIDATES,
+  FRACTION_PERCENT_CATEGORY_QUOTAS,
+  FRACTION_PERCENT_LIBRARY,
   FOUR_THREE_DIGIT_ADDITION_QUOTAS,
   GenerationContext,
   THREE_DIGIT_ADD_SUBTRACT_QUOTAS,
@@ -76,35 +76,101 @@ describe("question generators", () => {
     }
   });
 
-  it("creates four clickable options for percent-to-fraction questions", () => {
+  it("creates percent-to-fraction fill-ins from the fixed relation library", () => {
     for (let index = 0; index < 100; index += 1) {
       const question = generateQuestion(
         "fraction_percent_conversion",
         "percent_to_fraction",
       );
-      const options = question.data.options;
-      expect(Array.isArray(options)).toBe(true);
-      expect(options).toHaveLength(4);
-      expect(options).toContain(question.answer);
-      expect(new Set(options as string[]).size).toBe(4);
+      const relation = FRACTION_PERCENT_LIBRARY.find(
+        ({ numerator, denominator }) =>
+          numerator === question.data.numerator &&
+          denominator === question.data.denominator,
+      );
+      expect(relation).toBeDefined();
+      expect(question.prompt).toBe(`${relation?.percentAnswer}% ≈ __ / __`);
+      expect(question.data.options).toBeUndefined();
     }
   });
 
-  it("includes extended reciprocal fractions in the candidate pool", () => {
-    expect(FRACTION_CANDIDATES).toEqual(
-      expect.arrayContaining([
-        "1/9",
-        "1/10",
-        "1/11",
-        "1/12",
-        "1/13",
-        "1/14",
-        "1/15",
-      ]),
+  it("requires the preset simplest fraction instead of an equivalent fraction", () => {
+    const question = generateQuestion(
+      "fraction_percent_conversion",
+      "percent_to_fraction",
+      deterministicContext(52),
+    );
+    const numerator = question.data.numerator as number;
+    const denominator = question.data.denominator as number;
+
+    expect(grade(question, `${numerator}/${denominator}`).accuracyLevel).toBe(
+      "exact",
+    );
+    expect(
+      grade(question, `${numerator * 2}/${denominator * 2}`).accuracyLevel,
+    ).toBe("wrong");
+    expect(grade(question, `${numerator}/0`).isCorrect).toBe(false);
+    expect(grade(question, `${numerator + 1}/${denominator}`).isCorrect).toBe(
+      false,
     );
   });
 
-  it("uses exact fraction-percent structure quotas for both subtypes", () => {
+  it("contains the complete fixed public-exam fraction-percent library", () => {
+    const relations = FRACTION_PERCENT_LIBRARY.map(
+      ({ numerator, denominator, percentAnswer }) =>
+        `${numerator}/${denominator}:${percentAnswer}`,
+    );
+    expect(relations).toEqual([
+      "1/3:33.3",
+      "1/4:25",
+      "1/5:20",
+      "1/6:16.7",
+      "1/7:14.3",
+      "1/8:12.5",
+      "1/9:11.1",
+      "1/10:10",
+      "1/11:9.1",
+      "1/12:8.3",
+      "1/13:7.7",
+      "1/14:7.1",
+      "1/15:6.7",
+      "1/16:6.25",
+      "1/17:5.9",
+      "1/18:5.6",
+      "1/19:5.3",
+      "1/20:5",
+      "1/25:4",
+      "1/40:2.5",
+      "1/50:2",
+      "2/3:66.7",
+      "3/4:75",
+      "2/5:40",
+      "3/5:60",
+      "4/5:80",
+      "5/6:83.3",
+      "2/7:28.6",
+      "3/7:42.9",
+      "4/7:57.1",
+      "5/7:71.4",
+      "6/7:85.7",
+      "3/8:37.5",
+      "5/8:62.5",
+      "7/8:87.5",
+      "2/9:22.2",
+      "4/9:44.4",
+      "5/9:55.6",
+      "7/9:77.8",
+      "8/9:88.9",
+      "5/12:41.7",
+      "7/12:58.3",
+      "11/12:91.7",
+      "3/16:18.75",
+      "5/16:31.25",
+      "7/16:43.75",
+    ]);
+    expect(new Set(relations)).toHaveProperty("size", relations.length);
+  });
+
+  it("uses exact unit and non-unit coverage for both directions", () => {
     const subtypes = ["fraction_to_percent", "percent_to_fraction"] as const;
     subtypes.forEach((subtype) => {
       [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
@@ -114,7 +180,7 @@ describe("question generators", () => {
           count,
           deterministicContext(count + subtype.length),
         );
-        allocateStructureQuota(count, FRACTION_PERCENT_QUOTAS).forEach(
+        allocateStructureQuota(count, FRACTION_PERCENT_CATEGORY_QUOTAS).forEach(
           ({ primaryStructure, count: expected }) => {
             expect(
               questions.filter(
@@ -124,11 +190,50 @@ describe("question generators", () => {
           },
         );
         questions.forEach((question) => {
-          if (subtype === "percent_to_fraction")
-            expect(question.data.options).toContain(question.answer);
-          else expect(question.acceptedRange).toBeDefined();
+          if (subtype === "percent_to_fraction") {
+            expect(question.data.options).toBeUndefined();
+            expect(question.prompt).toContain("≈ __ / __");
+          } else {
+            expect(question.acceptedRange).toBeUndefined();
+            expect(question.prompt).toContain("≈ ___%");
+          }
         });
       });
+    });
+  });
+
+  it("does not repeat a fixed relation before its category pool is exhausted", () => {
+    const questions = generateSet(
+      "fraction_percent_conversion",
+      "fraction_to_percent",
+      40,
+      deterministicContext(93),
+    );
+    for (const structure of ["unit_fraction", "common_non_unit_fraction"]) {
+      const fractions = questions
+        .filter((question) => question.primaryStructure === structure)
+        .map(
+          (question) =>
+            `${question.data.numerator}/${question.data.denominator}`,
+        );
+      expect(new Set(fractions).size).toBe(fractions.length);
+    }
+  });
+
+  it("grades only the preset fraction-to-percent answer", () => {
+    const question = generateSet(
+      "fraction_percent_conversion",
+      "fraction_to_percent",
+      10,
+      deterministicContext(14),
+    )[0];
+    expect(grade(question, question.answer)).toEqual({
+      isCorrect: true,
+      accuracyLevel: "exact",
+    });
+    expect(grade(question, String(Number(question.answer) + 0.1))).toEqual({
+      isCorrect: false,
+      accuracyLevel: "wrong",
     });
   });
 

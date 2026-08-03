@@ -303,6 +303,42 @@ h2 {
 .verticalFraction span:first-child {
   border-bottom: 3px solid currentColor;
 }
+.fractionConversionQuestion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 2vw, 12px);
+  min-height: clamp(82px, 15dvh, 132px);
+  margin: clamp(8px, 2dvh, 18px) 0 2px;
+  color: var(--ink);
+  font-size: clamp(32px, 10vw, 48px);
+  line-height: 1.1;
+}
+.percentAnswerSlot {
+  min-width: 2.5em;
+  color: var(--green-700);
+  font-weight: 600;
+}
+.fractionAnswerSlots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fractionAnswerSlots button {
+  min-width: 2.1em;
+  min-height: 1.45em;
+  padding: 2px 8px;
+  border: 0;
+  border-bottom: 3px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--green-700);
+  font: inherit;
+}
+.fractionAnswerSlots button.active {
+  border-bottom-color: var(--green-700);
+  background: var(--green-50);
+}
 .comparisonPad {
   display: grid;
   gap: 8px;
@@ -335,26 +371,6 @@ h2 {
   color: var(--green-900);
 }
 .comparisonActions .primary:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.optionPad {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.optionPad button {
-  min-height: clamp(52px, 8dvh, 64px);
-  font-size: clamp(18px, 6vw, 22px);
-}
-.optionPad .primary {
-  grid-column: span 2;
-  min-height: 48px;
-  font-size: 17px;
-}
-.optionPad button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }
