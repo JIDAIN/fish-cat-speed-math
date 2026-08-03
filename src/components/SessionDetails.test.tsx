@@ -51,7 +51,7 @@ describe("QuestionDetails", () => {
 
   it("separates the verdict and correct result without showing legacy restarts", () => {
     const { container } = render(<QuestionDetails session={session} />);
-    expect(screen.getByText("正确结果")).toBeTruthy();
+    expect(screen.getAllByText("正确结果")).toHaveLength(2);
     expect(screen.getAllByText("15")).toHaveLength(2);
     expect(screen.queryByText("重开")).toBeNull();
     expect(screen.queryByText("2次")).toBeNull();
@@ -59,6 +59,17 @@ describe("QuestionDetails", () => {
       6,
     );
     expect(container.querySelectorAll(".questionRow span")).toHaveLength(6);
+    expect(container.querySelector(".questionPrompt")?.textContent).toBe(
+      "12+3",
+    );
+    expect(
+      container.querySelector(".questionAnswer .questionCellLabel")
+        ?.textContent,
+    ).toBe("作答");
+    expect(
+      container.querySelector(".questionCorrectResult .questionCellLabel")
+        ?.textContent,
+    ).toBe("正确结果");
   });
 
   it("shows an exact two-decimal quotient for three-percent review", () => {

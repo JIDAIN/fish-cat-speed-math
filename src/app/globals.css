@@ -583,16 +583,85 @@ h2 {
   border-top: 1px solid var(--line);
   font-size: 14px;
 }
-.questionRow span:nth-child(2) {
+.questionPrompt {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.questionCellLabel {
+  display: none;
 }
 .questionRow.correct {
   color: #167052;
 }
 .questionRow.incorrect {
   color: #bf3f34;
+}
+
+@media (max-width: 480px) {
+  .questionTableHead {
+    display: none;
+  }
+
+  .questionRow {
+    grid-template-columns: 1.5rem repeat(4, minmax(0, 1fr));
+    grid-template-areas:
+      "number prompt prompt prompt prompt"
+      ". answer verdict correct duration";
+    gap: 8px 6px;
+    min-height: 84px;
+    align-items: start;
+    padding: 12px 0;
+  }
+
+  .questionNumber {
+    grid-area: number;
+    padding-top: 2px;
+  }
+
+  .questionPrompt {
+    grid-area: prompt;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+  }
+
+  .questionAnswer,
+  .questionVerdict,
+  .questionCorrectResult,
+  .questionDuration {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow-wrap: anywhere;
+  }
+
+  .questionAnswer {
+    grid-area: answer;
+  }
+
+  .questionVerdict {
+    grid-area: verdict;
+  }
+
+  .questionCorrectResult {
+    grid-area: correct;
+  }
+
+  .questionDuration {
+    grid-area: duration;
+  }
+
+  .questionCellLabel {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 400;
+    line-height: 1.2;
+  }
 }
 
 .datePicker {

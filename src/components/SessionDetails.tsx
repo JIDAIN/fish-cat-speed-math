@@ -80,12 +80,24 @@ export function QuestionDetails({ session }: { session: TrainingSession }) {
             }
             key={record.question.id}
           >
-            <span>{index + 1}</span>
-            <span>{record.question.prompt}</span>
-            <span>{record.userAnswer || "—"}</span>
-            <span>{record.isCorrect ? "✓" : "×"}</span>
-            <span>{correctAnswerForReview(record.question)}</span>
-            <span>{(record.timeUsedMs / 1000).toFixed(1)}s</span>
+            <span className="questionNumber">{index + 1}</span>
+            <span className="questionPrompt">{record.question.prompt}</span>
+            <span className="questionAnswer">
+              <small className="questionCellLabel">作答</small>
+              {record.userAnswer || "—"}
+            </span>
+            <span className="questionVerdict">
+              <small className="questionCellLabel">判定</small>
+              {record.isCorrect ? "✓" : "×"}
+            </span>
+            <span className="questionCorrectResult">
+              <small className="questionCellLabel">正确结果</small>
+              {correctAnswerForReview(record.question)}
+            </span>
+            <span className="questionDuration">
+              <small className="questionCellLabel">用时</small>
+              {(record.timeUsedMs / 1000).toFixed(1)}s
+            </span>
           </li>
         ))}
       </ol>

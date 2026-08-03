@@ -52,4 +52,19 @@ describe("mobile training layout CSS contract", () => {
       /\.divisionRuleOptions button\s*\{[^}]*min-height:\s*44px;/s,
     );
   });
+
+  it("shows full questions above a labelled result row on narrow screens", () => {
+    expect(stylesheet).toMatch(
+      /@media \(max-width:\s*480px\)\s*\{[\s\S]*?\.questionTableHead\s*\{[^}]*display:\s*none;/,
+    );
+    expect(stylesheet).toMatch(
+      /grid-template-areas:\s*"number prompt prompt prompt prompt"\s*"\. answer verdict correct duration";/,
+    );
+    expect(stylesheet).toMatch(
+      /\.questionPrompt\s*\{[^}]*white-space:\s*normal;[^}]*overflow-wrap:\s*anywhere;/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.questionCellLabel\s*\{[^}]*display:\s*block;/s,
+    );
+  });
 });
