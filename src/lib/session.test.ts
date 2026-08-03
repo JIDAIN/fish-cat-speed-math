@@ -1,52 +1,80 @@
 import { describe, expect, it } from "vitest";
-import { restartCurrentQuestion } from "./session";
-import { TrainingSession } from "./types";
+import { GenerationContext } from "./generate";
+import { createTrainingSession } from "./session";
 
-const session: TrainingSession = {
-  id: "restart-session",
-  userId: "fish",
-  questionType: "two_digit_add_subtract",
-  subtype: "standard",
-  questionCount: 10,
-  questions: [],
-  currentIndex: 1,
-  records: [
-    {
-      question: {} as TrainingSession["questions"][number],
-      userAnswer: "12",
-      isCorrect: true,
-      accuracyLevel: "exact",
-      timeUsedMs: 2_500,
-      restartCount: 0,
-      usedScratchpad: false,
-    },
-  ],
-  currentAnswer: "123",
-  currentRestartCount: 1,
-  accumulatedMs: 7_000,
-  runningSince: 5_000,
-  pauseDurationMs: 0,
-  status: "active",
-  startedAt: 0,
-};
+function deterministicContext(prefix: string): GenerationContext {
+  let id = 0;
+  return {
+    random: () => 0.42,
+    createId: () => `${prefix}-question-${id++}`,
+  };
+}
 
-describe("restartCurrentQuestion", () => {
-  it("discards the current question time and records the restart", () => {
-    const restarted = restartCurrentQuestion(session, 10_000);
+describe("createTrainingSession", () => {
+  it("creates a clean active session with the requested frozen settings", () => {
+    const session = createTrainingSession({
+      userId: "fish",
+      questionType: "two_digit_add_subtract",
+      subtype: "standard",
+      questionCount: 10,
+      now: 10_000,
+      createSessionId: () => "fresh-session",
+      generationContext: deterministicContext("fresh"),
+    });
 
-    expect(restarted.currentAnswer).toBe("");
-    expect(restarted.currentRestartCount).toBe(2);
-    expect(restarted.accumulatedMs).toBe(2_500);
-    expect(restarted.runningSince).toBe(10_000);
+    expect(session).toMatchObject({
+      id: "fresh-session",
+      userId: "fish",
+      questionType: "two_digit_add_subtract",
+      subtype: "standard",
+      questionCount: 10,
+      currentIndex: 0,
+      records: [],
+      currentAnswer: "",
+      currentRestartCount: 0,
+      accumulatedMs: 0,
+      runningSince: 10_000,
+      pauseDurationMs: 0,
+      status: "active",
+      startedAt: 10_000,
+    });
+    expect(session.questions).toHaveLength(10);
   });
 
-  it("increments again without changing completed-question time", () => {
-    const once = restartCurrentQuestion(session, 10_000);
-    const twice = restartCurrentQuestion(once, 12_000);
+  it("creates an independent replacement instead of retaining old progress", () => {
+    const original = createTrainingSession({
+      userId: "cat",
+      questionType: "three_digit_add_subtract",
+      subtype: "standard",
+      questionCount: 20,
+      now: 1_000,
+      createSessionId: () => "old-session",
+      generationContext: deterministicContext("old"),
+    });
+    original.currentIndex = 4;
+    original.currentAnswer = "123";
+    original.currentRestartCount = 3;
+    original.accumulatedMs = 8_000;
 
-    expect(twice.currentRestartCount).toBe(3);
-    expect(twice.accumulatedMs).toBe(2_500);
-    expect(twice.currentAnswer).toBe("");
-    expect(twice.runningSince).toBe(12_000);
+    const replacement = createTrainingSession({
+      userId: original.userId,
+      questionType: original.questionType,
+      subtype: original.subtype,
+      questionCount: original.questionCount,
+      now: 20_000,
+      createSessionId: () => "new-session",
+      generationContext: deterministicContext("new"),
+    });
+
+    expect(replacement.id).toBe("new-session");
+    expect(replacement.questions[0].id).not.toBe(original.questions[0].id);
+    expect(replacement).toMatchObject({
+      currentIndex: 0,
+      records: [],
+      currentAnswer: "",
+      currentRestartCount: 0,
+      accumulatedMs: 0,
+      runningSince: 20_000,
+    });
   });
 });

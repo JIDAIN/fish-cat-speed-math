@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { generateSet } from "@/lib/generate";
 import {
   QuestionType,
   Subtype,
@@ -35,7 +34,7 @@ import {
   pauseSessionTimer,
   resumeSessionTimer,
 } from "@/lib/timer";
-import { restartCurrentQuestion } from "@/lib/session";
+import { createTrainingSession } from "@/lib/session";
 import { submitCurrentAnswer } from "@/lib/training";
 const defaultSubtype = (t: QuestionType): Subtype =>
   t === "three_by_two_division"
@@ -56,6 +55,38 @@ type ActiveSessionPrompt = {
   session: TrainingSession;
   afterDiscard: "startNew" | "stayHome";
 };
+
+function FractionComparisonDisplay({
+  data,
+  selectedRelation,
+  fallbackPrompt,
+}: {
+  data: TrainingSession["questions"][number]["data"];
+  selectedRelation: string;
+  fallbackPrompt: string;
+}) {
+  const values = [data.a, data.b, data.c, data.d];
+  if (!values.every((value) => typeof value === "number")) {
+    return <h1>{fallbackPrompt}</h1>;
+  }
+
+  const [leftNumerator, leftDenominator, rightNumerator, rightDenominator] =
+    values as number[];
+
+  return (
+    <div className="fractionComparisonQuestion" aria-label={fallbackPrompt}>
+      <span className="verticalFraction">
+        <span>{leftNumerator}</span>
+        <span>{leftDenominator}</span>
+      </span>
+      <strong aria-label="当前选择">{selectedRelation || "?"}</strong>
+      <span className="verticalFraction">
+        <span>{rightNumerator}</span>
+        <span>{rightDenominator}</span>
+      </span>
+    </div>
+  );
+}
 
 export default function Home() {
   const [view, setView] = useState<
@@ -85,6 +116,8 @@ export default function Home() {
   // which two rapid taps could both read IndexedDB before the first tap has
   // entered the training view.
   const startInFlight = useRef(false);
+  const restartInFlight = useRef(false);
+  const [isRestartingTraining, setIsRestartingTraining] = useState(false);
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(i);
@@ -129,24 +162,12 @@ export default function Home() {
       setStorageError("题量无效，请重新选择 10～100 题。");
       return;
     }
-    const startedAt = Date.now();
-    const s: TrainingSession = {
-      id: crypto.randomUUID(),
+    const s = createTrainingSession({
       userId: user,
       questionType: type,
       subtype,
       questionCount: count,
-      questions: generateSet(type, subtype, count),
-      currentIndex: 0,
-      records: [],
-      currentAnswer: "",
-      currentRestartCount: 0,
-      accumulatedMs: 0,
-      runningSince: startedAt,
-      pauseDurationMs: 0,
-      status: "active",
-      startedAt,
-    };
+    });
     setSession(s);
     setView("training");
   };
@@ -209,11 +230,32 @@ export default function Home() {
     } else setSession(next);
     setScratch(false);
   };
-  const restart = () => {
-    setScratch(false);
-    setSession((activeSession) =>
-      activeSession ? restartCurrentQuestion(activeSession) : activeSession,
-    );
+  const restartTraining = async () => {
+    if (!session || restartInFlight.current) return;
+    restartInFlight.current = true;
+    setIsRestartingTraining(true);
+
+    try {
+      // Use the active session's frozen settings. Home selectors may no longer
+      // match a session that was resumed from IndexedDB.
+      const replacement = createTrainingSession({
+        userId: session.userId,
+        questionType: session.questionType,
+        subtype: session.subtype,
+        questionCount: session.questionCount,
+      });
+      // saveSession replaces every older active record in one transaction, so
+      // there is never a recoverable half-restarted state.
+      await saveSession(replacement);
+      setScratch(false);
+      setSession(replacement);
+      setView("training");
+    } catch {
+      setStorageError("重开训练失败，原训练仍可继续，请稍后重试。");
+    } finally {
+      restartInFlight.current = false;
+      setIsRestartingTraining(false);
+    }
   };
   const loadHistory = async () => {
     try {
@@ -245,38 +287,75 @@ export default function Home() {
         </header>
         <section className="training trainingMain">
           <p className="rule">
-            {subtype === "quotient_first"
+            {session.subtype === "quotient_first"
               ? "求商首位，不四舍五入"
-              : subtype === "quotient_two"
+              : session.subtype === "quotient_two"
                 ? "求商前两位，不四舍五入"
-                : subtype === "comparison"
+                : session.subtype === "comparison"
                   ? "请选择两个分数的大小关系"
                   : "请输入答案"}
           </p>
-          <h1>{current.prompt}</h1>
-          <div className="answer">{session.currentAnswer || "—"}</div>
-          <button className="restart" onClick={restart}>
-            重开本题
-            {session.currentRestartCount
-              ? `（${session.currentRestartCount}）`
-              : ""}
-          </button>
-          {type === "fraction_comparison" ? (
-            <div className="comparison trainingKeypad">
-              {["＜", "＝", "＞"].map((x) => (
-                <button
-                  key={x}
-                  onClick={() => setSession({ ...session, currentAnswer: x })}
-                >
-                  {x}
-                </button>
-              ))}
-              <button className="primary" onClick={submit}>
-                确定
+          {session.questionType === "fraction_comparison" ? (
+            <FractionComparisonDisplay
+              data={current.data}
+              fallbackPrompt={current.prompt}
+              selectedRelation={session.currentAnswer}
+            />
+          ) : (
+            <>
+              <h1>{current.prompt}</h1>
+              <div className="answer" aria-label="当前答案" aria-live="polite">
+                {session.currentAnswer}
+              </div>
+              <button
+                className="restart"
+                disabled={isRestartingTraining}
+                onClick={restartTraining}
+              >
+                {isRestartingTraining ? "正在重开…" : "重开训练"}
               </button>
+            </>
+          )}
+          {session.questionType === "fraction_comparison" ? (
+            <div className="comparisonPad trainingKeypad">
+              <div className="comparisonChoices">
+                {[
+                  { label: "大于", value: "＞" },
+                  { label: "等于", value: "＝" },
+                  { label: "小于", value: "＜" },
+                ].map(({ label, value }) => (
+                  <button
+                    className={
+                      session.currentAnswer === value ? "selected" : ""
+                    }
+                    key={value}
+                    onClick={() =>
+                      setSession({ ...session, currentAnswer: value })
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="comparisonActions">
+                <button
+                  className="restartTrainingButton"
+                  disabled={isRestartingTraining}
+                  onClick={restartTraining}
+                >
+                  {isRestartingTraining ? "正在重开…" : "重开训练"}
+                </button>
+                <button
+                  className="primary"
+                  disabled={!session.currentAnswer}
+                  onClick={submit}
+                >
+                  确定
+                </button>
+              </div>
             </div>
-          ) : type === "fraction_percent_conversion" &&
-            subtype === "percent_to_fraction" ? (
+          ) : session.questionType === "fraction_percent_conversion" &&
+            session.subtype === "percent_to_fraction" ? (
             <div className="optionPad trainingKeypad">
               {(Array.isArray(current.data.options)
                 ? current.data.options

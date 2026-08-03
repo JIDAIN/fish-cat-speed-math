@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { restartCurrentQuestion } from "./session";
+import { createTrainingSession } from "./session";
 import { pauseSessionTimer, resumeSessionTimer } from "./timer";
 import { submitCurrentAnswer } from "./training";
 import { GeneratedQuestion, TrainingSession } from "./types";
@@ -80,7 +80,7 @@ describe("training timer interactions", () => {
     expect(completed.accumulatedMs).toBe(6_000);
   });
 
-  it("restarting discards only the current question time and retains completed records", () => {
+  it("restarting training replaces all completed and current timing state", () => {
     const withFinishedFirstQuestion = activeSession({
       currentIndex: 1,
       currentAnswer: "10",
@@ -98,17 +98,31 @@ describe("training timer interactions", () => {
       ],
     });
 
-    const restarted = restartCurrentQuestion(withFinishedFirstQuestion, 20_000);
-    const completed = submitCurrentAnswer(
-      { ...restarted, currentAnswer: "10" },
-      5_000,
-      false,
-    );
+    const restarted = createTrainingSession({
+      userId: withFinishedFirstQuestion.userId,
+      questionType: withFinishedFirstQuestion.questionType,
+      subtype: withFinishedFirstQuestion.subtype,
+      questionCount: 10,
+      now: 20_000,
+      createSessionId: () => "replacement-session",
+      generationContext: {
+        random: () => 0.42,
+        createId: (() => {
+          let id = 0;
+          return () => `replacement-question-${id++}`;
+        })(),
+      },
+    });
 
-    expect(completed.records.map((record) => record.timeUsedMs)).toEqual([
-      3_000, 2_000,
-    ]);
-    expect(completed.records[1].restartCount).toBe(1);
+    expect(restarted).toMatchObject({
+      id: "replacement-session",
+      currentIndex: 0,
+      records: [],
+      currentAnswer: "",
+      currentRestartCount: 0,
+      accumulatedMs: 0,
+      runningSince: 20_000,
+    });
   });
 
   it("cannot create duplicate records or skip a question when submit is tapped rapidly", () => {

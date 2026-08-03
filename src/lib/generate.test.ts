@@ -4,7 +4,7 @@ import {
   FRACTION_COMPARISON_QUOTAS,
   FRACTION_PERCENT_QUOTAS,
   FRACTION_CANDIDATES,
-  MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
+  FOUR_THREE_DIGIT_ADDITION_QUOTAS,
   GenerationContext,
   THREE_DIGIT_ADD_SUBTRACT_QUOTAS,
   THREE_BY_TWO_DIVISION_QUOTAS,
@@ -17,7 +17,8 @@ import {
   classifyThreeByTwoDivision,
   classifyMultiDigitDivision,
   classifyFractionComparison,
-  classifyMultiNumberAddSubtract,
+  additionCarryProfile,
+  classifyFourThreeDigitAddition,
   classifyTwoByOneMultiply,
   classifyTwoByTwoMultiply,
   classifyTwoDigitAddSubtract,
@@ -147,7 +148,7 @@ describe("question generators", () => {
     ).toBe(true);
   });
 
-  it("finishes multi-number generation when an injected random source repeats", () => {
+  it("finishes four-addend generation when an injected random source repeats", () => {
     const fallbackEvents: { attempts: number }[] = [];
     const constrainedContext: GenerationContext = {
       random: () => 0,
@@ -161,9 +162,15 @@ describe("question generators", () => {
       constrainedContext,
     );
 
-    expect(question.prompt).toBe("101+101+101=");
-    expect(question.answer).toBe("303");
-    expect(question.primaryStructure).toBe("three_three_digit_add");
+    expect(question.data.values as string[]).toHaveLength(4);
+    expect(question.primaryStructure).toBe("single_column_carry");
+    expect(question.answer).toBe(
+      String(
+        (question.data.values as string[])
+          .map(Number)
+          .reduce((sum, value) => sum + value, 0),
+      ),
+    );
     expect(fallbackEvents).toEqual([]);
   });
 
@@ -607,22 +614,23 @@ describe("question generators", () => {
     expect(first).toEqual(second);
   });
 
-  it("classifies every multi-number add/subtract structure", () => {
-    expect(classifyMultiNumberAddSubtract([123, 234, 345], ["+", "+"])).toBe(
-      "three_three_digit_add",
+  it("classifies four-three-digit addition by real column carries", () => {
+    expect(classifyFourThreeDigitAddition([101, 201, 301, 401])).toBe(
+      "single_column_carry",
     );
+    expect(classifyFourThreeDigitAddition([131, 231, 331, 431])).toBe(
+      "double_column_carry",
+    );
+    expect(classifyFourThreeDigitAddition([123, 223, 323, 331])).toBe(
+      "triple_column_carry",
+    );
+    expect(classifyFourThreeDigitAddition([777, 778, 889, 899])).toBe(
+      "high_carry_load",
+    );
+    expect(classifyFourThreeDigitAddition([123, 234, 345])).toBeUndefined();
     expect(
-      classifyMultiNumberAddSubtract([123, 234, 345, 456], ["+", "+", "+"]),
-    ).toBe("four_three_digit_add");
-    expect(classifyMultiNumberAddSubtract([1234, 2345, 3456], ["+", "+"])).toBe(
-      "three_large_add",
-    );
-    expect(classifyMultiNumberAddSubtract([9000, 1234, 2345], ["-", "-"])).toBe(
-      "total_minus_parts",
-    );
-    expect(classifyMultiNumberAddSubtract([4000, 3000, 2000], ["+", "-"])).toBe(
-      "mixed_add_subtract",
-    );
+      classifyFourThreeDigitAddition([123, 234, 345, 4567]),
+    ).toBeUndefined();
   });
 
   it("keeps three-by-two division inside its real quotient range and exact quotas", () => {
@@ -677,7 +685,7 @@ describe("question generators", () => {
     );
   });
 
-  it("creates exact multi-number quotas with nonnegative, correct answers", () => {
+  it("creates exact four-three-digit addition quotas with correct carry metadata", () => {
     [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
       const questions = generateSet(
         "multi_number_add_subtract",
@@ -686,7 +694,7 @@ describe("question generators", () => {
         deterministicContext(count + 500),
       );
       const expected = new Map(
-        allocateStructureQuota(count, MULTI_NUMBER_ADD_SUBTRACT_QUOTAS).map(
+        allocateStructureQuota(count, FOUR_THREE_DIGIT_ADDITION_QUOTAS).map(
           ({ primaryStructure, count: structureCount }) => [
             primaryStructure,
             structureCount,
@@ -694,21 +702,43 @@ describe("question generators", () => {
         ),
       );
       const actual = new Map<string, number>();
+      const difficultyByStructure: Record<string, number> = {
+        single_column_carry: 2,
+        double_column_carry: 3,
+        triple_column_carry: 4,
+        high_carry_load: 5,
+      };
       questions.forEach((question) => {
         const values = (question.data.values as string[]).map(Number);
-        const operators = question.data.operators as ("+" | "-")[];
-        expect(classifyMultiNumberAddSubtract(values, operators)).toBe(
+        const operators = question.data.operators as string[];
+        expect(values).toHaveLength(4);
+        expect(values.every((value) => value >= 100 && value <= 999)).toBe(
+          true,
+        );
+        expect(operators).toEqual(["+", "+", "+"]);
+        expect(classifyFourThreeDigitAddition(values)).toBe(
           question.primaryStructure,
         );
-        const answer = values
-          .slice(1)
-          .reduce(
-            (total, value, index) =>
-              operators[index] === "+" ? total + value : total - value,
-            values[0],
-          );
-        expect(answer).toBeGreaterThanOrEqual(0);
+        const answer = values.reduce((sum, value) => sum + value, 0);
         expect(question.answer).toBe(String(answer));
+        const carries = additionCarryProfile(values);
+        expect(carries).toEqual({
+          onesCarry: question.data.onesCarry,
+          tensCarry: question.data.tensCarry,
+          hundredsCarry: question.data.hundredsCarry,
+        });
+        expect(question.generationRuleVersion).toBe(GENERATOR_VERSION);
+        expect(question.difficulty.level).toBe(
+          difficultyByStructure[question.primaryStructure],
+        );
+        const carryValues = carries ? Object.values(carries) : [];
+        expect(carryValues.some((carry) => carry > 0)).toBe(true);
+        if (question.primaryStructure === "high_carry_load") {
+          expect(carryValues.every((carry) => carry > 0)).toBe(true);
+          expect(Math.max(...carryValues)).toBeGreaterThanOrEqual(2);
+        } else {
+          expect(Math.max(...carryValues)).toBe(1);
+        }
         actual.set(
           question.primaryStructure,
           (actual.get(question.primaryStructure) ?? 0) + 1,
@@ -718,7 +748,7 @@ describe("question generators", () => {
     });
   });
 
-  it("reproduces a structured multi-number set with a fixed generation context", () => {
+  it("reproduces a structured four-addend set with a fixed generation context", () => {
     expect(
       generateSet(
         "multi_number_add_subtract",

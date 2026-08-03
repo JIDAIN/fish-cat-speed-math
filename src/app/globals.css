@@ -243,20 +243,71 @@ h2 {
 }
 .pad .submit {
   min-height: clamp(44px, 6.5dvh, 54px);
+  color: var(--ink);
 }
-.comparison {
+.fractionComparisonQuestion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(20px, 8vw, 48px);
+  width: min(100%, 560px);
+  margin: clamp(28px, 8dvh, 74px) auto 0;
+  color: var(--ink);
+}
+.fractionComparisonQuestion > strong {
+  color: var(--green-700);
+  font-size: clamp(34px, 10vw, 48px);
+  line-height: 1;
+}
+.verticalFraction {
+  display: grid;
+  justify-self: center;
+  min-width: clamp(76px, 24vw, 132px);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(36px, 11vw, 58px);
+  font-weight: 600;
+  line-height: 1.05;
+}
+.verticalFraction span {
+  padding: 2px 8px;
+}
+.verticalFraction span:first-child {
+  border-bottom: 3px solid currentColor;
+}
+.comparisonPad {
+  display: grid;
+  gap: 8px;
+}
+.comparisonChoices {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
-.comparison button {
+.comparisonChoices button {
   min-height: clamp(52px, 8dvh, 72px);
-  font-size: clamp(26px, 8vw, 32px);
+  font-size: clamp(20px, 6vw, 26px);
 }
-.comparison .primary {
-  grid-column: span 3;
-  min-height: 48px;
+.comparisonChoices button.selected {
+  border-color: var(--green-700);
+  background: var(--green-700);
+  color: white;
+}
+.comparisonActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.comparisonActions button {
+  min-height: clamp(48px, 7dvh, 64px);
   font-size: 17px;
+}
+.comparisonActions .restartTrainingButton {
+  background: var(--green-100);
+  color: var(--green-900);
+}
+.comparisonActions .primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .optionPad {

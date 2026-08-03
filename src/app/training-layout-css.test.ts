@@ -24,5 +24,20 @@ describe("mobile training layout CSS contract", () => {
     expect(stylesheet).toMatch(
       /\.pad button\s*\{[^}]*min-height:\s*clamp\(44px,/s,
     );
+    expect(stylesheet).toMatch(
+      /\.pad \.submit\s*\{[^}]*color:\s*var\(--ink\);/s,
+    );
+  });
+
+  it("uses vertical fractions and a two-tier comparison action area", () => {
+    expect(stylesheet).toMatch(
+      /\.fractionComparisonQuestion\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\)/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.verticalFraction span:first-child\s*\{[^}]*border-bottom:/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.comparisonActions\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s,
+    );
   });
 });

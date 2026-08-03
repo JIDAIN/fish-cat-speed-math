@@ -1,6 +1,6 @@
 import { GeneratedQuestion, QuestionType, Subtype } from "./types";
 
-export const GENERATOR_VERSION = "2.0.0";
+export const GENERATOR_VERSION = "2.1.0";
 export const MAX_GENERATION_ATTEMPTS = 24;
 const MAX_NON_ROUND_ATTEMPTS = 12;
 
@@ -86,19 +86,22 @@ export const FRACTION_COMPARISON_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "equal_fractions", ratio: 0.1 },
 ];
 
-export type MultiNumberAddSubtractStructure =
-  | "three_three_digit_add"
-  | "four_three_digit_add"
-  | "three_large_add"
-  | "total_minus_parts"
-  | "mixed_add_subtract";
+export type FourThreeDigitAdditionStructure =
+  | "single_column_carry"
+  | "double_column_carry"
+  | "triple_column_carry"
+  | "high_carry_load";
 
-export const MULTI_NUMBER_ADD_SUBTRACT_QUOTAS: readonly StructureQuota[] = [
-  { primaryStructure: "three_three_digit_add", ratio: 0.2 },
-  { primaryStructure: "four_three_digit_add", ratio: 0.2 },
-  { primaryStructure: "three_large_add", ratio: 0.2 },
-  { primaryStructure: "total_minus_parts", ratio: 0.2 },
-  { primaryStructure: "mixed_add_subtract", ratio: 0.2 },
+/**
+ * Four-addend training should be dominated by realistic multi-column carries.
+ * The lightest structure remains only as a short warm-up and no-carry questions
+ * are intentionally excluded from normal sets.
+ */
+export const FOUR_THREE_DIGIT_ADDITION_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "single_column_carry", ratio: 0.1 },
+  { primaryStructure: "double_column_carry", ratio: 0.25 },
+  { primaryStructure: "triple_column_carry", ratio: 0.4 },
+  { primaryStructure: "high_carry_load", ratio: 0.25 },
 ];
 
 export type ThreeByTwoDivisionStructure =
@@ -270,8 +273,8 @@ const structuredFractionComparisonQuestion = (
   secondaryTags: [],
 });
 
-const structuredMultiNumberQuestion = (
-  primaryStructure: MultiNumberAddSubtractStructure,
+const structuredFourAdditionQuestion = (
+  primaryStructure: FourThreeDigitAdditionStructure,
 ) => ({ primaryStructure, secondaryTags: [] });
 
 const randomInteger = (context: GenerationContext, min: number, max: number) =>
@@ -627,101 +630,174 @@ function randomFractionComparisonStructure(
   return "equal_fractions";
 }
 
-export function classifyMultiNumberAddSubtract(
-  values: readonly number[],
-  operators: readonly ("+" | "-")[],
-): MultiNumberAddSubtractStructure | undefined {
-  if (!values.length || operators.length !== values.length - 1)
-    return undefined;
-  if (
-    !values.every(Number.isInteger) ||
-    !operators.every((operator) => operator === "+" || operator === "-")
-  )
-    return undefined;
-  const allThreeDigit = values.every((value) => value >= 100 && value <= 999);
-  const allLarge = values.every((value) => value >= 1000 && value <= 99999);
-  if (operators.every((operator) => operator === "+") && allThreeDigit)
-    return values.length === 3
-      ? "three_three_digit_add"
-      : values.length === 4
-        ? "four_three_digit_add"
-        : undefined;
-  if (
-    operators.every((operator) => operator === "+") &&
-    values.length === 3 &&
-    allLarge
-  )
-    return "three_large_add";
-  if (operators.every((operator) => operator === "-") && values.length === 3)
-    return "total_minus_parts";
-  if (values.length === 3 && operators[0] === "+" && operators[1] === "-")
-    return "mixed_add_subtract";
-  return undefined;
+export interface AdditionCarryProfile {
+  onesCarry: number;
+  tensCarry: number;
+  hundredsCarry: number;
 }
 
-function buildMultiNumberQuestion(
+export function additionCarryProfile(
+  values: readonly number[],
+): AdditionCarryProfile | undefined {
+  if (
+    values.length !== 4 ||
+    !values.every(
+      (value) => Number.isInteger(value) && value >= 100 && value <= 999,
+    )
+  )
+    return undefined;
+  const onesCarry = Math.floor(
+    values.reduce((sum, value) => sum + (value % 10), 0) / 10,
+  );
+  const tensCarry = Math.floor(
+    (values.reduce((sum, value) => sum + (Math.floor(value / 10) % 10), 0) +
+      onesCarry) /
+      10,
+  );
+  const hundredsCarry = Math.floor(
+    (values.reduce((sum, value) => sum + Math.floor(value / 100), 0) +
+      tensCarry) /
+      10,
+  );
+  return { onesCarry, tensCarry, hundredsCarry };
+}
+
+export function classifyFourThreeDigitAddition(
+  values: readonly number[],
+): FourThreeDigitAdditionStructure | undefined {
+  const profile = additionCarryProfile(values);
+  if (!profile) return undefined;
+  const carries = [profile.onesCarry, profile.tensCarry, profile.hundredsCarry];
+  const activeColumns = carries.filter((carry) => carry > 0).length;
+  if (activeColumns === 0) return undefined;
+  if (Math.max(...carries) >= 2) return "high_carry_load";
+  if (activeColumns === 1) return "single_column_carry";
+  if (activeColumns === 2) return "double_column_carry";
+  return "triple_column_carry";
+}
+
+function digitsWithSum(
   context: GenerationContext,
-  primaryStructure: MultiNumberAddSubtractStructure,
-): GeneratedQuestion {
-  let values: number[];
-  let operators: ("+" | "-")[];
-  if (primaryStructure === "three_three_digit_add") {
-    values = Array.from({ length: 3 }, () => nonRound(context, 101, 999));
-    operators = ["+", "+"];
-  } else if (primaryStructure === "four_three_digit_add") {
-    values = Array.from({ length: 4 }, () => nonRound(context, 101, 999));
-    operators = ["+", "+", "+"];
-  } else if (primaryStructure === "three_large_add") {
-    values = Array.from({ length: 3 }, () => nonRound(context, 1001, 99999));
-    operators = ["+", "+"];
-  } else if (primaryStructure === "total_minus_parts") {
-    const b = nonRound(context, 101, 9999);
-    const c = nonRound(context, 101, 9999);
-    values = [b + c + nonRound(context, 101, 9999), b, c];
-    operators = ["-", "-"];
-  } else {
-    const a = nonRound(context, 1001, 9999);
-    const b = nonRound(context, 1001, 9999);
-    values = [a, b, nonRound(context, 101, a + b - 1)];
-    operators = ["+", "-"];
+  target: number,
+  minimum: number,
+  maximum: number,
+): number[] {
+  const digits = Array.from({ length: 4 }, () => minimum);
+  let remaining = target - minimum * digits.length;
+  const capacity = maximum - minimum;
+  for (let index = 0; index < digits.length; index += 1) {
+    const slotsAfter = digits.length - index - 1;
+    const lower = Math.max(0, remaining - slotsAfter * capacity);
+    const upper = Math.min(capacity, remaining);
+    const increment = randomInteger(context, lower, upper);
+    digits[index] += increment;
+    remaining -= increment;
   }
-  const answer = values
-    .slice(1)
-    .reduce(
-      (total, value, index) =>
-        operators[index] === "+" ? total + value : total - value,
-      values[0],
-    );
-  const prompt = values
-    .slice(1)
-    .reduce(
-      (text, value, index) => `${text}${operators[index]}${value}`,
-      String(values[0]),
-    );
+  return shuffle(context, digits);
+}
+
+function columnDigitsForCarry(
+  context: GenerationContext,
+  incomingCarry: number,
+  outgoingCarry: number,
+  minimumDigit: number,
+): number[] {
+  const minimumSum = Math.max(
+    minimumDigit * 4,
+    outgoingCarry * 10 - incomingCarry,
+  );
+  const maximumSum = Math.min(36, outgoingCarry * 10 + 9 - incomingCarry);
+  return digitsWithSum(
+    context,
+    randomInteger(context, minimumSum, maximumSum),
+    minimumDigit,
+    9,
+  );
+}
+
+function targetCarryProfile(
+  context: GenerationContext,
+  primaryStructure: FourThreeDigitAdditionStructure,
+): readonly [number, number, number] {
+  if (primaryStructure === "single_column_carry") {
+    const result: [number, number, number] = [0, 0, 0];
+    result[randomInteger(context, 0, 2)] = 1;
+    return result;
+  }
+  if (primaryStructure === "double_column_carry") {
+    const profiles: readonly (readonly [number, number, number])[] = [
+      [0, 1, 1],
+      [1, 0, 1],
+      [1, 1, 0],
+    ];
+    return profiles[randomInteger(context, 0, profiles.length - 1)];
+  }
+  if (primaryStructure === "triple_column_carry") return [1, 1, 1];
+  const profiles: readonly (readonly [number, number, number])[] = [
+    [2, 1, 1],
+    [1, 2, 1],
+    [1, 1, 2],
+    [2, 2, 2],
+    [3, 2, 2],
+  ];
+  return profiles[randomInteger(context, 0, profiles.length - 1)];
+}
+
+function buildFourThreeDigitAdditionQuestion(
+  context: GenerationContext,
+  primaryStructure: FourThreeDigitAdditionStructure,
+): GeneratedQuestion {
+  const [onesCarry, tensCarry, hundredsCarry] = targetCarryProfile(
+    context,
+    primaryStructure,
+  );
+  const ones = columnDigitsForCarry(context, 0, onesCarry, 1);
+  const tens = columnDigitsForCarry(context, onesCarry, tensCarry, 0);
+  const hundreds = columnDigitsForCarry(context, tensCarry, hundredsCarry, 1);
+  const values = hundreds.map(
+    (digit, index) => digit * 100 + tens[index] * 10 + ones[index],
+  );
+  const answer = values.reduce((sum, value) => sum + value, 0);
+  const prompt = `${values.join("+")}=`;
+  const levelByStructure: Record<
+    FourThreeDigitAdditionStructure,
+    2 | 3 | 4 | 5
+  > = {
+    single_column_carry: 2,
+    double_column_carry: 3,
+    triple_column_carry: 4,
+    high_carry_load: 5,
+  };
   return q(
     context,
     "multi_number_add_subtract",
     "standard",
-    `${prompt}=`,
+    prompt,
     String(answer),
-    { values: values.map(String), operators },
-    4,
-    ["多项", "凑整"],
+    {
+      values: values.map(String),
+      operators: ["+", "+", "+"],
+      onesCarry,
+      tensCarry,
+      hundredsCarry,
+    },
+    levelByStructure[primaryStructure],
+    ["四项", "三位数", "连续相加"],
     undefined,
-    structuredMultiNumberQuestion(primaryStructure),
+    structuredFourAdditionQuestion(primaryStructure),
   );
 }
 
-function randomMultiNumberStructure(
+function randomFourAdditionStructure(
   context: GenerationContext,
-): MultiNumberAddSubtractStructure {
+): FourThreeDigitAdditionStructure {
   const index = randomInteger(
     context,
     0,
-    MULTI_NUMBER_ADD_SUBTRACT_QUOTAS.length - 1,
+    FOUR_THREE_DIGIT_ADDITION_QUOTAS.length - 1,
   );
-  return MULTI_NUMBER_ADD_SUBTRACT_QUOTAS[index]
-    .primaryStructure as MultiNumberAddSubtractStructure;
+  return FOUR_THREE_DIGIT_ADDITION_QUOTAS[index]
+    .primaryStructure as FourThreeDigitAdditionStructure;
 }
 
 export function classifyThreeByTwoDivision(
@@ -1452,16 +1528,7 @@ function fallbackQuestion(
     );
   }
   if (type === "multi_number_add_subtract")
-    return q(
-      context,
-      type,
-      subtype,
-      "9876－2345－1234＝",
-      "6297",
-      { a: 9876, b: 2345, c: 1234, subtract: true },
-      4,
-      ["多项", "凑整", "fallback"],
-    );
+    return buildFourThreeDigitAdditionQuestion(context, "triple_column_carry");
   if (type === "fraction_percent_conversion") {
     if (subtype === "percent_to_fraction")
       return q(
@@ -1534,9 +1601,9 @@ export function generateQuestion(
     );
   }
   if (type === "multi_number_add_subtract")
-    return buildMultiNumberQuestion(
+    return buildFourThreeDigitAdditionQuestion(
       context,
-      randomMultiNumberStructure(context),
+      randomFourAdditionStructure(context),
     );
   if (type === "three_by_two_division") {
     const index = randomInteger(
@@ -1732,12 +1799,12 @@ export function generateSet(
   if (type === "multi_number_add_subtract") {
     const questions = allocateStructureQuota(
       count,
-      MULTI_NUMBER_ADD_SUBTRACT_QUOTAS,
+      FOUR_THREE_DIGIT_ADDITION_QUOTAS,
     ).flatMap(({ primaryStructure, count: structureCount }) =>
       Array.from({ length: structureCount }, () =>
-        buildMultiNumberQuestion(
+        buildFourThreeDigitAdditionQuestion(
           context,
-          primaryStructure as MultiNumberAddSubtractStructure,
+          primaryStructure as FourThreeDigitAdditionStructure,
         ),
       ),
     );

@@ -1,21 +1,55 @@
-import { TrainingSession } from "./types";
+import {
+  generateSet,
+  GenerationContext,
+  productionGenerationContext,
+} from "./generate";
+import { isValidQuestionCount } from "./question-count";
+import { QuestionType, Subtype, TrainingSession } from "./types";
 
-/**
- * Restarts the question currently on screen. Time spent before restarting is
- * intentionally discarded, while the number of restarts is kept for review.
- */
-export function restartCurrentQuestion(
-  session: TrainingSession,
+interface CreateTrainingSessionOptions {
+  userId: string;
+  questionType: QuestionType;
+  subtype: Subtype;
+  questionCount: number;
+  now?: number;
+  createSessionId?: () => string;
+  generationContext?: GenerationContext;
+}
+
+/** Creates one entirely fresh training run from frozen training parameters. */
+export function createTrainingSession({
+  userId,
+  questionType,
+  subtype,
+  questionCount,
   now = Date.now(),
-): TrainingSession {
+  createSessionId = () => globalThis.crypto.randomUUID(),
+  generationContext = productionGenerationContext,
+}: CreateTrainingSessionOptions): TrainingSession {
+  if (!isValidQuestionCount(questionCount)) {
+    throw new RangeError("Invalid question count");
+  }
+
   return {
-    ...session,
-    currentAnswer: "",
-    currentRestartCount: (session.currentRestartCount ?? 0) + 1,
-    accumulatedMs: session.records.reduce(
-      (total, record) => total + record.timeUsedMs,
-      0,
+    id: createSessionId(),
+    userId,
+    questionType,
+    subtype,
+    questionCount,
+    questions: generateSet(
+      questionType,
+      subtype,
+      questionCount,
+      generationContext,
     ),
+    currentIndex: 0,
+    records: [],
+    currentAnswer: "",
+    currentRestartCount: 0,
+    accumulatedMs: 0,
     runningSince: now,
+    pauseDurationMs: 0,
+    status: "active",
+    startedAt: now,
   };
 }

@@ -28,6 +28,16 @@ const question: GeneratedQuestion = {
   generationRuleVersion: "test",
 };
 
+const fractionComparisonQuestion: GeneratedQuestion = {
+  ...question,
+  id: "fraction-comparison-question",
+  type: "fraction_comparison",
+  subtype: "comparison",
+  prompt: "53/104 ？ 88/175",
+  answer: "＞",
+  data: { a: 53, b: 104, c: 88, d: 175 },
+};
+
 function activeSession(
   overrides: Partial<TrainingSession> = {},
 ): TrainingSession {
@@ -87,7 +97,7 @@ describe("Home active-session interactions", () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
 
-    expect(await screen.findByText("重开本题")).toBeTruthy();
+    expect(await screen.findByText("重开训练")).toBeTruthy();
     await waitFor(async () => {
       const active = await readActive();
       expect(active?.status).toBe("active");
@@ -170,7 +180,7 @@ describe("Home active-session interactions", () => {
     fireEvent.click(startButton);
     fireEvent.click(startButton);
 
-    expect(await screen.findByText("重开本题")).toBeTruthy();
+    expect(await screen.findByText("重开训练")).toBeTruthy();
     await waitFor(async () => {
       // The real storage implementation removes stale active records. The
       // page-level in-flight guard prevents a second local creation request.
@@ -190,7 +200,13 @@ describe("Home active-session interactions", () => {
 
     expect(await screen.findByText("5+5")).toBeTruthy();
     expect(screen.getByText("保留答案")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /重开本题（2）/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "重开训练" })).toBeTruthy();
+    await expect(readActive()).resolves.toMatchObject({
+      id: saved.id,
+      currentIndex: 1,
+      currentAnswer: "保留答案",
+      currentRestartCount: 2,
+    });
   });
 
   it.each([
@@ -234,6 +250,42 @@ describe("Home active-session interactions", () => {
     },
   );
 
+  it("renders fraction comparison as vertical fractions with labeled controls", async () => {
+    await saveSession(
+      activeSession({
+        questionType: "fraction_comparison",
+        subtype: "comparison",
+        questions: [fractionComparisonQuestion],
+        currentIndex: 0,
+        records: [],
+        currentAnswer: "",
+        currentRestartCount: 0,
+      }),
+    );
+    render(<Home />);
+
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "继续原训练" }));
+
+    expect(
+      await screen.findByLabelText(fractionComparisonQuestion.prompt),
+    ).toBeTruthy();
+    expect(screen.getByText("53")).toBeTruthy();
+    expect(screen.getByText("104")).toBeTruthy();
+    expect(screen.getByText("88")).toBeTruthy();
+    expect(screen.getByText("175")).toBeTruthy();
+    expect(screen.getByLabelText("当前选择").textContent).toBe("?");
+    expect(document.querySelector(".answer")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "大于" }));
+    expect(screen.getByLabelText("当前选择").textContent).toBe("＞");
+    expect(
+      (screen.getByRole("button", { name: "确定" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    expect(screen.getByRole("button", { name: "重开训练" })).toBeTruthy();
+  });
+
   it("abandons the old active session before creating a different new one", async () => {
     const saved = activeSession();
     await saveSession(saved);
@@ -243,7 +295,7 @@ describe("Home active-session interactions", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "放弃原训练并开始新的" }),
     );
-    expect(await screen.findByText("重开本题")).toBeTruthy();
+    expect(await screen.findByText("重开训练")).toBeTruthy();
 
     await waitFor(async () => {
       const active = await readActive();
@@ -259,7 +311,7 @@ describe("Home active-session interactions", () => {
 
     await screen.findByRole("dialog");
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    expect(screen.queryByText("重开本题")).toBeNull();
+    expect(screen.queryByText("重开训练")).toBeNull();
     await expect(readActive()).resolves.toMatchObject({
       id: saved.id,
       currentAnswer: "保留答案",
@@ -267,37 +319,44 @@ describe("Home active-session interactions", () => {
     });
   });
 
-  it("clears answer and scratch state on restart, persists restart count, and records it on submit", async () => {
+  it("discards the old run and starts a fresh training set with frozen settings", async () => {
     const saved = activeSession({
-      questions: [question],
-      currentIndex: 0,
-      records: [],
-      currentAnswer: "8",
-      currentRestartCount: 0,
+      currentAnswer: "10",
     });
+    const oldQuestionIds = saved.questions.map(({ id }) => id);
     await saveSession(saved);
     render(<Home />);
     await screen.findByRole("dialog");
     fireEvent.click(screen.getByRole("button", { name: "继续原训练" }));
-    await screen.findByText("4+4");
+    await screen.findByText("5+5");
 
     fireEvent.click(screen.getByRole("button", { name: /草稿/ }));
     expect(await screen.findByText("完成草稿")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "重开本题" }));
-    expect(screen.queryByText("完成草稿")).toBeNull();
-    expect(document.querySelector(".answer")?.textContent).toBe("—");
+    const restartButton = screen.getByRole("button", { name: "重开训练" });
+    fireEvent.click(restartButton);
+    fireEvent.click(restartButton);
 
     await waitFor(async () => {
-      await expect(readActive()).resolves.toMatchObject({
-        currentRestartCount: 1,
+      const active = await readActive();
+      expect(active).toMatchObject({
+        userId: saved.userId,
+        questionType: saved.questionType,
+        subtype: saved.subtype,
+        questionCount: saved.questionCount,
+        currentIndex: 0,
+        records: [],
+        currentAnswer: "",
+        currentRestartCount: 0,
+        accumulatedMs: 0,
+        status: "active",
       });
+      expect(active?.id).not.toBe(saved.id);
+      expect(active?.questions).toHaveLength(saved.questionCount);
+      expect(active?.questions.map(({ id }) => id)).not.toEqual(oldQuestionIds);
     });
-    fireEvent.click(screen.getByRole("button", { name: "重开本题（1）" }));
-    fireEvent.click(screen.getByRole("button", { name: "8" }));
-    fireEvent.click(screen.getByRole("button", { name: "确定" }));
-
-    expect(await screen.findByText("训练完成！")).toBeTruthy();
-    expect(screen.getByText("2次")).toBeTruthy();
-    expect(document.querySelectorAll(".questionRow")).toHaveLength(1);
+    expect(screen.queryByText("完成草稿")).toBeNull();
+    expect(document.querySelector(".answer")?.textContent).toBe("");
+    expect(screen.getByText(`1/${saved.questionCount}`)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "重开训练" })).toBeTruthy();
   });
 });

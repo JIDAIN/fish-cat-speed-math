@@ -38,6 +38,7 @@ export interface QuestionRecord {
   isCorrect: boolean;
   accuracyLevel: "exact" | "accepted" | "wrong";
   timeUsedMs: number;
+  /** Retained so historical records created by the former per-question restart remain readable. */
   restartCount: number;
   usedScratchpad: boolean;
 }
@@ -52,7 +53,7 @@ export interface TrainingSession {
   currentIndex: number;
   records: QuestionRecord[];
   currentAnswer: string;
-  /** Restarts for the question currently on screen; copied into QuestionRecord on submit. */
+  /** Legacy-compatible field; new whole-training restarts always initialize it to zero. */
   currentRestartCount: number;
   accumulatedMs: number;
   runningSince: number | null;
@@ -69,7 +70,7 @@ export const typeLabels: Record<QuestionType, string> = {
   two_by_two_multiply: "两位数×两位数",
   three_by_two_division: "三位数÷两位数",
   multi_digit_division: "多位数直除",
-  multi_number_add_subtract: "多数加减",
+  multi_number_add_subtract: "多位数相加",
   fraction_percent_conversion: "分数—百分数",
   fraction_comparison: "分数比大小",
 };
