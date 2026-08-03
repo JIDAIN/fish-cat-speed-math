@@ -1,6 +1,6 @@
 import { GeneratedQuestion, QuestionType, Subtype } from "./types";
 
-export const GENERATOR_VERSION = "2.1.0";
+export const GENERATOR_VERSION = "2.2.0";
 export const MAX_GENERATION_ATTEMPTS = 24;
 const MAX_NON_ROUND_ATTEMPTS = 12;
 
@@ -68,11 +68,7 @@ export const TWO_BY_TWO_MULTIPLY_QUOTAS: readonly StructureQuota[] = [
 ];
 
 export type FractionComparisonStructure =
-  | "direct_comparison"
-  | "same_direction"
-  | "near_half"
-  | "general_comparison"
-  | "equal_fractions";
+  "direct_comparison" | "same_direction" | "near_half" | "general_comparison";
 
 /**
  * Primary structures are mutually exclusive. Secondary tags remain available
@@ -82,8 +78,7 @@ export const FRACTION_COMPARISON_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "direct_comparison", ratio: 0.1 },
   { primaryStructure: "same_direction", ratio: 0.4 },
   { primaryStructure: "near_half", ratio: 0.2 },
-  { primaryStructure: "general_comparison", ratio: 0.2 },
-  { primaryStructure: "equal_fractions", ratio: 0.1 },
+  { primaryStructure: "general_comparison", ratio: 0.3 },
 ];
 
 export type FourThreeDigitAdditionStructure =
@@ -474,8 +469,9 @@ const isNearHalf = (numerator: number, denominator: number) =>
 
 /**
  * The ordered checks keep overlapping visual patterns out of quota buckets.
- * Equal fractions and immediately decidable pairs take priority over the
- * more demanding same-direction and near-half strategies.
+ * Equal fractions are excluded from new sets because the training interaction
+ * only asks users to choose greater-than or less-than. Immediately decidable
+ * pairs take priority over the more demanding strategy buckets.
  */
 export function classifyFractionComparison(
   a: number,
@@ -485,7 +481,7 @@ export function classifyFractionComparison(
 ): FractionComparisonStructure | undefined {
   if (!isValidFraction(a, b) || !isValidFraction(c, d)) return undefined;
 
-  if (a * d === c * b) return "equal_fractions";
+  if (a * d === c * b) return undefined;
   if (isNearHalf(a, b) && isNearHalf(c, d)) return "near_half";
 
   const direct = a === c || b === d || (a > c && b < d) || (a < c && b > d);
@@ -521,7 +517,6 @@ function fallbackFractionComparison(
     same_direction: { a: 41, b: 83, c: 47, d: 97 },
     near_half: { a: 49, b: 99, c: 51, d: 101 },
     general_comparison: { a: 31, b: 79, c: 43, d: 107 },
-    equal_fractions: { a: 17, b: 51, c: 34, d: 102 },
   };
   const { a, b, c, d } = fallback[primaryStructure];
   return q(
@@ -549,17 +544,6 @@ function fractionComparisonOperandsForStructure(
       b: randomInteger(context, a + 20, 180),
       c: a,
       d: randomInteger(context, a + 21, 200),
-    };
-  }
-  if (primaryStructure === "equal_fractions") {
-    const numerator = randomInteger(context, 11, 49);
-    const denominator = randomInteger(context, numerator + 11, 99);
-    const multiplier = randomInteger(context, 2, 4);
-    return {
-      a: numerator,
-      b: denominator,
-      c: numerator * multiplier,
-      d: denominator * multiplier,
     };
   }
   if (primaryStructure === "near_half") {
@@ -626,8 +610,7 @@ function randomFractionComparisonStructure(
   if (choice < 0.1) return "direct_comparison";
   if (choice < 0.5) return "same_direction";
   if (choice < 0.7) return "near_half";
-  if (choice < 0.9) return "general_comparison";
-  return "equal_fractions";
+  return "general_comparison";
 }
 
 export interface AdditionCarryProfile {

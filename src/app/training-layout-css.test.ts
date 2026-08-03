@@ -39,5 +39,8 @@ describe("mobile training layout CSS contract", () => {
     expect(stylesheet).toMatch(
       /\.comparisonActions\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s,
     );
+    expect(stylesheet).toMatch(
+      /\.comparisonChoices\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s,
+    );
   });
 });

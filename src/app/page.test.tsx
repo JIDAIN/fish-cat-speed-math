@@ -276,6 +276,7 @@ describe("Home active-session interactions", () => {
     expect(screen.getByText("175")).toBeTruthy();
     expect(screen.getByLabelText("当前选择").textContent).toBe("?");
     expect(document.querySelector(".answer")).toBeNull();
+    expect(screen.queryByRole("button", { name: "等于" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "大于" }));
     expect(screen.getByLabelText("当前选择").textContent).toBe(">");

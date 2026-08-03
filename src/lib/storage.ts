@@ -163,6 +163,16 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
         ? "completed"
         : "active";
 
+  // Version 2.2.0 removed equality questions and the equality control. An
+  // older active set containing one cannot be completed with the current UI,
+  // so do not offer it for recovery. Completed history remains readable.
+  if (
+    status === "active" &&
+    value.questionType === "fraction_comparison" &&
+    questions.some((question) => question.answer === "=")
+  )
+    return undefined;
+
   // Earlier releases did not persist questionCount. Use the frozen question
   // set length rather than reinterpreting an old record with new UI rules.
   const savedQuestionCount = value.questionCount;

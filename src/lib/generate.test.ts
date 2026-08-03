@@ -556,7 +556,7 @@ describe("question generators", () => {
     expect(classifyFractionComparison(31, 79, 43, 107)).toBe(
       "general_comparison",
     );
-    expect(classifyFractionComparison(17, 51, 34, 102)).toBe("equal_fractions");
+    expect(classifyFractionComparison(17, 51, 34, 102)).toBeUndefined();
     expect(classifyFractionComparison(10, 10, 1, 2)).toBeUndefined();
   });
 
@@ -594,13 +594,15 @@ describe("question generators", () => {
             d as number,
           ),
         ).toBe(question.primaryStructure);
+        expect((a as number) * (d as number)).not.toBe(
+          (c as number) * (b as number),
+        );
         const expectedAnswer =
-          (a as number) * (d as number) === (c as number) * (b as number)
-            ? "="
-            : (a as number) * (d as number) > (c as number) * (b as number)
-              ? ">"
-              : "<";
+          (a as number) * (d as number) > (c as number) * (b as number)
+            ? ">"
+            : "<";
         expect(question.answer).toBe(expectedAnswer);
+        expect(question.answer).not.toBe("=");
         actual.set(
           question.primaryStructure,
           (actual.get(question.primaryStructure) ?? 0) + 1,

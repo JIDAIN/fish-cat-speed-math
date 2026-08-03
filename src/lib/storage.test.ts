@@ -260,6 +260,40 @@ describe("IndexedDB training storage", () => {
     });
   });
 
+  it("does not recover a legacy active comparison set containing equality questions", async () => {
+    const baseQuestion = generateQuestion("fraction_comparison", "comparison");
+    const equalityQuestions = Array.from({ length: 10 }, (_, index) => ({
+      ...baseQuestion,
+      id: `legacy-equality-${index}`,
+      prompt: "17/51 ？ 34/102",
+      answer: "=",
+      data: { a: 17, b: 51, c: 34, d: 102 },
+      primaryStructure: "equal_fractions",
+      generationRuleVersion: "2.1.0",
+    }));
+    await putRaw(
+      session("legacy-equality-active", {
+        questionType: "fraction_comparison",
+        subtype: "comparison",
+        questionCount: 10,
+        questions: equalityQuestions,
+      }),
+      session("legacy-equality-completed", {
+        questionType: "fraction_comparison",
+        subtype: "comparison",
+        questionCount: 10,
+        questions: equalityQuestions,
+        currentIndex: 10,
+        status: "completed",
+      }),
+    );
+
+    expect(await readActive()).toBeUndefined();
+    expect((await readCompleted()).map(({ id }) => id)).toContain(
+      "legacy-equality-completed",
+    );
+  });
+
   it("surfaces IndexedDB open failures instead of silently returning empty data", async () => {
     const originalFactory = globalThis.indexedDB;
     vi.stubGlobal("indexedDB", {
