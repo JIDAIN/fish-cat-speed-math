@@ -1,6 +1,6 @@
 import { GeneratedQuestion, QuestionType, Subtype } from "./types";
 
-export const GENERATOR_VERSION = "2.2.0";
+export const GENERATOR_VERSION = "2.3.0";
 export const MAX_GENERATION_ATTEMPTS = 24;
 const MAX_NON_ROUND_ATTEMPTS = 12;
 
@@ -983,6 +983,9 @@ function generateThreeByTwoDivisionByStructure(
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
     const a = nonRound(context, 103, 997);
     const b = nonRound(context, 11, 99);
+    // These exercises train estimation and significant digits. Exact division
+    // removes that decision, so keep every newly generated quotient non-integer.
+    if (a % b === 0) continue;
     if (classifyThreeByTwoDivision(a, b) !== structure) continue;
     const quotient = a / b;
     const answerSpec = threeByTwoAnswerSpec(quotient, subtype);

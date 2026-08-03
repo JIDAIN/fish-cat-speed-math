@@ -538,13 +538,31 @@ h2 {
 .questionDetails {
   margin-top: 28px;
 }
-.questionDetails h2 {
+.questionDetailsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 12px;
+}
+.questionDetailsHeader h2 {
+  margin: 0;
+}
+.reviewScratchButton {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  background: var(--green-50);
+  color: var(--green-900);
+  font-size: 14px;
 }
 .questionTableHead,
 .questionRow {
   display: grid;
-  grid-template-columns: 1.7rem minmax(4.2rem, 1fr) 2rem 3rem 3rem 2.3rem;
+  grid-template-columns:
+    1.5rem minmax(4.2rem, 1fr) minmax(2.2rem, 0.55fr) 2rem
+    minmax(3.4rem, 0.7fr) 3rem;
   gap: 6px;
   align-items: center;
 }

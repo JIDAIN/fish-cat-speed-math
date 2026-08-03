@@ -662,6 +662,7 @@ describe("question generators", () => {
         const { a, b, quotient } = question.data;
         expect(quotient as number).toBeGreaterThan(1);
         expect(quotient as number).toBeLessThan(100);
+        expect((a as number) % (b as number)).not.toBe(0);
         expect(classifyThreeByTwoDivision(a as number, b as number)).toBe(
           question.primaryStructure,
         );
@@ -697,6 +698,9 @@ describe("question generators", () => {
       );
       questions.forEach((question) => {
         const quotient = question.data.quotient as number;
+        expect(
+          (question.data.a as number) % (question.data.b as number),
+        ).not.toBe(0);
         expect(question.subtype).toBe("quotient_estimate_3_percent");
         expect(question.acceptedRange).toEqual({
           min: quotient * 0.97,

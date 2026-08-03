@@ -1,7 +1,26 @@
 "use client";
 
+import { useState } from "react";
+import { ScratchCanvas } from "@/components/ScratchCanvas";
 import { getRating, sessionMetrics } from "@/lib/statistics";
-import { TrainingSession, subtypeLabels, typeLabels } from "@/lib/types";
+import {
+  GeneratedQuestion,
+  TrainingSession,
+  subtypeLabels,
+  typeLabels,
+} from "@/lib/types";
+
+function correctAnswerForReview(question: GeneratedQuestion) {
+  if (
+    question.type === "three_by_two_division" &&
+    question.subtype === "quotient_estimate_3_percent" &&
+    typeof question.data.quotient === "number"
+  ) {
+    return question.data.quotient.toFixed(2);
+  }
+
+  return question.answer;
+}
 
 export function SessionSummary({ session }: { session: TrainingSession }) {
   const metrics = sessionMetrics(session);
@@ -29,18 +48,29 @@ export function SessionSummary({ session }: { session: TrainingSession }) {
   );
 }
 
-/** A fixed column layout keeps question, answer, correction and time aligned. */
+/** A fixed column layout keeps the submitted answer and the frozen correct result separate. */
 export function QuestionDetails({ session }: { session: TrainingSession }) {
+  const [scratchOpen, setScratchOpen] = useState(false);
+
   return (
     <section className="questionDetails">
-      <h2>题目明细</h2>
+      <div className="questionDetailsHeader">
+        <h2>题目明细</h2>
+        <button
+          aria-label="打开复盘草稿"
+          className="reviewScratchButton"
+          onClick={() => setScratchOpen(true)}
+        >
+          ✎ 草稿
+        </button>
+      </div>
       <div className="questionTableHead" aria-hidden="true">
         <span>题号</span>
         <span>题目</span>
         <span>作答</span>
         <span>判定</span>
+        <span>正确结果</span>
         <span>用时</span>
-        <span>重开</span>
       </div>
       <ol className="questionRows">
         {session.records.map((record, index) => (
@@ -53,16 +83,13 @@ export function QuestionDetails({ session }: { session: TrainingSession }) {
             <span>{index + 1}</span>
             <span>{record.question.prompt}</span>
             <span>{record.userAnswer || "—"}</span>
-            <span>
-              {record.isCorrect ? "✓" : `× ${record.question.answer}`}
-            </span>
+            <span>{record.isCorrect ? "✓" : "×"}</span>
+            <span>{correctAnswerForReview(record.question)}</span>
             <span>{(record.timeUsedMs / 1000).toFixed(1)}s</span>
-            <span>
-              {record.restartCount ? `${record.restartCount}次` : "—"}
-            </span>
           </li>
         ))}
       </ol>
+      {scratchOpen && <ScratchCanvas onClose={() => setScratchOpen(false)} />}
     </section>
   );
 }
