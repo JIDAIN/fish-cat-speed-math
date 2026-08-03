@@ -104,6 +104,35 @@ h2 {
   text-align: left;
   line-height: 1.35;
 }
+.divisionRulePanel {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+}
+.divisionRulePanel > p {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.divisionRuleOptions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.divisionRuleOptions button {
+  min-height: 44px;
+  padding: 8px 6px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.divisionRuleOptions button.selected {
+  border-color: #8fc9aa;
+  outline: 0;
+}
 .wide {
   width: 100%;
   min-height: 54px;

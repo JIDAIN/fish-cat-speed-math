@@ -335,6 +335,25 @@ function sig(value: number, count: number) {
   return String(Math.floor(absoluteValue / scale));
 }
 
+function threeByTwoAnswerSpec(
+  quotient: number,
+  subtype: Subtype,
+): {
+  answer: string;
+  acceptedRange?: GeneratedQuestion["acceptedRange"];
+} {
+  if (subtype === "quotient_first") return { answer: sig(quotient, 1) };
+  if (subtype === "quotient_estimate_3_percent")
+    return {
+      answer: sig(quotient, 2),
+      acceptedRange: {
+        min: quotient * 0.97,
+        max: quotient * 1.03,
+      },
+    };
+  return { answer: sig(quotient, 2) };
+}
+
 function evalFraction(value: string) {
   const [numerator, denominator] = value.split("/").map(Number);
   return numerator / denominator;
@@ -966,16 +985,17 @@ function generateThreeByTwoDivisionByStructure(
     const b = nonRound(context, 11, 99);
     if (classifyThreeByTwoDivision(a, b) !== structure) continue;
     const quotient = a / b;
+    const answerSpec = threeByTwoAnswerSpec(quotient, subtype);
     return q(
       context,
       "three_by_two_division",
       subtype,
       `${a}÷${b}`,
-      subtype === "quotient_first" ? sig(quotient, 1) : sig(quotient, 2),
+      answerSpec.answer,
       { a, b, quotient, rule: subtype },
       4,
       ["直除", "有效位"],
-      undefined,
+      answerSpec.acceptedRange,
       { primaryStructure: structure, secondaryTags: [] },
     );
   }
@@ -989,16 +1009,17 @@ function generateThreeByTwoDivisionByStructure(
           : [523, 47];
   const [a, b] = fallback;
   const quotient = a / b;
+  const answerSpec = threeByTwoAnswerSpec(quotient, subtype);
   return q(
     context,
     "three_by_two_division",
     subtype,
     `${a}÷${b}`,
-    subtype === "quotient_first" ? sig(quotient, 1) : sig(quotient, 2),
+    answerSpec.answer,
     { a, b, quotient, rule: subtype },
     4,
     ["直除", "有效位", "fallback"],
-    undefined,
+    answerSpec.acceptedRange,
     { primaryStructure: structure, secondaryTags: [] },
   );
 }
@@ -1486,15 +1507,17 @@ function fallbackQuestion(
     return fallbackTwoByTwoMultiply(context, "general");
   if (type === "three_by_two_division") {
     const value = 523 / 47;
+    const answerSpec = threeByTwoAnswerSpec(value, subtype);
     return q(
       context,
       type,
       subtype,
       "523÷47",
-      subtype === "quotient_first" ? sig(value, 1) : sig(value, 2),
+      answerSpec.answer,
       { a: 523, b: 47, quotient: value, rule: subtype },
       4,
       ["直除", "有效位", "fallback"],
+      answerSpec.acceptedRange,
     );
   }
   if (type === "multi_digit_division") {
@@ -1875,6 +1898,34 @@ export function grade(question: GeneratedQuestion, input: string) {
         normalizedInput === normalizedAnswer
           ? ("exact" as const)
           : ("wrong" as const),
+    };
+  }
+  if (
+    question.type === "three_by_two_division" &&
+    question.subtype === "quotient_estimate_3_percent"
+  ) {
+    const numberInput = Number(input);
+    const quotient = question.data.quotient;
+    if (
+      !Number.isFinite(numberInput) ||
+      typeof quotient !== "number" ||
+      quotient === 0
+    )
+      return { isCorrect: false, accuracyLevel: "wrong" as const };
+
+    const error = Math.abs(numberInput - quotient);
+    const tolerance =
+      Math.abs(quotient) * 0.03 +
+      Number.EPSILON * Math.max(1, Math.abs(quotient));
+    const isCorrect = error <= tolerance;
+    return {
+      isCorrect,
+      accuracyLevel:
+        input === question.answer
+          ? ("exact" as const)
+          : isCorrect
+            ? ("accepted" as const)
+            : ("wrong" as const),
     };
   }
   if (

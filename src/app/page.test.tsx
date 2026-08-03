@@ -104,6 +104,34 @@ describe("Home active-session interactions", () => {
     });
   });
 
+  it("freezes the selected three-percent division rule in a new session", async () => {
+    render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "三位数÷两位数" }));
+    fireEvent.click(screen.getByRole("button", { name: "3%估算" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
+
+    expect(
+      await screen.findByText("输入近似商，相对误差不超过 3%"),
+    ).toBeTruthy();
+    await expect(readActive()).resolves.toMatchObject({
+      questionType: "three_by_two_division",
+      subtype: "quotient_estimate_3_percent",
+    });
+  });
+
+  it("freezes percent-to-fraction from its independent primary entry", async () => {
+    render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "百分数转分数" }));
+    fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
+
+    await waitFor(async () => {
+      expect(await readActive()).toMatchObject({
+        questionType: "fraction_percent_conversion",
+        subtype: "percent_to_fraction",
+      });
+    });
+  });
+
   it("commits a custom seventy-question choice into the active session", async () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: /当前题量/ }));

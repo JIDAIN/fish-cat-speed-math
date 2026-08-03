@@ -15,6 +15,7 @@ const subtypes: readonly Subtype[] = [
   "standard",
   "quotient_first",
   "quotient_two",
+  "quotient_estimate_3_percent",
   "percent_to_fraction",
   "fraction_to_percent",
   "comparison",

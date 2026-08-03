@@ -19,6 +19,7 @@ import { HistoryCharts } from "@/components/HistoryCharts";
 import { HistoryList } from "@/components/HistoryList";
 import { QuestionDetails, SessionDetails } from "@/components/SessionDetails";
 import { ActiveSessionDialog } from "@/components/ActiveSessionDialog";
+import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
 import {
   QuestionCountDialog,
   QuestionCountSelection,
@@ -291,9 +292,11 @@ export default function Home() {
               ? "求商首位，不四舍五入"
               : session.subtype === "quotient_two"
                 ? "求商前两位，不四舍五入"
-                : session.subtype === "comparison"
-                  ? "请选择两个分数的大小关系"
-                  : "请输入答案"}
+                : session.subtype === "quotient_estimate_3_percent"
+                  ? "输入近似商，相对误差不超过 3%"
+                  : session.subtype === "comparison"
+                    ? "请选择两个分数的大小关系"
+                    : "请输入答案"}
           </p>
           {session.questionType === "fraction_comparison" ? (
             <FractionComparisonDisplay
@@ -536,52 +539,15 @@ export default function Home() {
         ))}
       </section>
       <h2>选择训练题型</h2>
-      <div className="grid">
-        {(Object.keys(typeLabels) as QuestionType[]).map((t) => (
-          <button
-            className={type === t ? "selected" : ""}
-            key={t}
-            onClick={() => {
-              setType(t);
-              setSubtype(defaultSubtype(t));
-            }}
-          >
-            {typeLabels[t]}
-          </button>
-        ))}
-      </div>
-      {type === "three_by_two_division" && (
-        <div className="modes">
-          <button
-            className={subtype === "quotient_first" ? "selected" : ""}
-            onClick={() => setSubtype("quotient_first")}
-          >
-            求商首位
-          </button>
-          <button
-            className={subtype === "quotient_two" ? "selected" : ""}
-            onClick={() => setSubtype("quotient_two")}
-          >
-            求商前两位
-          </button>
-        </div>
-      )}
-      {type === "fraction_percent_conversion" && (
-        <div className="modes">
-          <button
-            className={subtype === "fraction_to_percent" ? "selected" : ""}
-            onClick={() => setSubtype("fraction_to_percent")}
-          >
-            分数转百分数
-          </button>
-          <button
-            className={subtype === "percent_to_fraction" ? "selected" : ""}
-            onClick={() => setSubtype("percent_to_fraction")}
-          >
-            百分数转分数
-          </button>
-        </div>
-      )}
+      <TrainingTypeSelector
+        onDivisionRuleChange={setSubtype}
+        onSelect={(selectedType, selectedSubtype) => {
+          setType(selectedType);
+          setSubtype(selectedSubtype);
+        }}
+        subtype={subtype}
+        type={type}
+      />
       <h2>题量</h2>
       <button
         aria-haspopup="dialog"

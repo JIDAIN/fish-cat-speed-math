@@ -88,7 +88,7 @@ export function ratingTarget(type: QuestionType): RatingTarget {
 
 export function subtypesForType(type: QuestionType): Subtype[] {
   if (type === "three_by_two_division")
-    return ["quotient_first", "quotient_two"];
+    return ["quotient_first", "quotient_two", "quotient_estimate_3_percent"];
   if (type === "multi_digit_division") return ["quotient_two"];
   if (type === "fraction_percent_conversion")
     return ["fraction_to_percent", "percent_to_fraction"];

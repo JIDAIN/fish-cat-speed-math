@@ -43,4 +43,13 @@ describe("mobile training layout CSS contract", () => {
       /\.comparisonChoices\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s,
     );
   });
+
+  it("keeps division sub-rules compact and touch friendly", () => {
+    expect(stylesheet).toMatch(
+      /\.divisionRuleOptions\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.divisionRuleOptions button\s*\{[^}]*min-height:\s*44px;/s,
+    );
+  });
 });

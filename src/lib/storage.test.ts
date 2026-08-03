@@ -85,6 +85,21 @@ beforeEach(removeDatabase);
 afterEach(removeDatabase);
 
 describe("IndexedDB training storage", () => {
+  it("persists and restores the three-percent division subtype", async () => {
+    await saveSession(
+      session("estimate", {
+        questionType: "three_by_two_division",
+        subtype: "quotient_estimate_3_percent",
+      }),
+    );
+
+    expect(await readActive()).toMatchObject({
+      id: "estimate",
+      questionType: "three_by_two_division",
+      subtype: "quotient_estimate_3_percent",
+    });
+  });
+
   it("creates storage, saves an active session, and updates it without duplicating its id", async () => {
     await saveSession(session("active", { currentAnswer: "1" }));
     await saveSession(session("active", { currentAnswer: "12" }));

@@ -676,6 +676,53 @@ describe("question generators", () => {
     });
   });
 
+  it("reuses three-by-two structures for the three-percent estimate mode", () => {
+    [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
+      const questions = generateSet(
+        "three_by_two_division",
+        "quotient_estimate_3_percent",
+        count,
+        deterministicContext(count + 900),
+      );
+
+      expect(questions).toHaveLength(count);
+      allocateStructureQuota(count, THREE_BY_TWO_DIVISION_QUOTAS).forEach(
+        ({ primaryStructure, count: expected }) => {
+          expect(
+            questions.filter(
+              (question) => question.primaryStructure === primaryStructure,
+            ),
+          ).toHaveLength(expected);
+        },
+      );
+      questions.forEach((question) => {
+        const quotient = question.data.quotient as number;
+        expect(question.subtype).toBe("quotient_estimate_3_percent");
+        expect(question.acceptedRange).toEqual({
+          min: quotient * 0.97,
+          max: quotient * 1.03,
+        });
+      });
+    });
+  });
+
+  it("grades three-percent estimates against the real quotient with inclusive boundaries", () => {
+    const question = generateQuestion(
+      "three_by_two_division",
+      "quotient_estimate_3_percent",
+      deterministicContext(923),
+    );
+    const quotient = question.data.quotient as number;
+
+    expect(grade(question, String(quotient * 0.97)).isCorrect).toBe(true);
+    expect(grade(question, String(quotient * 1.03)).isCorrect).toBe(true);
+    expect(grade(question, String(quotient * 0.969)).isCorrect).toBe(false);
+    expect(grade(question, String(quotient * 1.031)).isCorrect).toBe(false);
+    expect(grade(question, "").isCorrect).toBe(false);
+    expect(grade(question, "not-a-number").isCorrect).toBe(false);
+    expect(grade(question, "Infinity").isCorrect).toBe(false);
+  });
+
   it("creates multi-digit quotient structures with exact quotas", () => {
     const questions = generateSet(
       "multi_digit_division",

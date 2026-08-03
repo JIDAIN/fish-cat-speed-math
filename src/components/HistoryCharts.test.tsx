@@ -97,6 +97,10 @@ describe("HistoryCharts", () => {
         questionType: "three_by_two_division",
         subtype: "quotient_two",
       }),
+      makeSession("estimate", {
+        questionType: "three_by_two_division",
+        subtype: "quotient_estimate_3_percent",
+      }),
       makeSession("fraction-to", {
         questionType: "fraction_percent_conversion",
         subtype: "fraction_to_percent",
@@ -118,6 +122,6 @@ describe("HistoryCharts", () => {
         ".trend-chart-test-double",
       ),
     ].reduce((sum, chart) => sum + Number(chart.dataset.covered), 0);
-    expect(totalCovered).toBe(7);
+    expect(totalCovered).toBe(8);
   });
 });

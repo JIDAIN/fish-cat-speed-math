@@ -138,6 +138,7 @@ describe("training statistics", () => {
     expect(subtypesForType("three_by_two_division")).toEqual([
       "quotient_first",
       "quotient_two",
+      "quotient_estimate_3_percent",
     ]);
     expect(subtypesForType("fraction_percent_conversion")).toEqual([
       "fraction_to_percent",

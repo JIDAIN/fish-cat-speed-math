@@ -14,6 +14,7 @@ export type Subtype =
   | "standard"
   | "quotient_first"
   | "quotient_two"
+  | "quotient_estimate_3_percent"
   | "percent_to_fraction"
   | "fraction_to_percent"
   | "comparison";
@@ -78,6 +79,7 @@ export const subtypeLabels: Record<Subtype, string> = {
   standard: "标准训练",
   quotient_first: "求商首位",
   quotient_two: "求商前两位",
+  quotient_estimate_3_percent: "3%估算",
   percent_to_fraction: "百分数转分数",
   fraction_to_percent: "分数转百分数",
   comparison: "比较大小",
