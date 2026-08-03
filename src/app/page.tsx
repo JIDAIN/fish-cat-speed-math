@@ -146,15 +146,15 @@ function FractionConversionDisplay({
           className={activePart === "numerator" ? "active" : ""}
           onClick={() => onSelectPart("numerator")}
         >
-          {answerNumerator || "__"}
+          {answerNumerator || "\u00a0"}
         </button>
-        <span>/</span>
+        <span className="fractionAnswerLine" aria-hidden="true" />
         <button
           aria-label="输入分母"
           className={activePart === "denominator" ? "active" : ""}
           onClick={() => onSelectPart("denominator")}
         >
-          {answerDenominator || "__"}
+          {answerDenominator || "\u00a0"}
         </button>
       </span>
     </div>
@@ -181,6 +181,8 @@ export default function Home() {
   const [scratch, setScratch] = useState(false);
   const [fractionEntryPart, setFractionEntryPart] =
     useState<FractionEntryPart>("numerator");
+  const [hasAutoAdvancedFractionEntry, setHasAutoAdvancedFractionEntry] =
+    useState(false);
   const [history, setHistory] = useState<TrainingSession[]>([]);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<TrainingSession | null>(null);
@@ -234,6 +236,7 @@ export default function Home() {
   const current = session?.questions[session.currentIndex];
   useEffect(() => {
     setFractionEntryPart("numerator");
+    setHasAutoAdvancedFractionEntry(false);
   }, [current?.id]);
   const beginNewSession = () => {
     if (!isValidQuestionCount(count)) {
@@ -364,21 +367,21 @@ export default function Home() {
           <button onClick={() => setScratch(true)}>✎ 草稿</button>
         </header>
         <section className="training trainingMain">
-          <p className="rule">
-            {session.subtype === "quotient_first"
-              ? "求商首位，不四舍五入"
-              : session.subtype === "quotient_two"
-                ? "求商前两位，不四舍五入"
-                : session.subtype === "quotient_estimate_3_percent"
-                  ? "输入近似商，相对误差不超过 3%"
-                  : session.subtype === "comparison"
-                    ? "请选择两个分数的大小关系"
-                    : session.subtype === "fraction_to_percent"
-                      ? "输入近似百分数，可保留一位小数"
-                      : session.subtype === "percent_to_fraction"
-                        ? "先输入分子，再点击分母继续输入"
+          {session.subtype !== "percent_to_fraction" ? (
+            <p className="rule">
+              {session.subtype === "quotient_first"
+                ? "求商首位，不四舍五入"
+                : session.subtype === "quotient_two"
+                  ? "求商前两位，不四舍五入"
+                  : session.subtype === "quotient_estimate_3_percent"
+                    ? "输入近似商，相对误差不超过 3%"
+                    : session.subtype === "comparison"
+                      ? "请选择两个分数的大小关系"
+                      : session.subtype === "fraction_to_percent"
+                        ? "输入近似百分数，可保留一位小数"
                         : "请输入答案"}
-          </p>
+            </p>
+          ) : null}
           {session.questionType === "fraction_comparison" ? (
             <FractionComparisonDisplay
               data={current.data}
@@ -391,7 +394,12 @@ export default function Home() {
                 activePart={fractionEntryPart}
                 data={current.data}
                 fallbackPrompt={current.prompt}
-                onSelectPart={setFractionEntryPart}
+                onSelectPart={(part) => {
+                  setFractionEntryPart(part);
+                  if (part === "numerator") {
+                    setHasAutoAdvancedFractionEntry(true);
+                  }
+                }}
                 subtype={session.subtype}
                 value={session.currentAnswer}
               />
@@ -477,6 +485,15 @@ export default function Home() {
                       ? `${partValue}/${denominator}`
                       : `${numerator}/${partValue}`,
                 });
+                if (
+                  fractionEntryPart === "numerator" &&
+                  !hasAutoAdvancedFractionEntry &&
+                  numerator === "" &&
+                  /^\d$/.test(partValue)
+                ) {
+                  setHasAutoAdvancedFractionEntry(true);
+                  setFractionEntryPart("denominator");
+                }
               }}
               onSubmit={submit}
             />

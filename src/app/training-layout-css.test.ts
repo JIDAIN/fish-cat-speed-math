@@ -42,6 +42,15 @@ describe("mobile training layout CSS contract", () => {
     expect(stylesheet).toMatch(
       /\.comparisonChoices\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s,
     );
+    expect(stylesheet).toMatch(
+      /\.fractionAnswerSlots\s*\{[^}]*display:\s*inline-grid;[^}]*grid-template-rows:/s,
+    );
+    expect(stylesheet).toMatch(
+      /\.fractionAnswerLine\s*\{[^}]*height:\s*3px;[^}]*background:\s*var\(--green-700\);/s,
+    );
+    expect(stylesheet).not.toMatch(
+      /\.fractionAnswerSlots button\s*\{[^}]*border-bottom:/s,
+    );
   });
 
   it("keeps division sub-rules compact and touch friendly", () => {

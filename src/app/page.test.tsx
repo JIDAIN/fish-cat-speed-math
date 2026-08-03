@@ -132,8 +132,8 @@ describe("Home active-session interactions", () => {
     });
   });
 
-  it("enters percent-to-fraction answers through separate numerator and denominator slots", async () => {
-    render(<Home />);
+  it("auto-advances percent-to-fraction entry once and keeps manual numerator edits focused", async () => {
+    const { container } = render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "百分数转分数" }));
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
 
@@ -147,12 +147,27 @@ describe("Home active-session interactions", () => {
     const denominator = String(question?.data.denominator);
 
     expect(screen.getByLabelText(question?.prompt ?? "")).toBeTruthy();
+    expect(screen.queryByText("先输入分子，再点击分母继续输入")).toBeNull();
+    expect(container.querySelectorAll(".fractionAnswerLine")).toHaveLength(1);
+
+    const numeratorInput = screen.getByRole("button", { name: "输入分子" });
+    const denominatorInput = screen.getByRole("button", { name: "输入分母" });
+    expect(numeratorInput.classList.contains("active")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: numerator[0] }));
+    expect(denominatorInput.classList.contains("active")).toBe(true);
+
+    fireEvent.click(numeratorInput);
+    fireEvent.click(screen.getByRole("button", { name: "清空答案" }));
     numerator
       .split("")
       .forEach((digit) =>
         fireEvent.click(screen.getByRole("button", { name: digit })),
       );
+    expect(numeratorInput.classList.contains("active")).toBe(true);
+
     fireEvent.click(screen.getByRole("button", { name: "输入分母" }));
+    fireEvent.click(screen.getByRole("button", { name: "清空答案" }));
     denominator
       .split("")
       .forEach((digit) =>
