@@ -226,6 +226,40 @@ describe("IndexedDB training storage", () => {
     expect((await readActive())?.questionCount).toBe(50);
   });
 
+  it("repairs completed fraction comparisons stored with full-width symbols", async () => {
+    const question = generateQuestion("fraction_comparison", "comparison");
+    const fullWidthAnswer = { "<": "＜", "=": "＝", ">": "＞" }[
+      question.answer
+    ];
+    const completed = session("legacy-comparison", {
+      questionType: "fraction_comparison",
+      subtype: "comparison",
+      questionCount: 1,
+      questions: [question],
+      currentIndex: 1,
+      records: [
+        {
+          question,
+          userAnswer: fullWidthAnswer ?? "",
+          isCorrect: false,
+          accuracyLevel: "wrong",
+          timeUsedMs: 500,
+          restartCount: 0,
+          usedScratchpad: false,
+        },
+      ],
+      status: "completed",
+    });
+    await putRaw(completed);
+
+    const [restored] = await readCompleted();
+    expect(restored.records[0]).toMatchObject({
+      userAnswer: question.answer,
+      isCorrect: true,
+      accuracyLevel: "exact",
+    });
+  });
+
   it("surfaces IndexedDB open failures instead of silently returning empty data", async () => {
     const originalFactory = globalThis.indexedDB;
     vi.stubGlobal("indexedDB", {

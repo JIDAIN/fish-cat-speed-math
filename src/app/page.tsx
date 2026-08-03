@@ -320,9 +320,9 @@ export default function Home() {
             <div className="comparisonPad trainingKeypad">
               <div className="comparisonChoices">
                 {[
-                  { label: "大于", value: "＞" },
-                  { label: "等于", value: "＝" },
-                  { label: "小于", value: "＜" },
+                  { label: "大于", value: ">" },
+                  { label: "等于", value: "=" },
+                  { label: "小于", value: "<" },
                 ].map(({ label, value }) => (
                   <button
                     className={

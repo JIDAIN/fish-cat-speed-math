@@ -55,6 +55,20 @@ describe("question generators", () => {
     expect(grade(q, q.answer).isCorrect).toBe(true);
     expect(grade(q, "not-an-answer").isCorrect).toBe(false);
   });
+  it("normalizes legacy full-width fraction comparison symbols", () => {
+    const question = generateQuestion(
+      "fraction_comparison",
+      "comparison",
+      deterministicContext(73),
+    );
+    const fullWidthAnswer = { "<": "＜", "=": "＝", ">": "＞" }[
+      question.answer
+    ];
+
+    expect(fullWidthAnswer).toBeDefined();
+    expect(grade(question, fullWidthAnswer ?? "").isCorrect).toBe(true);
+    expect(grade(question, question.answer).isCorrect).toBe(true);
+  });
   it("keeps division effective-digit answers numeric", () => {
     for (let i = 0; i < 100; i++) {
       const q = generateQuestion("multi_digit_division");

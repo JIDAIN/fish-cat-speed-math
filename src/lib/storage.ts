@@ -7,6 +7,7 @@ import {
   TrainingSession,
 } from "./types";
 import { isValidQuestionCount } from "./question-count";
+import { grade, normalizeFractionComparisonAnswer } from "./generate";
 const DB = "speed-math-v1",
   STORE = "sessions";
 
@@ -99,11 +100,22 @@ function normalizeRecord(value: unknown): QuestionRecord | undefined {
         ? "exact"
         : "wrong";
 
+  const userAnswer =
+    question.type === "fraction_comparison"
+      ? normalizeFractionComparisonAnswer(value.userAnswer)
+      : value.userAnswer;
+  // Repair only the known full-width comparison-symbol defect. Other
+  // completed records retain their frozen grading result.
+  const comparisonGrading =
+    question.type === "fraction_comparison"
+      ? grade(question, userAnswer)
+      : undefined;
+
   return {
     question,
-    userAnswer: value.userAnswer,
-    isCorrect: value.isCorrect,
-    accuracyLevel,
+    userAnswer,
+    isCorrect: comparisonGrading?.isCorrect ?? value.isCorrect,
+    accuracyLevel: comparisonGrading?.accuracyLevel ?? accuracyLevel,
     timeUsedMs: value.timeUsedMs,
     restartCount:
       typeof value.restartCount === "number" ? value.restartCount : 0,
@@ -180,7 +192,10 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
     questions,
     currentIndex: value.currentIndex,
     records,
-    currentAnswer: value.currentAnswer,
+    currentAnswer:
+      value.questionType === "fraction_comparison"
+        ? normalizeFractionComparisonAnswer(value.currentAnswer)
+        : value.currentAnswer,
     currentRestartCount:
       typeof value.currentRestartCount === "number"
         ? value.currentRestartCount

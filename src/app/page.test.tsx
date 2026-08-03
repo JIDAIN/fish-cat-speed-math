@@ -34,7 +34,7 @@ const fractionComparisonQuestion: GeneratedQuestion = {
   type: "fraction_comparison",
   subtype: "comparison",
   prompt: "53/104 ？ 88/175",
-  answer: "＞",
+  answer: ">",
   data: { a: 53, b: 104, c: 88, d: 175 },
 };
 
@@ -278,12 +278,15 @@ describe("Home active-session interactions", () => {
     expect(document.querySelector(".answer")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "大于" }));
-    expect(screen.getByLabelText("当前选择").textContent).toBe("＞");
+    expect(screen.getByLabelText("当前选择").textContent).toBe(">");
     expect(
       (screen.getByRole("button", { name: "确定" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
     expect(screen.getByRole("button", { name: "重开训练" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "确定" }));
+    expect(await screen.findByText("训练完成！")).toBeTruthy();
+    expect(screen.getByText("1/1")).toBeTruthy();
   });
 
   it("abandons the old active session before creating a different new one", async () => {

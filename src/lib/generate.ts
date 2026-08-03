@@ -1883,6 +1883,17 @@ export function generateSet(
 }
 
 export function grade(question: GeneratedQuestion, input: string) {
+  if (question.type === "fraction_comparison") {
+    const normalizedInput = normalizeFractionComparisonAnswer(input);
+    const normalizedAnswer = normalizeFractionComparisonAnswer(question.answer);
+    return {
+      isCorrect: normalizedInput === normalizedAnswer,
+      accuracyLevel:
+        normalizedInput === normalizedAnswer
+          ? ("exact" as const)
+          : ("wrong" as const),
+    };
+  }
   if (
     question.type === "fraction_percent_conversion" &&
     question.acceptedRange
@@ -1909,4 +1920,16 @@ export function grade(question: GeneratedQuestion, input: string) {
     accuracyLevel:
       input === question.answer ? ("exact" as const) : ("wrong" as const),
   };
+}
+
+/**
+ * Earlier comparison controls stored full-width relation symbols while the
+ * generator has always frozen ASCII answers. Normalize only those equivalent
+ * symbols so legacy active sessions and completed records remain gradeable.
+ */
+export function normalizeFractionComparisonAnswer(input: string): string {
+  if (input === "＜") return "<";
+  if (input === "＝") return "=";
+  if (input === "＞") return ">";
+  return input;
 }
