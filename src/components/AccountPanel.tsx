@@ -43,7 +43,7 @@ export function AccountPanel({
     }
   };
   return (
-    <form className="accountPanel" onSubmit={submit}>
+    <form className="accountPanel accountLogin" onSubmit={submit}>
       <label>
         <span>邮箱</span>
         <input

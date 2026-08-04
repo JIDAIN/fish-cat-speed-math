@@ -56,11 +56,6 @@ const defaultSubtype = (t: QuestionType): Subtype =>
         : t === "fraction_comparison"
           ? "comparison"
           : "standard";
-const users = [
-  { id: "fish", name: "🐟 小鱼" },
-  { id: "cat", name: "🐱 小猫" },
-];
-
 type ActiveSessionPrompt = {
   session: TrainingSession;
   afterDiscard: "startNew" | "stayHome";
@@ -843,17 +838,9 @@ export default function Home() {
           （账号已绑定）
         </p>
       ) : (
-        <section className="userbar">
-          {users.map((u) => (
-            <button
-              className={u.id === user ? "selected" : ""}
-              key={u.id}
-              onClick={() => setUser(u.id)}
-            >
-              {u.name}
-            </button>
-          ))}
-        </section>
+        <p className="boundIdentity localTrainingIdentity">
+          未登录：仅本地训练，登录后由账号确定 🐟 / 🐱 身份。
+        </p>
       )}
       <h2>选择训练题型</h2>
       <TrainingTypeSelector
