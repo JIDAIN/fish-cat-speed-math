@@ -1,6 +1,7 @@
 import { QuestionType, Subtype, TrainingSession } from "./types";
 
 export type Rating = "优秀" | "良好" | "合格" | "继续加油";
+export const RATING_VERSION = "2.0.0";
 
 export interface RatingTarget {
   questionCount: number;
@@ -12,78 +13,48 @@ export interface RatingTarget {
   excellentAccuracy: number;
 }
 
-const DEFAULT_TARGET: RatingTarget = {
-  questionCount: 20,
-  passSeconds: 150,
-  goodSeconds: 110,
-  excellentSeconds: 80,
-  passAccuracy: 0.9,
+const target = (
+  questionCount: number,
+  excellentSeconds: number,
+  goodSeconds: number,
+  passSeconds: number,
+): RatingTarget => ({
+  questionCount,
+  excellentSeconds,
+  goodSeconds,
+  passSeconds,
+  excellentAccuracy: 0.975,
   goodAccuracy: 0.95,
-  excellentAccuracy: 0.95,
-};
+  passAccuracy: 0.9,
+});
 
-const TARGETS: Partial<Record<QuestionType, RatingTarget>> = {
-  two_digit_add_subtract: {
-    ...DEFAULT_TARGET,
-    passSeconds: 90,
-    goodSeconds: 70,
-    excellentSeconds: 50,
-  },
-  three_digit_add_subtract: {
-    ...DEFAULT_TARGET,
-    passSeconds: 180,
-    goodSeconds: 140,
-    excellentSeconds: 105,
-  },
-  two_by_one_multiply: {
-    ...DEFAULT_TARGET,
-    passSeconds: 60,
-    goodSeconds: 48,
-    excellentSeconds: 36,
-  },
-  two_by_two_multiply: {
-    ...DEFAULT_TARGET,
-    questionCount: 10,
-    passSeconds: 120,
-    goodSeconds: 90,
-    excellentSeconds: 65,
-    goodAccuracy: 0.9,
-  },
-  multi_digit_division: {
-    ...DEFAULT_TARGET,
-    questionCount: 10,
-    passSeconds: 120,
-    goodSeconds: 90,
-    excellentSeconds: 65,
-    goodAccuracy: 0.9,
-  },
-  multi_number_add_subtract: {
-    ...DEFAULT_TARGET,
-    questionCount: 10,
-    passSeconds: 120,
-    goodSeconds: 90,
-    excellentSeconds: 65,
-  },
-  fraction_percent_conversion: {
-    ...DEFAULT_TARGET,
-    passSeconds: 150,
-    goodSeconds: 110,
-    excellentSeconds: 80,
-  },
-  fraction_comparison: {
-    ...DEFAULT_TARGET,
-    passSeconds: 120,
-    goodSeconds: 85,
-    excellentSeconds: 60,
-  },
+const TARGETS: Partial<Record<`${QuestionType}:${Subtype}`, RatingTarget>> = {
+  "two_digit_add_subtract:standard": target(40, 80, 100, 120),
+  "three_digit_add_subtract:standard": target(40, 120, 150, 180),
+  "two_by_one_multiply:standard": target(40, 60, 75, 90),
+  "two_by_two_multiply:standard": target(20, 120, 150, 180),
+  "three_by_two_division:quotient_first": target(20, 40, 50, 60),
+  "three_by_two_division:quotient_two": target(20, 180, 210, 240),
+  "three_by_two_division:quotient_estimate_3_percent": target(20, 80, 100, 120),
+  "multi_digit_division:quotient_two": target(20, 180, 210, 240),
+  "multi_number_add_subtract:standard": target(20, 120, 150, 180),
+  "fraction_percent_conversion:fraction_to_percent": target(40, 70, 85, 100),
+  "fraction_percent_conversion:percent_to_fraction": target(40, 80, 95, 110),
+  "fraction_comparison:comparison": target(40, 100, 120, 140),
 };
 
 /**
  * Returns the configured reference targets for a question type.
  * The displayed times refer to its standard set size; scoring scales them by count.
  */
-export function ratingTarget(type: QuestionType): RatingTarget {
-  return TARGETS[type] ?? DEFAULT_TARGET;
+export function ratingTarget(
+  type: QuestionType,
+  subtype: Subtype = "standard",
+): RatingTarget {
+  const configured = TARGETS[`${type}:${subtype}` as keyof typeof TARGETS];
+  if (!configured)
+    throw new Error(`Missing rating target for ${type}:${subtype}`);
+  return configured;
 }
 
 export function subtypesForType(type: QuestionType): Subtype[] {
@@ -107,29 +78,97 @@ export function sessionMetrics(session: TrainingSession) {
   return { correctCount, questionCount, accuracy, averageMs };
 }
 
-/** Scales the configured 10- or 20-question time targets to the chosen set size. */
-export function getRating(session: TrainingSession): Rating {
-  const target = ratingTarget(session.questionType);
-  const multiplier = session.questions.length / target.questionCount;
-  const { accuracy } = sessionMetrics(session);
-  const seconds = session.accumulatedMs / 1000;
+export type RatingStandard = {
+  level: Exclude<Rating, "继续加油">;
+  maxSeconds: number;
+  minCorrect: number;
+};
 
-  if (
-    accuracy >= target.excellentAccuracy &&
-    seconds <= target.excellentSeconds * multiplier
-  )
-    return "优秀";
-  if (
-    accuracy >= target.goodAccuracy &&
-    seconds <= target.goodSeconds * multiplier
-  )
-    return "良好";
-  if (
-    accuracy >= target.passAccuracy &&
-    seconds <= target.passSeconds * multiplier
-  )
-    return "合格";
-  return "继续加油";
+const requiredCorrect = (
+  questionCount: number,
+  accuracy: number,
+  level: RatingStandard["level"],
+) => {
+  if (questionCount === 10 && (level === "良好" || level === "合格")) return 9;
+  if (questionCount === 10 && level === "优秀") return 10;
+  return Math.ceil(questionCount * accuracy);
+};
+
+export function ratingStandards(session: TrainingSession): RatingStandard[] {
+  const configured = ratingTarget(session.questionType, session.subtype);
+  const count = session.questions.length;
+  const multiplier = count / configured.questionCount;
+  return [
+    {
+      level: "优秀",
+      maxSeconds: configured.excellentSeconds * multiplier,
+      minCorrect: requiredCorrect(count, configured.excellentAccuracy, "优秀"),
+    },
+    {
+      level: "良好",
+      maxSeconds: configured.goodSeconds * multiplier,
+      minCorrect: requiredCorrect(count, configured.goodAccuracy, "良好"),
+    },
+    {
+      level: "合格",
+      maxSeconds: configured.passSeconds * multiplier,
+      minCorrect: requiredCorrect(count, configured.passAccuracy, "合格"),
+    },
+  ];
+}
+
+export function assessRating(session: TrainingSession) {
+  const metrics = sessionMetrics(session);
+  const seconds = session.accumulatedMs / 1000;
+  const standards = ratingStandards(session);
+  const standard = standards.find(
+    (candidate) =>
+      seconds <= candidate.maxSeconds &&
+      metrics.correctCount >= candidate.minCorrect,
+  );
+  const level: Rating = standard?.level ?? "继续加油";
+  const nextIndex =
+    level === "良好"
+      ? 0
+      : level === "合格"
+        ? 1
+        : level === "继续加油"
+          ? 2
+          : undefined;
+  const next = nextIndex === undefined ? undefined : standards[nextIndex];
+  return {
+    level,
+    metrics,
+    seconds,
+    standards,
+    next:
+      next && next.level !== level
+        ? {
+            ...next,
+            secondsShortfall: Math.max(0, seconds - next.maxSeconds),
+            correctShortfall: Math.max(
+              0,
+              next.minCorrect - metrics.correctCount,
+            ),
+          }
+        : undefined,
+  };
+}
+
+export function createRatingSnapshot(session: TrainingSession) {
+  const assessment = assessRating(session);
+  return {
+    version: RATING_VERSION,
+    level: assessment.level,
+    correctCount: assessment.metrics.correctCount,
+    questionCount: assessment.metrics.questionCount,
+    elapsedMs: session.accumulatedMs,
+  };
+}
+
+/** New completions use a frozen snapshot; legacy history keeps its old dynamic display. */
+export function getRating(session: TrainingSession): Rating {
+  return session.rating?.level ?? assessRating(session).level;
 }
 
 export function trendPoints(

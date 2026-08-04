@@ -13,6 +13,7 @@
 ## 当前范围外
 
 - 不含 active 跨设备同步、实时订阅、自动补传队列、PK、每日任务、专项训练或新的 PWA 离线能力。
+- 等级评定标准与版本兼容规则见 [RATING_STANDARDS.md](./RATING_STANDARDS.md)。
 
 [![CI](https://github.com/JIDAIN/fish-cat-speed-math/actions/workflows/ci.yml/badge.svg)](https://github.com/JIDAIN/fish-cat-speed-math/actions/workflows/ci.yml)
 

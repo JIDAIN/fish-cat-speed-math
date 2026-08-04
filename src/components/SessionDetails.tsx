@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { ScratchCanvas } from "@/components/ScratchCanvas";
-import { getRating, sessionMetrics } from "@/lib/statistics";
+import {
+  assessRating,
+  getRating,
+  RATING_VERSION,
+  sessionMetrics,
+} from "@/lib/statistics";
 import {
   GeneratedQuestion,
   TrainingSession,
@@ -43,8 +48,57 @@ export function SessionSummary({ session }: { session: TrainingSession }) {
       </div>
       <p className="rating">
         本次评级：<strong>{getRating(session)}</strong>
+        <small>
+          评级版本：{session.rating?.version ?? "历史记录按当前规则展示"}
+        </small>
       </p>
     </>
+  );
+}
+
+const formatSeconds = (seconds: number) => `${seconds.toFixed(1)}秒`;
+
+/** Reusable rating explanation for the result page and future PK presentation. */
+export function RatingBreakdown({ session }: { session: TrainingSession }) {
+  const assessment = assessRating(session);
+  const level = getRating(session);
+  return (
+    <section className="ratingBreakdown" aria-label="等级评定说明">
+      <p className="rating">
+        本次等级：<strong>{level}</strong>
+        <small>
+          评级版本：{session.rating?.version ?? `当前规则 ${RATING_VERSION}`}
+        </small>
+      </p>
+      <p>
+        本次：{assessment.metrics.correctCount}/
+        {assessment.metrics.questionCount}
+        题正确（{Math.round(assessment.metrics.accuracy * 100)}%）· 总用时
+        {formatSeconds(assessment.seconds)}
+      </p>
+      <ul>
+        {assessment.standards.map((standard) => (
+          <li key={standard.level}>
+            {standard.level}：≤ {formatSeconds(standard.maxSeconds)} 且至少
+            {standard.minCorrect}/{assessment.metrics.questionCount} 题正确
+          </li>
+        ))}
+      </ul>
+      {assessment.next ? (
+        <p className="ratingGap">
+          距离{assessment.next.level}：
+          {assessment.next.secondsShortfall
+            ? `速度还差 ${formatSeconds(assessment.next.secondsShortfall)}`
+            : "速度已达标"}
+          ；
+          {assessment.next.correctShortfall
+            ? `正确率还差 ${assessment.next.correctShortfall} 题`
+            : "正确率已达标"}
+        </p>
+      ) : (
+        <p className="ratingGap">已达到当前最高等级。</p>
+      )}
+    </section>
   );
 }
 

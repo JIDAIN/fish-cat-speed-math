@@ -233,6 +233,24 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
         : typeof value.syncedAt === "number"
           ? "synced"
           : "not_synced",
+    rating:
+      isRecord(value.rating) &&
+      typeof value.rating.version === "string" &&
+      (value.rating.level === "优秀" ||
+        value.rating.level === "良好" ||
+        value.rating.level === "合格" ||
+        value.rating.level === "继续加油") &&
+      typeof value.rating.correctCount === "number" &&
+      typeof value.rating.questionCount === "number" &&
+      typeof value.rating.elapsedMs === "number"
+        ? {
+            version: value.rating.version,
+            level: value.rating.level,
+            correctCount: value.rating.correctCount,
+            questionCount: value.rating.questionCount,
+            elapsedMs: value.rating.elapsedMs,
+          }
+        : undefined,
   };
 }
 

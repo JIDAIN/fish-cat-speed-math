@@ -16,8 +16,14 @@ const USERS = [
   { id: "cat", label: "🐱 小猫" },
 ] as const;
 
-function TargetHeader({ type }: { type: QuestionType }) {
-  const target = ratingTarget(type);
+function TargetHeader({
+  type,
+  subtype,
+}: {
+  type: QuestionType;
+  subtype: Subtype;
+}) {
+  const target = ratingTarget(type, subtype);
   return (
     <p className="targetHeader">
       {target.questionCount}题目标：优秀 ≤ {target.excellentSeconds}s · 良好 ≤{" "}
@@ -68,7 +74,7 @@ function TrackCharts({
         <h3>{typeLabels[type]}</h3>
         {subtype !== "standard" && <span>{subtypeLabels[subtype]}</span>}
       </div>
-      <TargetHeader type={type} />
+      <TargetHeader subtype={subtype} type={type} />
       {questionCount !== undefined && (
         <label className="trendCountPicker">
           <span>题量</span>

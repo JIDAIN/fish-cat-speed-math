@@ -26,7 +26,11 @@ import { NumberPad } from "@/components/NumberPad";
 import { ScratchCanvas } from "@/components/ScratchCanvas";
 import { HistoryCharts } from "@/components/HistoryCharts";
 import { HistoryList } from "@/components/HistoryList";
-import { QuestionDetails, SessionDetails } from "@/components/SessionDetails";
+import {
+  QuestionDetails,
+  RatingBreakdown,
+  SessionDetails,
+} from "@/components/SessionDetails";
 import { ActiveSessionDialog } from "@/components/ActiveSessionDialog";
 import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
 import {
@@ -38,7 +42,7 @@ import {
   isValidQuestionCount,
   STANDARD_QUESTION_COUNT,
 } from "@/lib/question-count";
-import { getRating, sessionMetrics } from "@/lib/statistics";
+import { createRatingSnapshot, sessionMetrics } from "@/lib/statistics";
 import {
   currentElapsedMs,
   pauseSessionTimer,
@@ -423,6 +427,7 @@ export default function Home() {
     if (next.status === "completed") {
       const completed = {
         ...next,
+        rating: createRatingSnapshot(next),
         syncStatus:
           identity && next.ownerAccountId === identity.id
             ? ("syncing" as const)
@@ -703,7 +708,6 @@ export default function Home() {
     );
   if (view === "result" && session) {
     const metrics = sessionMetrics(session);
-    const rating = getRating(session);
     return (
       <main className="panel">
         <h1>训练完成！</h1>
@@ -725,9 +729,7 @@ export default function Home() {
             s<small>平均每题</small>
           </b>
         </div>
-        <p className="rating">
-          本次评级：<strong>{rating}</strong>
-        </p>
+        <RatingBreakdown session={session} />
         <QuestionDetails session={session} />
         {identity && session.ownerAccountId === identity.id && (
           <p

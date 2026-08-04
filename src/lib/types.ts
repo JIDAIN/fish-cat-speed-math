@@ -43,6 +43,13 @@ export interface QuestionRecord {
   restartCount: number;
   usedScratchpad: boolean;
 }
+export interface RatingSnapshot {
+  version: string;
+  level: "优秀" | "良好" | "合格" | "继续加油";
+  correctCount: number;
+  questionCount: number;
+  elapsedMs: number;
+}
 export interface TrainingSession {
   id: string;
   userId: string;
@@ -68,6 +75,8 @@ export interface TrainingSession {
   /** Timestamp of a successful idempotent cloud upload. */
   syncedAt?: number;
   syncStatus?: "syncing" | "synced" | "not_synced" | "failed";
+  /** Frozen on completion so later rating-rule changes do not rewrite history. */
+  rating?: RatingSnapshot;
 }
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",

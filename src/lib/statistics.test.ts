@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  assessRating,
+  createRatingSnapshot,
   getRating,
   ratingTarget,
   sessionMetrics,
@@ -51,8 +53,15 @@ describe("training statistics", () => {
   });
 
   it("requires both speed and accuracy for an excellent rating", () => {
-    expect(getRating(session())).toBe("优秀");
-    expect(getRating(session({ accumulatedMs: 68_000 }))).toBe("良好");
+    const perfect = session({
+      accumulatedMs: 40_000,
+      records: session().records.map((record) => ({
+        ...record,
+        isCorrect: true,
+      })),
+    });
+    expect(getRating(perfect)).toBe("优秀");
+    expect(getRating({ ...perfect, accumulatedMs: 40_001 })).toBe("良好");
     expect(
       getRating(
         session({
@@ -80,7 +89,7 @@ describe("training statistics", () => {
         restartCount: 0,
         usedScratchpad: false,
       }));
-      const scaledExcellentMs = questionCount * 2_500;
+      const scaledExcellentMs = questionCount * 2_000;
 
       expect(
         getRating(
@@ -127,7 +136,7 @@ describe("training statistics", () => {
             questionCount,
             questions,
             records,
-            accumulatedMs: questionCount * 2_500,
+            accumulatedMs: questionCount * 2_000,
           }),
         ),
       ).toBe("优秀");
@@ -237,7 +246,50 @@ describe("training statistics", () => {
   );
 
   it("returns the correct reference target", () => {
-    expect(ratingTarget("two_digit_add_subtract").excellentSeconds).toBe(50);
+    expect(
+      ratingTarget("two_digit_add_subtract", "standard").excellentSeconds,
+    ).toBe(80);
+  });
+
+  it("uses independent division and percentage-conversion standards", () => {
+    expect(
+      ratingTarget("three_by_two_division", "quotient_first").passSeconds,
+    ).toBe(60);
+    expect(
+      ratingTarget("three_by_two_division", "quotient_two").passSeconds,
+    ).toBe(240);
+    expect(
+      ratingTarget("three_by_two_division", "quotient_estimate_3_percent")
+        .passSeconds,
+    ).toBe(120);
+    expect(
+      ratingTarget("fraction_percent_conversion", "fraction_to_percent")
+        .passSeconds,
+    ).toBe(100);
+    expect(
+      ratingTarget("fraction_percent_conversion", "percent_to_fraction")
+        .passSeconds,
+    ).toBe(110);
+  });
+
+  it("uses explainable count-specific accuracy requirements and freezes new results", () => {
+    const ten = session({
+      questions: session().questions.slice(0, 10),
+      records: session()
+        .records.slice(0, 10)
+        .map((record, index) => ({
+          ...record,
+          isCorrect: index < 9,
+        })),
+      accumulatedMs: 30_000,
+    });
+    expect(assessRating(ten).standards).toMatchObject([
+      { level: "优秀", minCorrect: 10 },
+      { level: "良好", minCorrect: 9 },
+      { level: "合格", minCorrect: 9 },
+    ]);
+    const frozen = { ...ten, rating: createRatingSnapshot(ten) };
+    expect(getRating(frozen)).toBe(frozen.rating.level);
   });
 
   it("keeps count-isolated trend buckets weighted by actual questions", () => {
