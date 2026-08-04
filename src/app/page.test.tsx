@@ -127,6 +127,36 @@ describe("Home active-session interactions", () => {
     else delete (document as { hidden?: boolean }).hidden;
   });
 
+  it("pauses once for back navigation and remains safe across repeated leave events", async () => {
+    render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
+    await screen.findByText("重开训练");
+
+    fireEvent(window, new PopStateEvent("popstate"));
+    fireEvent(window, new Event("pagehide"));
+    fireEvent(window, new Event("beforeunload"));
+
+    await waitFor(async () => {
+      expect(await readActive()).toMatchObject({ runningSince: null });
+    });
+  });
+
+  it("starts a fresh segment after a BFCache pageshow without counting its gap", async () => {
+    await saveSession(
+      activeSession({ runningSince: 1_000, accumulatedMs: 800 }),
+    );
+    render(<Home />);
+    expect(await screen.findByText("检测到一组暂存训练")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "继续原训练" }));
+
+    fireEvent(window, new Event("pagehide"));
+    fireEvent(window, new PageTransitionEvent("pageshow", { persisted: true }));
+
+    await waitFor(async () => {
+      expect((await readActive())?.runningSince).toEqual(expect.any(Number));
+    });
+  });
+
   it("freezes the selected three-percent division rule in a new session", async () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "三位数÷两位数" }));

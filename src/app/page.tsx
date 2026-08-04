@@ -43,6 +43,7 @@ import {
   currentElapsedMs,
   pauseSessionTimer,
   resumeSessionTimer,
+  suspendUnverifiedTimer,
 } from "@/lib/timer";
 import { createTrainingSession } from "@/lib/session";
 import { submitCurrentAnswer } from "@/lib/training";
@@ -242,7 +243,7 @@ export default function Home() {
         if (!activeSession || cancelled) return;
         // Recovery never continues an old running segment. This also repairs
         // active sessions saved by versions that did not pause on page exit.
-        const pausedSession = pauseSessionTimer(activeSession);
+        const pausedSession = suspendUnverifiedTimer(activeSession);
         if (pausedSession !== activeSession) void saveSession(pausedSession);
         setActiveSessionPrompt({
           session: pausedSession,
@@ -290,15 +291,38 @@ export default function Home() {
       setSession(resumedSession);
     };
     const onVisibilityChange = () => (document.hidden ? pause() : resume());
+    // A back/forward navigation can enter BFCache without first delivering a
+    // visibility transition on some mobile browsers. pagehide is primary;
+    // these navigation/unload events are defensive equivalents.
+    const onNavigationAway = () => pause();
+    const onPageShow = () => {
+      const activeSession = sessionRef.current;
+      if (activeSession?.status === "active") {
+        // If pagehide's async write was interrupted, do not calculate the
+        // BFCache/navigation gap from its stale runningSince timestamp.
+        const suspended = suspendUnverifiedTimer(activeSession);
+        sessionRef.current = suspended;
+        setSession(suspended);
+      }
+      resume();
+    };
     document.addEventListener("visibilitychange", onVisibilityChange);
     document.addEventListener("freeze", pause);
     window.addEventListener("pagehide", pause);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("popstate", onNavigationAway);
+    window.addEventListener("hashchange", onNavigationAway);
+    window.addEventListener("beforeunload", onNavigationAway);
     window.addEventListener("blur", pause);
     window.addEventListener("focus", resume);
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       document.removeEventListener("freeze", pause);
       window.removeEventListener("pagehide", pause);
+      window.removeEventListener("pageshow", onPageShow);
+      window.removeEventListener("popstate", onNavigationAway);
+      window.removeEventListener("hashchange", onNavigationAway);
+      window.removeEventListener("beforeunload", onNavigationAway);
       window.removeEventListener("blur", pause);
       window.removeEventListener("focus", resume);
     };

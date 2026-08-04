@@ -23,6 +23,19 @@ export function resumeSessionTimer(
   return { ...session, runningSince: now };
 }
 
+/**
+ * A process that was navigated away from can be restored from BFCache, or its
+ * final IndexedDB write can be interrupted. In that case the old running
+ * segment is unverified: discarding it is safer than incorrectly charging
+ * background time to a training result.
+ */
+export function suspendUnverifiedTimer(
+  session: TrainingSession,
+): TrainingSession {
+  if (session.runningSince === null) return session;
+  return { ...session, runningSince: null };
+}
+
 export function currentElapsedMs(session: TrainingSession, now = Date.now()) {
   return (
     session.accumulatedMs +

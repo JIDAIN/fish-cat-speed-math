@@ -3,6 +3,7 @@ import {
   currentElapsedMs,
   pauseSessionTimer,
   resumeSessionTimer,
+  suspendUnverifiedTimer,
 } from "./timer";
 import { TrainingSession } from "./types";
 
@@ -48,5 +49,14 @@ describe("session timer", () => {
     expect(secondResume.accumulatedMs).toBe(7_500);
     expect(currentElapsedMs(secondResume, 54_000)).toBe(11_500);
     expect(currentElapsedMs(secondResume, 80_000)).toBe(37_500);
+  });
+
+  it("does not charge an unverified navigation or BFCache gap on recovery", () => {
+    const recovered = suspendUnverifiedTimer(session(5_000));
+    expect(recovered).toMatchObject({
+      accumulatedMs: 2_000,
+      runningSince: null,
+    });
+    expect(currentElapsedMs(recovered, 65_000)).toBe(2_000);
   });
 });
