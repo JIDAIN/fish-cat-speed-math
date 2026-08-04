@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "🐟🐱速算训练营",
-  description: "基础计算训练",
+  title: "速算训练",
+  description: "速算训练",
   manifest: "/manifest.webmanifest",
 };
 

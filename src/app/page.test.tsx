@@ -85,12 +85,14 @@ async function deleteDatabase() {
 
 describe("Home active-session interactions", () => {
   beforeEach(async () => {
+    window.history.replaceState({}, "", "/");
     await deleteDatabase();
   });
 
   afterEach(async () => {
     cleanup();
     vi.restoreAllMocks();
+    window.history.replaceState({}, "", "/");
     await deleteDatabase();
   });
 

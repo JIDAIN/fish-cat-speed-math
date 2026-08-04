@@ -107,6 +107,44 @@ function FractionComparisonDisplay({
 }
 
 type FractionEntryPart = "numerator" | "denominator";
+type View =
+  | "home"
+  | "training"
+  | "result"
+  | "history"
+  | "stats"
+  | "historyDetail"
+  | "pk"
+  | "pkDetail";
+
+function locationRoute(): { view: View; id?: string } {
+  if (typeof window === "undefined") return { view: "home" };
+  const parts = window.location.hash
+    .replace(/^#\/?/, "")
+    .split("/")
+    .filter(Boolean);
+  if (parts[0] === "training") return { view: "training" };
+  if (parts[0] === "result" && parts[1])
+    return { view: "result", id: parts[1] };
+  if (parts[0] === "history" && parts[1])
+    return { view: "historyDetail", id: parts[1] };
+  if (parts[0] === "history") return { view: "history" };
+  if (parts[0] === "stats") return { view: "stats" };
+  if (parts[0] === "pk" && parts[1]) return { view: "pkDetail", id: parts[1] };
+  if (parts[0] === "pk") return { view: "pk" };
+  return { view: "home" };
+}
+
+function locationHash(view: View, id?: string) {
+  if (view === "training") return "#/training";
+  if (view === "result" && id) return `#/result/${id}`;
+  if (view === "historyDetail" && id) return `#/history/${id}`;
+  if (view === "history") return "#/history";
+  if (view === "stats") return "#/stats";
+  if (view === "pkDetail" && id) return `#/pk/${id}`;
+  if (view === "pk") return "#/pk";
+  return "#/";
+}
 
 function splitFractionAnswer(value: string): [string, string] {
   const [numerator = "", denominator = ""] = value.split("/", 2);
@@ -181,16 +219,21 @@ function FractionConversionDisplay({
 }
 
 export default function Home() {
-  const [view, setView] = useState<
-    | "home"
-    | "training"
-    | "result"
-    | "history"
-    | "stats"
-    | "historyDetail"
-    | "pk"
-    | "pkDetail"
-  >("home");
+  const [view, setViewState] = useState<View>(() => locationRoute().view);
+  const [routeRecordId, setRouteRecordId] = useState<string | undefined>(
+    () => locationRoute().id,
+  );
+  const navigate = (next: View, id?: string, replace = false) => {
+    setRouteRecordId(id);
+    setViewState(next);
+    if (typeof window !== "undefined")
+      window.history[replace ? "replaceState" : "pushState"](
+        {},
+        "",
+        locationHash(next, id),
+      );
+  };
+  const setView = (next: View) => navigate(next);
   const [user, setUser] = useState("fish");
   const [identity, setIdentity] = useState<CloudIdentity>();
   const [authResolved, setAuthResolved] = useState(false);
@@ -219,6 +262,7 @@ export default function Home() {
   const [unreadPKResults, setUnreadPKResults] = useState(0);
   const [selectedPKChallenge, setSelectedPKChallenge] =
     useState<PKChallenge | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<TrainingSession | null>(null);
   const [activeSessionPrompt, setActiveSessionPrompt] =
@@ -268,6 +312,13 @@ export default function Home() {
         // active sessions saved by versions that did not pause on page exit.
         const pausedSession = suspendUnverifiedTimer(activeSession);
         if (pausedSession !== activeSession) void saveSession(pausedSession);
+        if (locationRoute().view === "training") {
+          const resumed = resumeSessionTimer(pausedSession);
+          sessionRef.current = resumed;
+          setSession(resumed);
+          setViewState("training");
+          return;
+        }
         setActiveSessionPrompt({
           session: pausedSession,
           afterDiscard: "startNew",
@@ -278,6 +329,19 @@ export default function Home() {
       cancelled = true;
     };
   }, [authResolved, identity?.id]);
+  useEffect(() => {
+    const onHashChange = () => {
+      const next = locationRoute();
+      setRouteRecordId(next.id);
+      setViewState(next.view);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    window.addEventListener("popstate", onHashChange);
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+      window.removeEventListener("popstate", onHashChange);
+    };
+  }, []);
   useEffect(() => {
     if (session?.status === "active") {
       saveSession(session).catch(() =>
@@ -500,7 +564,7 @@ export default function Home() {
             setStorageError("本地已保存；云端同步失败，可稍后在历史中重试。");
           });
       }
-      setView("result");
+      navigate("result", completed.id);
     } else setSession(next);
     setScratch(false);
   };
@@ -707,6 +771,85 @@ export default function Home() {
       setStorageError("同步失败；本地训练已安全保留，可稍后重试。");
     }
   };
+  useEffect(() => {
+    if (!authResolved) return;
+    const route = locationRoute();
+    if (
+      ![
+        "history",
+        "stats",
+        "historyDetail",
+        "result",
+        "pk",
+        "pkDetail",
+      ].includes(route.view)
+    )
+      return;
+    let cancelled = false;
+    setRouteLoading(true);
+    void (async () => {
+      try {
+        const local = await readCompleted();
+        const owned = identity
+          ? local.filter((item) => item.ownerAccountId === identity.id)
+          : local.filter((item) => !item.ownerAccountId);
+        const cloud = identity ? await readCloudHistory() : [];
+        const merged = [
+          ...owned,
+          ...cloud.filter((item) => !owned.some((own) => own.id === item.id)),
+        ];
+        if (cancelled) return;
+        setHistory(merged);
+        if (route.view === "result" && route.id) {
+          const found = merged.find((item) => item.id === route.id);
+          if (found) {
+            setSession(found);
+            sessionRef.current = found;
+          } else
+            setStorageError(
+              "未找到本次结算记录：它可能尚未保存或已从当前设备移除。",
+            );
+        }
+        if (route.view === "historyDetail" && route.id) {
+          const found = merged.find((item) => item.id === route.id);
+          if (found) setSelectedHistorySession(found);
+          else setStorageError("未找到这条训练记录，或当前账号无权查看。");
+        }
+        if (identity && (route.view === "pk" || route.view === "pkDetail")) {
+          const challenges = await readPKChallenges();
+          if (cancelled) return;
+          setPKChallenges(challenges);
+          if (route.view === "pkDetail" && route.id) {
+            const found = challenges.find((item) => item.id === route.id);
+            if (found) setSelectedPKChallenge(found);
+            else
+              setStorageError(
+                "未找到该PK记录、记录已过期，或当前账号无权查看。",
+              );
+          }
+        }
+      } catch {
+        if (!cancelled) setStorageError("页面数据读取失败，请检查网络后重试。");
+      } finally {
+        if (!cancelled) setRouteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authResolved, identity, routeRecordId, view]);
+  if (view === "training" && (!session || !current))
+    return (
+      <main className="panel">
+        <h1>{routeLoading ? "正在恢复训练…" : "训练无法恢复"}</h1>
+        <p>
+          {routeLoading
+            ? "正在读取当前浏览器中的暂存训练。"
+            : "未找到可恢复的未完成训练；不会重新生成题目。"}
+        </p>
+        <button onClick={() => setView("home")}>返回首页</button>
+      </main>
+    );
   if (view === "training" && session && current)
     return (
       <main className="trainingPage">
@@ -870,6 +1013,18 @@ export default function Home() {
         {scratch && <ScratchCanvas onClose={() => setScratch(false)} />}
       </main>
     );
+  if (view === "result" && !session)
+    return (
+      <main className="panel">
+        <h1>{routeLoading ? "正在恢复结算结果…" : "结算记录不可用"}</h1>
+        <p>
+          {routeLoading
+            ? "正在读取已完成训练。"
+            : "该结算记录不存在或当前账号无权查看。"}
+        </p>
+        <button onClick={() => setView("history")}>查看历史记录</button>
+      </main>
+    );
   if (view === "result" && session) {
     const metrics = sessionMetrics(session);
     const hasLaunchedPK = pkChallenges.some(
@@ -973,17 +1128,21 @@ export default function Home() {
       <main className="panel">
         <button onClick={() => setView("home")}>← 首页</button>
         <h1>历史记录</h1>
-        <HistoryList
-          currentAccountId={identity?.id}
-          currentUserId={(identity?.role ?? user) as "fish" | "cat"}
-          canViewPartner={Boolean(identity)}
-          onSync={syncOwnedSession}
-          sessions={history}
-          onOpen={(selected) => {
-            setSelectedHistorySession(selected);
-            setView("historyDetail");
-          }}
-        />
+        {routeLoading ? (
+          <p>正在读取历史记录…</p>
+        ) : (
+          <HistoryList
+            currentAccountId={identity?.id}
+            currentUserId={(identity?.role ?? user) as "fish" | "cat"}
+            canViewPartner={Boolean(identity)}
+            onSync={syncOwnedSession}
+            sessions={history}
+            onOpen={(selected) => {
+              setSelectedHistorySession(selected);
+              navigate("historyDetail", selected.id);
+            }}
+          />
+        )}
         {false && (
           <>
             {history.length ? (
@@ -1006,27 +1165,51 @@ export default function Home() {
       </main>
     );
   }
+  if (view === "pk" && !identity)
+    return (
+      <main className="panel">
+        <h1>{authResolved ? "需要登录" : "正在确认账号…"}</h1>
+        <p>PK挑战仅对已绑定的同步账号开放。</p>
+        <button onClick={() => setView("home")}>返回首页</button>
+      </main>
+    );
   if (view === "pk" && identity) {
     return (
       <main className="panel">
         <button onClick={() => setView("home")}>← 首页</button>
-        <PKPage
-          challenges={pkChallenges}
-          identityId={identity.id}
-          onContinue={continuePKChallenge}
-          onOpen={(challenge) => {
-            setSelectedPKChallenge(challenge);
-            setView("pkDetail");
-          }}
-          onRefresh={() => void refreshPK()}
-          onStart={startPKChallenge}
-          sessions={
-            session?.status === "active" ? [...history, session] : history
-          }
-        />
+        {routeLoading ? (
+          <p>正在读取PK挑战…</p>
+        ) : (
+          <PKPage
+            challenges={pkChallenges}
+            identityId={identity.id}
+            onContinue={continuePKChallenge}
+            onOpen={(challenge) => {
+              setSelectedPKChallenge(challenge);
+              navigate("pkDetail", challenge.id);
+            }}
+            onRefresh={() => void refreshPK()}
+            onStart={startPKChallenge}
+            sessions={
+              session?.status === "active" ? [...history, session] : history
+            }
+          />
+        )}
       </main>
     );
   }
+  if (view === "pkDetail" && !selectedPKChallenge)
+    return (
+      <main className="panel">
+        <button onClick={() => setView("pk")}>← PK挑战</button>
+        <h1>{routeLoading ? "正在读取PK详情…" : "PK详情不可用"}</h1>
+        <p>
+          {routeLoading
+            ? "正在加载冻结题组和双方作答。"
+            : "该PK记录不存在、已超出展示范围，或当前账号无权查看。"}
+        </p>
+      </main>
+    );
   if (view === "pkDetail" && selectedPKChallenge) {
     const response = history.find(
       (item) => item.id === selectedPKChallenge.opponentSessionId,
@@ -1047,13 +1230,29 @@ export default function Home() {
       <main className="panel">
         <button onClick={() => setView("home")}>← 首页</button>
         <h1>我的成绩</h1>
-        <HistoryCharts
-          sessions={history}
-          userId={(identity?.role ?? user) as "fish" | "cat"}
-        />
+        {routeLoading ? (
+          <p>正在读取成绩趋势…</p>
+        ) : (
+          <HistoryCharts
+            sessions={history}
+            userId={(identity?.role ?? user) as "fish" | "cat"}
+          />
+        )}
       </main>
     );
   }
+  if (view === "historyDetail" && !selectedHistorySession)
+    return (
+      <main className="panel">
+        <button onClick={() => setView("history")}>← 历史记录</button>
+        <h1>{routeLoading ? "正在读取训练详情…" : "训练详情不可用"}</h1>
+        <p>
+          {routeLoading
+            ? "正在读取冻结题组。"
+            : "该训练记录不存在或当前账号无权查看。"}
+        </p>
+      </main>
+    );
   if (view === "historyDetail" && selectedHistorySession) {
     return (
       <main className="panel">
@@ -1081,8 +1280,7 @@ export default function Home() {
       )}
       <header>
         <div>
-          <p>行测基础算力</p>
-          <h1>鱼猫速算训练营</h1>
+          <h1>速算训练</h1>
         </div>
         <div className="homeHeaderActions">
           <button
@@ -1136,7 +1334,11 @@ export default function Home() {
           </button>
         </div>
       </header>
-      <AccountPanel identity={identity} onIdentity={changeIdentity} />
+      <AccountPanel
+        authResolved={authResolved}
+        identity={identity}
+        onIdentity={changeIdentity}
+      />
       {identity && unassignedHistory.length > 0 && (
         <section className="accountPanel">
           <p>
@@ -1178,16 +1380,6 @@ export default function Home() {
             丢弃本地历史
           </button>
         </section>
-      )}
-      {identity ? (
-        <p className="boundIdentity">
-          当前训练身份：{identity.role === "fish" ? "🐟 小鱼" : "🐱 小猫"}
-          （账号已绑定）
-        </p>
-      ) : (
-        <p className="boundIdentity localTrainingIdentity">
-          未登录：仅本地训练，登录后由账号确定 🐟 / 🐱 身份。
-        </p>
       )}
       <h2>选择训练题型</h2>
       <TrainingTypeSelector

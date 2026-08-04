@@ -6,21 +6,28 @@ import { CloudIdentity, signIn, signOut, supabase } from "@/lib/cloud";
 export function AccountPanel({
   identity,
   onIdentity,
+  authResolved,
 }: {
   identity?: CloudIdentity;
   onIdentity: (identity?: CloudIdentity) => void;
+  authResolved: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string>();
+  const [expanded, setExpanded] = useState(false);
+  if (!authResolved)
+    return <div className="accountPanel accountLoading">正在确认账号状态…</div>;
   if (!supabase())
     return <p className="hint">云端同步尚未配置，本地训练可正常使用。</p>;
   if (identity)
     return (
-      <div className="accountPanel">
+      <div className="accountPanel accountCompact">
         <span>
-          已登录：{identity.role === "fish" ? "🐟" : "🐱"} {identity.email}
+          当前：{identity.role === "fish" ? "🐟 小鱼" : "🐱 小猫"} ·
+          已绑定同步账号
         </span>
+        <small>{identity.email}</small>
         <button
           onClick={() =>
             signOut()
@@ -42,6 +49,13 @@ export function AccountPanel({
       setError(reason instanceof Error ? reason.message : "登录失败");
     }
   };
+  if (!expanded)
+    return (
+      <div className="accountPanel accountCompact">
+        <span>未登录，仅本地保存</span>
+        <button onClick={() => setExpanded(true)}>登录同步账号</button>
+      </div>
+    );
   return (
     <form className="accountPanel accountLogin" onSubmit={submit}>
       <label>
@@ -69,6 +83,9 @@ export function AccountPanel({
         />
       </label>
       <button type="submit">登录同步账号</button>
+      <button type="button" onClick={() => setExpanded(false)}>
+        暂不登录
+      </button>
       {error && <small role="alert">{error}</small>}
     </form>
   );

@@ -20,3 +20,7 @@
 ## 配对读取修复
 
 - 执行 `supabase/migrations/20260804_fix_paired_history_read.sql`，为配对双方增加只读自身配对行的 RLS 策略。它修复 completed 读取策略内部无法识别配对关系的问题，不改写现有训练。
+
+# 页面恢复与账号呈现补充
+
+页面刷新、浏览器导航、账号三态和移动端首页原则见 [NAVIGATION_RECOVERY.md](./NAVIGATION_RECOVERY.md)。本地 active 训练只在原账号、原浏览器恢复；已完成记录及 PK 仍按既有同步边界处理。

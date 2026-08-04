@@ -63,6 +63,14 @@ main > header {
   justify-content: space-between;
   gap: 12px;
 }
+.home > header {
+  align-items: center;
+  margin-bottom: 12px;
+}
+.home > header h1 {
+  margin: 0;
+  white-space: nowrap;
+}
 header p {
   margin: 0;
   color: var(--muted);
@@ -155,6 +163,39 @@ h2 {
   color: #9a342b;
   font-size: 14px;
   line-height: 1.45;
+}
+.accountPanel.accountCompact,
+.accountPanel.accountLoading {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 66%);
+  font-size: 13px;
+}
+.accountPanel.accountCompact small {
+  width: auto;
+  overflow: hidden;
+  max-width: 38%;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.accountPanel.accountCompact button {
+  min-height: 34px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+.accountLoading {
+  color: var(--muted);
+}
+.accountLogin {
+  margin: 0 0 12px;
 }
 
 .questionCountTrigger {
