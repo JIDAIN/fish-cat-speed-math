@@ -77,6 +77,12 @@ export interface TrainingSession {
   syncStatus?: "syncing" | "synced" | "not_synced" | "failed";
   /** Frozen on completion so later rating-rule changes do not rewrite history. */
   rating?: RatingSnapshot;
+  /** A completed run created from a partner's immutable PK challenge. */
+  trainingSource?: "normal" | "pk";
+  /** Present only for a PK response; never changes the frozen question set. */
+  pkChallengeId?: string;
+  /** The PK result still needs its separate, idempotent cloud submission. */
+  pkSyncStatus?: "not_synced" | "syncing" | "synced" | "failed";
 }
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",

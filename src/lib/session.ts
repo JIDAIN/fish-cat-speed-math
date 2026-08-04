@@ -15,6 +15,8 @@ interface CreateTrainingSessionOptions {
   createSessionId?: () => string;
   generationContext?: GenerationContext;
   ownerAccountId?: string;
+  questions?: TrainingSession["questions"];
+  pkChallengeId?: string;
 }
 
 /** Creates one entirely fresh training run from frozen training parameters. */
@@ -27,6 +29,8 @@ export function createTrainingSession({
   createSessionId = () => globalThis.crypto.randomUUID(),
   generationContext = productionGenerationContext,
   ownerAccountId,
+  questions,
+  pkChallengeId,
 }: CreateTrainingSessionOptions): TrainingSession {
   if (!isValidQuestionCount(questionCount)) {
     throw new RangeError("Invalid question count");
@@ -38,12 +42,9 @@ export function createTrainingSession({
     questionType,
     subtype,
     questionCount,
-    questions: generateSet(
-      questionType,
-      subtype,
-      questionCount,
-      generationContext,
-    ),
+    questions:
+      questions ??
+      generateSet(questionType, subtype, questionCount, generationContext),
     currentIndex: 0,
     records: [],
     currentAnswer: "",
@@ -54,5 +55,8 @@ export function createTrainingSession({
     status: "active",
     startedAt: now,
     ownerAccountId,
+    trainingSource: pkChallengeId ? "pk" : "normal",
+    pkChallengeId,
+    pkSyncStatus: pkChallengeId ? "not_synced" : undefined,
   };
 }

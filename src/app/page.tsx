@@ -18,10 +18,18 @@ import {
 import { AccountPanel } from "@/components/AccountPanel";
 import {
   CloudIdentity,
+  acknowledgePKResults,
+  createPKChallenge,
   currentIdentity,
   readCloudHistory,
+  readPKChallenges,
   syncCompleted,
+  submitPKResult,
+  unreadPKResultIds,
 } from "@/lib/cloud";
+import { PKChallenge } from "@/lib/pk";
+import { PKDetails } from "@/components/PKDetails";
+import { PKPage } from "@/components/PKPage";
 import { NumberPad } from "@/components/NumberPad";
 import { ScratchCanvas } from "@/components/ScratchCanvas";
 import { HistoryCharts } from "@/components/HistoryCharts";
@@ -174,7 +182,14 @@ function FractionConversionDisplay({
 
 export default function Home() {
   const [view, setView] = useState<
-    "home" | "training" | "result" | "history" | "stats" | "historyDetail"
+    | "home"
+    | "training"
+    | "result"
+    | "history"
+    | "stats"
+    | "historyDetail"
+    | "pk"
+    | "pkDetail"
   >("home");
   const [user, setUser] = useState("fish");
   const [identity, setIdentity] = useState<CloudIdentity>();
@@ -200,6 +215,10 @@ export default function Home() {
   const [hasAutoAdvancedFractionEntry, setHasAutoAdvancedFractionEntry] =
     useState(false);
   const [history, setHistory] = useState<TrainingSession[]>([]);
+  const [pkChallenges, setPKChallenges] = useState<PKChallenge[]>([]);
+  const [unreadPKResults, setUnreadPKResults] = useState(0);
+  const [selectedPKChallenge, setSelectedPKChallenge] =
+    useState<PKChallenge | null>(null);
   const [selectedHistorySession, setSelectedHistorySession] =
     useState<TrainingSession | null>(null);
   const [activeSessionPrompt, setActiveSessionPrompt] =
@@ -432,6 +451,7 @@ export default function Home() {
           identity && next.ownerAccountId === identity.id
             ? ("syncing" as const)
             : ("not_synced" as const),
+        pkSyncStatus: next.pkChallengeId ? ("syncing" as const) : undefined,
       };
       setSession(completed);
       const localSave = saveSession(completed);
@@ -442,24 +462,43 @@ export default function Home() {
         localSave
           .then(() => syncCompleted(completed))
           .then(
-            () => {
+            async () => {
+              if (completed.pkChallengeId) {
+                await submitPKResult(completed.pkChallengeId, completed.id);
+              }
               const synced = {
                 ...completed,
                 syncStatus: "synced" as const,
                 syncedAt: Date.now(),
+                pkSyncStatus: completed.pkChallengeId
+                  ? ("synced" as const)
+                  : undefined,
               };
               setSession(synced);
-              return saveSession(synced);
+              await saveSession(synced);
+              if (completed.pkChallengeId) await refreshPK();
             },
             () => {
               const failed = { ...completed, syncStatus: "failed" as const };
               setSession(failed);
-              return saveSession(failed);
+              return saveSession({
+                ...failed,
+                pkSyncStatus: completed.pkChallengeId ? "failed" : undefined,
+              });
             },
           )
-          .catch(() =>
-            setStorageError("本地已保存；云端同步失败，可稍后在历史中重试。"),
-          );
+          .catch(async () => {
+            const failed = {
+              ...completed,
+              syncStatus: "failed" as const,
+              pkSyncStatus: completed.pkChallengeId
+                ? ("failed" as const)
+                : undefined,
+            };
+            setSession(failed);
+            await saveSession(failed);
+            setStorageError("本地已保存；云端同步失败，可稍后在历史中重试。");
+          });
       }
       setView("result");
     } else setSession(next);
@@ -513,6 +552,122 @@ export default function Home() {
       setStorageError("历史记录读取失败，请刷新后重试。");
     }
   };
+  const refreshPK = async (acknowledge = false) => {
+    if (!identity) return;
+    try {
+      const [challenges, cloud, local] = await Promise.all([
+        readPKChallenges(),
+        readCloudHistory(),
+        readCompleted(),
+      ]);
+      const owned = local.filter((item) => item.ownerAccountId === identity.id);
+      setHistory([
+        ...owned,
+        ...cloud.filter(
+          (item) => !owned.some((localItem) => localItem.id === item.id),
+        ),
+      ]);
+      setPKChallenges(challenges);
+      if (acknowledge) {
+        await acknowledgePKResults();
+        setUnreadPKResults(0);
+      } else setUnreadPKResults((await unreadPKResultIds()).length);
+    } catch {
+      setStorageError("PK数据读取失败，请稍后刷新重试。");
+    }
+  };
+  const enterPK = async () => {
+    if (!identity) {
+      setStorageError("请先登录已绑定的同步账号后使用PK挑战。");
+      return;
+    }
+    await refreshPK(true);
+    setView("pk");
+  };
+  useEffect(() => {
+    if (identity) void refreshPK();
+    else {
+      setPKChallenges([]);
+      setUnreadPKResults(0);
+    }
+    // refreshPK deliberately refreshes all data sources after an Auth scope
+    // switch; only the stable account id can change this scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identity?.id]);
+  const startPKChallenge = async (challenge: PKChallenge) => {
+    if (!identity || challenge.opponentId !== identity.id) return;
+    try {
+      const active = await readActive(identity.id);
+      if (active) {
+        if (active.pkChallengeId === challenge.id) {
+          sessionRef.current = active;
+          setSession(resumeSessionTimer(active));
+          setView("training");
+        } else
+          setStorageError("请先完成或暂存当前浏览器中的训练，再开始PK挑战。");
+        return;
+      }
+      const next = createTrainingSession({
+        userId: identity.role,
+        ownerAccountId: identity.id,
+        questionType: challenge.frozenSession.questionType,
+        subtype: challenge.frozenSession.subtype,
+        questionCount: challenge.frozenSession.questions.length,
+        questions: challenge.frozenSession.questions,
+        pkChallengeId: challenge.id,
+      });
+      await saveSession(next);
+      sessionRef.current = next;
+      setSession(next);
+      setView("training");
+      await refreshPK();
+    } catch {
+      setStorageError("PK挑战暂存失败，请稍后重试。");
+    }
+  };
+  const continuePKChallenge = (
+    challenge: PKChallenge,
+    active: TrainingSession,
+  ) => {
+    if (
+      !identity ||
+      active.ownerAccountId !== identity.id ||
+      active.pkChallengeId !== challenge.id
+    )
+      return;
+    const resumed = resumeSessionTimer(active);
+    sessionRef.current = resumed;
+    setSession(resumed);
+    setView("training");
+  };
+  const launchPK = async (candidate: TrainingSession) => {
+    if (
+      !identity ||
+      candidate.ownerAccountId !== identity.id ||
+      candidate.trainingSource === "pk"
+    )
+      return;
+    try {
+      const syncing = { ...candidate, syncStatus: "syncing" as const };
+      await saveSession(syncing);
+      await syncCompleted(syncing);
+      const challenge = await createPKChallenge(candidate.id);
+      const synced = {
+        ...syncing,
+        syncStatus: "synced" as const,
+        syncedAt: Date.now(),
+      };
+      await saveSession(synced);
+      if (session?.id === candidate.id) setSession(synced);
+      setPKChallenges((items) => [
+        challenge,
+        ...items.filter((item) => item.id !== challenge.id),
+      ]);
+      setStorageError(null);
+    } catch {
+      setStorageError("PK发起失败：本次训练已保存在本地，请先同步后重试。");
+    }
+  };
   const syncOwnedSession = async (candidate: TrainingSession) => {
     if (!identity || candidate.ownerAccountId !== identity.id) return;
     const syncing = { ...candidate, syncStatus: "syncing" as const };
@@ -523,18 +678,27 @@ export default function Home() {
     if (session?.id === syncing.id) setSession(syncing);
     try {
       await syncCompleted(syncing);
+      if (syncing.pkChallengeId) {
+        await submitPKResult(syncing.pkChallengeId, syncing.id);
+      }
       const synced = {
         ...syncing,
         syncStatus: "synced" as const,
         syncedAt: Date.now(),
+        pkSyncStatus: syncing.pkChallengeId ? ("synced" as const) : undefined,
       };
       await saveSession(synced);
       setHistory((items) =>
         items.map((item) => (item.id === synced.id ? synced : item)),
       );
       if (session?.id === synced.id) setSession(synced);
+      if (syncing.pkChallengeId) await refreshPK();
     } catch {
-      const failed = { ...syncing, syncStatus: "failed" as const };
+      const failed = {
+        ...syncing,
+        syncStatus: "failed" as const,
+        pkSyncStatus: syncing.pkChallengeId ? ("failed" as const) : undefined,
+      };
       await saveSession(failed);
       setHistory((items) =>
         items.map((item) => (item.id === failed.id ? failed : item)),
@@ -708,6 +872,9 @@ export default function Home() {
     );
   if (view === "result" && session) {
     const metrics = sessionMetrics(session);
+    const hasLaunchedPK = pkChallenges.some(
+      (challenge) => challenge.sourceSessionId === session.id,
+    );
     return (
       <main className="panel">
         <h1>训练完成！</h1>
@@ -757,6 +924,31 @@ export default function Home() {
                 ? "已同步，重新同步"
                 : "同步本次训练"}
           </button>
+        )}
+        {identity &&
+          session.ownerAccountId === identity.id &&
+          session.trainingSource !== "pk" && (
+            <button
+              className="wide"
+              disabled={session.syncStatus === "syncing" || hasLaunchedPK}
+              onClick={() => launchPK(session)}
+            >
+              {hasLaunchedPK ? "已向对方发起PK" : "向对方发起PK"}
+            </button>
+          )}
+        {session.trainingSource === "pk" && (
+          <p
+            className={`syncStatus syncStatus-${session.pkSyncStatus ?? "not_synced"}`}
+          >
+            PK结果状态：
+            {session.pkSyncStatus === "synced"
+              ? "已提交"
+              : session.pkSyncStatus === "syncing"
+                ? "提交中"
+                : session.pkSyncStatus === "failed"
+                  ? "提交失败，可在历史中重试"
+                  : "待提交"}
+          </p>
         )}
         {session && false && (
           <>
@@ -810,6 +1002,42 @@ export default function Home() {
               <p>还没有完成的训练记录。</p>
             )}
           </>
+        )}
+      </main>
+    );
+  }
+  if (view === "pk" && identity) {
+    return (
+      <main className="panel">
+        <button onClick={() => setView("home")}>← 首页</button>
+        <PKPage
+          challenges={pkChallenges}
+          identityId={identity.id}
+          onContinue={continuePKChallenge}
+          onOpen={(challenge) => {
+            setSelectedPKChallenge(challenge);
+            setView("pkDetail");
+          }}
+          onRefresh={() => void refreshPK()}
+          onStart={startPKChallenge}
+          sessions={
+            session?.status === "active" ? [...history, session] : history
+          }
+        />
+      </main>
+    );
+  }
+  if (view === "pkDetail" && selectedPKChallenge) {
+    const response = history.find(
+      (item) => item.id === selectedPKChallenge.opponentSessionId,
+    );
+    return (
+      <main className="panel">
+        <button onClick={() => setView("pk")}>← PK挑战</button>
+        {response ? (
+          <PKDetails challenge={selectedPKChallenge} response={response} />
+        ) : (
+          <p>PK结果尚未同步完整，请返回后刷新。</p>
         )}
       </main>
     );
@@ -883,6 +1111,29 @@ export default function Home() {
             我的成绩
           </button>
           <button onClick={loadHistory}>历史记录</button>
+          <button className="pkHomeEntry" onClick={enterPK}>
+            PK挑战
+            {(() => {
+              const pending = identity
+                ? pkChallenges.filter(
+                    (challenge) =>
+                      challenge.opponentId === identity.id &&
+                      challenge.status === "pending",
+                  ).length
+                : 0;
+              // A locally-started PK remains the same pending cloud challenge;
+              // count challenges once rather than double-counting its local active run.
+              const red = pending;
+              const shown = red || unreadPKResults;
+              return shown ? (
+                <span
+                  className={`pkBadge ${red ? "pkBadgeRed" : "pkBadgeBlue"}`}
+                >
+                  {shown > 9 ? "9+" : shown}
+                </span>
+              ) : null;
+            })()}
+          </button>
         </div>
       </header>
       <AccountPanel identity={identity} onIdentity={changeIdentity} />

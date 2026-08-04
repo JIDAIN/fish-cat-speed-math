@@ -1011,6 +1011,119 @@ h2 {
   color: var(--muted);
   text-align: center;
 }
+.pkHomeEntry {
+  position: relative;
+}
+.pkBadge {
+  position: absolute;
+  top: -8px;
+  right: -9px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 4px;
+  border-radius: 10px;
+  color: white;
+  font-size: 11px;
+  line-height: 19px;
+}
+.pkBadgeRed {
+  background: #cf3f45;
+}
+.pkBadgeBlue {
+  background: #3178c6;
+}
+.pkTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pkCards {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.pkCard {
+  display: grid;
+  gap: 7px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--card);
+}
+.pkCard p,
+.pkCard small {
+  margin: 0;
+}
+.pkCard small {
+  color: var(--muted);
+}
+.pkCard.active {
+  border-color: var(--green-700);
+}
+.pkResultOpen {
+  display: grid;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.pkResultOpen small {
+  display: block;
+}
+.pkCompare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pkCompare p {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--green-50);
+  line-height: 1.7;
+}
+.pkFilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 16px 0;
+}
+.pkQuestionRows {
+  display: grid;
+  gap: 8px;
+  padding-left: 0;
+  list-style: none;
+}
+.pkQuestionRows li {
+  display: grid;
+  gap: 4px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.pkQuestionRows span {
+  font-size: 13px;
+}
+.pkDifference {
+  border-left: 4px solid #cf7b3d !important;
+}
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.pager button {
+  min-height: 34px;
+  padding: 5px 10px;
+  font-size: 13px;
+}
 
 .modalBackdrop {
   position: fixed;

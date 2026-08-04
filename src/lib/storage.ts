@@ -251,6 +251,16 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
             elapsedMs: value.rating.elapsedMs,
           }
         : undefined,
+    trainingSource: value.trainingSource === "pk" ? "pk" : "normal",
+    pkChallengeId:
+      typeof value.pkChallengeId === "string" ? value.pkChallengeId : undefined,
+    pkSyncStatus:
+      value.pkSyncStatus === "syncing" ||
+      value.pkSyncStatus === "synced" ||
+      value.pkSyncStatus === "failed" ||
+      value.pkSyncStatus === "not_synced"
+        ? value.pkSyncStatus
+        : undefined,
   };
 }
 

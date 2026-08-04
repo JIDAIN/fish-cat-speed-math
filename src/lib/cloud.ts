@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { TrainingSession } from "./types";
+import { PKChallenge } from "./pk";
 
 export type CloudIdentity = { id: string; role: "fish" | "cat"; email: string };
 
@@ -81,4 +82,87 @@ export async function readCloudHistory(): Promise<TrainingSession[]> {
     // this completed-only endpoint has already been accepted by Supabase.
     syncStatus: "synced" as const,
   }));
+}
+
+type CloudPKRow = {
+  id: string;
+  challenger_id: string;
+  challenger_role: "fish" | "cat";
+  opponent_id: string;
+  opponent_role: "fish" | "cat";
+  source_session_id: string;
+  frozen_session: TrainingSession;
+  opponent_session_id: string | null;
+  status: "pending" | "completed";
+  created_at: string;
+  completed_at: string | null;
+};
+
+function mapChallenge(row: CloudPKRow): PKChallenge {
+  return {
+    id: row.id,
+    challengerId: row.challenger_id,
+    challengerRole: row.challenger_role,
+    opponentId: row.opponent_id,
+    opponentRole: row.opponent_role,
+    sourceSessionId: row.source_session_id,
+    frozenSession: row.frozen_session,
+    opponentSessionId: row.opponent_session_id ?? undefined,
+    createdAt: new Date(row.created_at).getTime(),
+    completedAt: row.completed_at
+      ? new Date(row.completed_at).getTime()
+      : undefined,
+    status: row.status,
+  };
+}
+
+export async function readPKChallenges(): Promise<PKChallenge[]> {
+  const db = supabase();
+  if (!db) return [];
+  const { data, error } = await db
+    .from("pk_challenges")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return ((data as CloudPKRow[] | null) ?? []).map(mapChallenge);
+}
+
+export async function createPKChallenge(sourceSessionId: string) {
+  const db = supabase();
+  if (!db) throw new Error("Supabase is not configured");
+  const { data, error } = await db.rpc("create_pk_challenge", {
+    p_source_session_id: sourceSessionId,
+  });
+  if (error) throw error;
+  return mapChallenge(data as CloudPKRow);
+}
+
+export async function submitPKResult(challengeId: string, sessionId: string) {
+  const db = supabase();
+  if (!db) throw new Error("Supabase is not configured");
+  const { error } = await db.rpc("submit_pk_challenge_result", {
+    p_challenge_id: challengeId,
+    p_session_id: sessionId,
+  });
+  if (error) throw error;
+}
+
+/** Marks result notifications read for this account without altering challenges. */
+export async function acknowledgePKResults() {
+  const db = supabase();
+  if (!db) return;
+  const { error } = await db.rpc("acknowledge_pk_results");
+  if (error) throw error;
+}
+
+export async function unreadPKResultIds(): Promise<string[]> {
+  const db = supabase();
+  if (!db) return [];
+  const { data, error } = await db.rpc("unread_pk_result_ids");
+  if (error) throw error;
+  return ((data ?? []) as unknown[]).map((row) =>
+    typeof row === "string"
+      ? row
+      : (row as { challenge_id: string }).challenge_id,
+  );
 }
