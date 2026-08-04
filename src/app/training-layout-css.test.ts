@@ -22,7 +22,7 @@ describe("mobile training layout CSS contract", () => {
       /\.trainingKeypad\s*\{[^}]*flex-shrink:\s*0;[^}]*safe-area-inset-bottom/s,
     );
     expect(stylesheet).toMatch(
-      /\.pad button\s*\{[^}]*min-height:\s*clamp\(44px,/s,
+      /\.pad button\s*\{[^}]*min-height:\s*clamp\(56px,[^}]*touch-action:\s*manipulation;/s,
     );
     expect(stylesheet).toMatch(
       /\.pad \.submit\s*\{[^}]*color:\s*var\(--ink\);/s,

@@ -305,14 +305,16 @@ h2 {
   background: rgb(36 112 83 / 12%);
 }
 .pad button {
-  min-height: clamp(44px, 6.5dvh, 54px);
+  /* A larger common target prevents adjacent-key slips during timed input. */
+  min-height: clamp(56px, 8dvh, 70px);
   padding: 6px 10px;
-  font-size: clamp(18px, 5vw, 20px);
+  font-size: clamp(20px, 5.4vw, 24px);
   border-color: rgb(73 148 111 / 26%);
   background: rgb(224 247 229 / 90%);
+  touch-action: manipulation;
 }
 .pad .submit {
-  min-height: clamp(44px, 6.5dvh, 54px);
+  min-height: clamp(56px, 8dvh, 70px);
   color: var(--ink);
 }
 .fractionComparisonQuestion {
