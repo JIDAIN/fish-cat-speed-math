@@ -120,7 +120,7 @@ function TrackCharts({
   );
 }
 
-/** Renders all available question-type tracks independent of the current home-page selection. */
+/** Renders one selected type/submode track so the score page is usable immediately. */
 export function HistoryCharts({
   sessions,
   userId,
@@ -128,7 +128,29 @@ export function HistoryCharts({
   sessions: TrainingSession[];
   userId?: "fish" | "cat";
 }) {
-  const questionTypes = Object.keys(typeLabels) as QuestionType[];
+  const tracks = useMemo(
+    () =>
+      (Object.keys(typeLabels) as QuestionType[]).flatMap((type) =>
+        subtypesForType(type).map((subtype) => ({ type, subtype })),
+      ),
+    [],
+  );
+  const [selectedTrackKey, setSelectedTrackKey] = useState(() => {
+    const firstRecordedTrack = tracks.find(({ type, subtype }) =>
+      sessions.some(
+        (session) =>
+          session.status === "completed" &&
+          session.questionType === type &&
+          session.subtype === subtype,
+      ),
+    );
+    const track = firstRecordedTrack ?? tracks[0];
+    return `${track.type}-${track.subtype}`;
+  });
+  const selectedTrack =
+    tracks.find(
+      ({ type, subtype }) => `${type}-${subtype}` === selectedTrackKey,
+    ) ?? tracks[0];
   return (
     <section className="historyCharts" aria-label="各题型成长趋势">
       <h2>成长趋势</h2>
@@ -136,17 +158,28 @@ export function HistoryCharts({
         左右分别显示 🐟 和
         🐱；每条折线只比较同一题型、同一答题规则的训练。完整历史会自动按记录量汇总，方便查看长期变化。
       </p>
-      {questionTypes.flatMap((type) =>
-        subtypesForType(type).map((subtype) => (
-          <TrackCharts
-            key={`${type}-${subtype}`}
-            sessions={sessions}
-            type={type}
-            subtype={subtype}
-            userId={userId}
-          />
-        )),
-      )}
+      <label className="trendTrackPicker">
+        <span>题型</span>
+        <select
+          aria-label="选择成长趋势题型"
+          value={selectedTrackKey}
+          onChange={(event) => setSelectedTrackKey(event.target.value)}
+        >
+          {tracks.map(({ type, subtype }) => (
+            <option key={`${type}-${subtype}`} value={`${type}-${subtype}`}>
+              {typeLabels[type]}
+              {subtype === "standard" ? "" : ` · ${subtypeLabels[subtype]}`}
+            </option>
+          ))}
+        </select>
+      </label>
+      <TrackCharts
+        key={selectedTrackKey}
+        sessions={sessions}
+        type={selectedTrack.type}
+        subtype={selectedTrack.subtype}
+        userId={userId}
+      />
     </section>
   );
 }

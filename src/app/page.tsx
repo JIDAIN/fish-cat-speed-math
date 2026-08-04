@@ -160,19 +160,21 @@ function historyScope(identity?: CloudIdentity) {
   return identity?.id ?? "local-unassigned";
 }
 
-function DataPagePlaceholder({ label }: { label: string }) {
-  return (
-    <section
-      className="dataPagePlaceholder"
-      aria-busy="true"
-      aria-live="polite"
-    >
-      <p>正在准备{label}…</p>
-      <div className="dataSkeleton" />
-      <div className="dataSkeleton" />
-      <div className="dataSkeleton dataSkeletonShort" />
-    </section>
-  );
+function traceDataLoad(event: string, scope: string, details: object = {}) {
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.NODE_ENV !== "test" &&
+    typeof performance !== "undefined"
+  )
+    console.info(
+      "[data-load]",
+      JSON.stringify({
+        event,
+        scope,
+        atMs: Math.round(performance.now()),
+        ...details,
+      }),
+    );
 }
 
 function RefreshNotice({ message }: { message?: string }) {
@@ -285,16 +287,8 @@ export default function Home() {
   const [selectedPKChallenge, setSelectedPKChallenge] =
     useState<PKChallenge | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
-  const [historyInitialLoading, setHistoryInitialLoading] = useState(() =>
-    ["history", "stats", "historyDetail", "result", "pk", "pkDetail"].includes(
-      locationRoute().view,
-    ),
-  );
   const [historyRefreshing, setHistoryRefreshing] = useState(false);
   const [historyRefreshError, setHistoryRefreshError] = useState<string>();
-  const [pkInitialLoading, setPKInitialLoading] = useState(() =>
-    ["pk", "pkDetail"].includes(locationRoute().view),
-  );
   const [pkRefreshing, setPKRefreshing] = useState(false);
   const [pkRefreshError, setPKRefreshError] = useState<string>();
   const [selectedHistorySession, setSelectedHistorySession] =
@@ -312,30 +306,19 @@ export default function Home() {
   const identityRef = useRef<CloudIdentity | undefined>(undefined);
   const historyCacheRef = useRef(new Map<string, TrainingSession[]>());
   const pkCacheRef = useRef(new Map<string, PKChallenge[]>());
-  const historyRefreshInFlight = useRef(new Set<string>());
-  const pkRefreshInFlight = useRef(new Set<string>());
+  const historyRefreshInFlight = useRef(new Map<string, Promise<void>>());
+  const pkRefreshInFlight = useRef(new Map<string, Promise<void>>());
   const [isRestartingTraining, setIsRestartingTraining] = useState(false);
   const navigate = (next: View, id?: string, replace = false) => {
-    const scope = historyScope(identityRef.current);
-    if (
-      [
-        "history",
-        "stats",
-        "historyDetail",
-        "result",
-        "pk",
-        "pkDetail",
-      ].includes(next) &&
-      !historyCacheRef.current.has(scope)
-    )
-      setHistoryInitialLoading(true);
-    if (
-      (next === "pk" || next === "pkDetail") &&
-      !pkCacheRef.current.has(scope)
-    )
-      setPKInitialLoading(true);
     if (next === "result" || next === "historyDetail" || next === "pkDetail")
       setRouteLoading(true);
+    traceDataLoad("navigate", historyScope(identityRef.current), {
+      next,
+      hasHistoryCache: historyCacheRef.current.has(
+        historyScope(identityRef.current),
+      ),
+      hasPKCache: pkCacheRef.current.has(historyScope(identityRef.current)),
+    });
     setRouteRecordId(id);
     setViewState(next);
     if (typeof window !== "undefined")
@@ -358,23 +341,6 @@ export default function Home() {
   }, [view]);
   useEffect(() => {
     identityRef.current = identity;
-  }, [identity]);
-  useEffect(() => {
-    const scopeIdentity = identity;
-    const scope = historyScope(scopeIdentity);
-    readCompleted()
-      .then((items) => {
-        if (historyScope(identityRef.current) !== scope) return;
-        setUnassignedHistory(items.filter((item) => !item.ownerAccountId));
-        const owned = scopeIdentity
-          ? items.filter((item) => item.ownerAccountId === scopeIdentity.id)
-          : items.filter((item) => !item.ownerAccountId);
-        if (!scopeIdentity && !historyCacheRef.current.has(scope)) {
-          historyCacheRef.current.set(scope, owned);
-          setHistory(owned);
-        } else if (scopeIdentity) setHistory(owned);
-      })
-      .catch(() => undefined);
   }, [identity]);
   useEffect(() => {
     currentIdentity()
@@ -680,92 +646,127 @@ export default function Home() {
       setIsRestartingTraining(false);
     }
   };
-  const refreshHistoryData = async () => {
+  const refreshHistoryData = (): Promise<void> => {
     const scopeIdentity = identityRef.current;
     const scope = historyScope(scopeIdentity);
-    if (historyRefreshInFlight.current.has(scope)) return;
-    historyRefreshInFlight.current.add(scope);
+    const running = historyRefreshInFlight.current.get(scope);
+    if (running) {
+      traceDataLoad("history-reuse", scope);
+      return running;
+    }
     const hasCachedData = historyCacheRef.current.has(scope);
-    if (hasCachedData) setHistoryRefreshing(true);
-    else setHistoryInitialLoading(true);
+    const existing = historyCacheRef.current.get(scope) ?? [];
+    if (hasCachedData && historyScope(identityRef.current) === scope)
+      setHistory(existing);
+    setHistoryRefreshing(true);
     setHistoryRefreshError(undefined);
-    try {
-      const local = await readCompleted();
+    const startedAt = performance.now();
+    traceDataLoad("history-start", scope, { hasCachedData });
+    // IndexedDB and Supabase do not depend on one another. Start both at once,
+    // then publish IndexedDB data first without replacing a useful cache.
+    const localRequest = readCompleted();
+    const cloudRequest = scopeIdentity ? readCloudHistory() : undefined;
+    const request = (async () => {
+      let local: TrainingSession[];
+      try {
+        local = await localRequest;
+      } catch {
+        if (historyScope(identityRef.current) === scope)
+          setHistoryRefreshError("历史记录读取失败，请稍后重试。");
+        return;
+      }
       if (historyScope(identityRef.current) !== scope) return;
       const owned = scopeIdentity
         ? local.filter((item) => item.ownerAccountId === scopeIdentity.id)
         : local.filter((item) => !item.ownerAccountId);
       setUnassignedHistory(local.filter((item) => !item.ownerAccountId));
-      historyCacheRef.current.set(scope, owned);
-      setHistory(owned);
+      // The local copy is authoritative for its own session (notably sync state),
+      // while an older cloud/cache copy still supplies paired history.
+      const localMerged = mergeHistory(owned, existing);
+      historyCacheRef.current.set(scope, localMerged);
+      setHistory(localMerged);
+      traceDataLoad("history-local-ready", scope, {
+        elapsedMs: Math.round(performance.now() - startedAt),
+        count: localMerged.length,
+      });
 
-      if (!scopeIdentity) return;
+      if (!cloudRequest) return;
       try {
-        const cloud = await readCloudHistory();
+        const cloud = await cloudRequest;
         if (historyScope(identityRef.current) !== scope) return;
-        const merged = mergeHistory(owned, cloud);
+        const merged = mergeHistory(localMerged, cloud);
         historyCacheRef.current.set(scope, merged);
         setHistory(merged);
+        traceDataLoad("history-cloud-ready", scope, {
+          elapsedMs: Math.round(performance.now() - startedAt),
+          count: merged.length,
+        });
       } catch {
         if (historyScope(identityRef.current) === scope)
           setHistoryRefreshError(
             "云端记录更新失败，正在显示本地或上次读取的数据。",
           );
       }
-    } catch {
+    })().finally(() => {
       if (historyScope(identityRef.current) === scope)
-        setHistoryRefreshError("历史记录读取失败，请稍后重试。");
-    } finally {
-      if (historyScope(identityRef.current) === scope) {
-        setHistoryInitialLoading(false);
         setHistoryRefreshing(false);
-      }
       historyRefreshInFlight.current.delete(scope);
-    }
+    });
+    historyRefreshInFlight.current.set(scope, request);
+    return request;
   };
   const loadHistory = () => setView("history");
-  const refreshPK = async (acknowledge = false) => {
+  const refreshPK = (acknowledge = false): Promise<void> => {
     const scopeIdentity = identityRef.current;
-    if (!scopeIdentity) return;
+    if (!scopeIdentity) return Promise.resolve();
     const scope = historyScope(scopeIdentity);
-    if (pkRefreshInFlight.current.has(scope)) return;
-    pkRefreshInFlight.current.add(scope);
-    const hasCachedData = pkCacheRef.current.has(scope);
-    if (hasCachedData) setPKRefreshing(true);
-    else setPKInitialLoading(true);
-    setPKRefreshError(undefined);
-    try {
-      const local = await readCompleted();
-      if (historyScope(identityRef.current) !== scope) return;
-      const owned = local.filter(
-        (item) => item.ownerAccountId === scopeIdentity.id,
-      );
-      historyCacheRef.current.set(scope, owned);
-      setHistory(owned);
-      const [challenges, cloud] = await Promise.all([
-        readPKChallenges(),
-        readCloudHistory(),
-      ]);
-      if (historyScope(identityRef.current) !== scope) return;
-      const merged = mergeHistory(owned, cloud);
-      historyCacheRef.current.set(scope, merged);
-      setHistory(merged);
-      pkCacheRef.current.set(scope, challenges);
-      setPKChallenges(challenges);
-      if (acknowledge) {
-        await acknowledgePKResults();
-        setUnreadPKResults(0);
-      } else setUnreadPKResults((await unreadPKResultIds()).length);
-    } catch {
-      if (historyScope(identityRef.current) === scope)
-        setPKRefreshError("更新失败，正在显示上次读取的数据。");
-    } finally {
-      if (historyScope(identityRef.current) === scope) {
-        setPKInitialLoading(false);
-        setPKRefreshing(false);
-      }
-      pkRefreshInFlight.current.delete(scope);
+    const running = pkRefreshInFlight.current.get(scope);
+    if (running) {
+      traceDataLoad("pk-reuse", scope, { acknowledge });
+      return running;
     }
+    const hasCachedData = pkCacheRef.current.has(scope);
+    const existing = pkCacheRef.current.get(scope) ?? [];
+    if (hasCachedData && historyScope(identityRef.current) === scope)
+      setPKChallenges(existing);
+    setPKRefreshing(true);
+    setPKRefreshError(undefined);
+    const startedAt = performance.now();
+    traceDataLoad("pk-start", scope, { hasCachedData, acknowledge });
+    const request = (async () => {
+      try {
+        // PK list only needs challenges. History prefetch remains independent;
+        // do not make this high-frequency page wait for every completed session.
+        const challenges = await readPKChallenges();
+        if (historyScope(identityRef.current) !== scope) return;
+        pkCacheRef.current.set(scope, challenges);
+        setPKChallenges(challenges);
+        traceDataLoad("pk-ready", scope, {
+          elapsedMs: Math.round(performance.now() - startedAt),
+          count: challenges.length,
+        });
+        if (acknowledge) {
+          void acknowledgePKResults()
+            .then(() => setUnreadPKResults(0))
+            .catch(() => undefined);
+        } else {
+          void unreadPKResultIds()
+            .then((ids) => {
+              if (historyScope(identityRef.current) === scope)
+                setUnreadPKResults(ids.length);
+            })
+            .catch(() => undefined);
+        }
+      } catch {
+        if (historyScope(identityRef.current) === scope)
+          setPKRefreshError("更新失败，正在显示上次读取的数据。");
+      }
+    })().finally(() => {
+      if (historyScope(identityRef.current) === scope) setPKRefreshing(false);
+      pkRefreshInFlight.current.delete(scope);
+    });
+    pkRefreshInFlight.current.set(scope, request);
+    return request;
   };
   const enterPK = () => {
     if (!identity) {
@@ -773,9 +774,19 @@ export default function Home() {
       return;
     }
     setView("pk");
-    void refreshPK(true);
+    const scope = historyScope(identity);
+    if (pkCacheRef.current.has(scope)) {
+      // Opening an already-prefetched PK page only acknowledges the blue result
+      // indicator. It must not turn every navigation into a new network request.
+      void acknowledgePKResults()
+        .then(() => setUnreadPKResults(0))
+        .catch(() => undefined);
+    } else {
+      void refreshPK(true);
+    }
   };
   useEffect(() => {
+    if (!authResolved) return;
     const scope = historyScope(identity);
     setHistory(historyCacheRef.current.get(scope) ?? []);
     setSelectedHistorySession(null);
@@ -789,10 +800,13 @@ export default function Home() {
       setPKChallenges([]);
       setUnreadPKResults(0);
     }
+    // Home prefetch starts after the actual Auth scope is known. It is not
+    // coupled to navigation, so a later tap can render cached content first.
+    void refreshHistoryData();
     // refreshPK deliberately refreshes all data sources after an Auth scope
     // switch; only the stable account id can change this scope.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identity?.id]);
+  }, [authResolved, identity?.id]);
   const startPKChallenge = async (challenge: PKChallenge) => {
     if (!identity || challenge.opponentId !== identity.id) return;
     try {
@@ -915,8 +929,17 @@ export default function Home() {
       "historyDetail",
       "result",
     ].includes(route.view);
-    if (needsHistory) void refreshHistoryData();
-    if (identity && (route.view === "pk" || route.view === "pkDetail"))
+    const scope = historyScope(identityRef.current);
+    // Identity resolution prefetches these datasets. A route change only starts
+    // a read if the route got there before that prefetch; otherwise navigation
+    // must render the retained data immediately without another refresh.
+    if (needsHistory && !historyCacheRef.current.has(scope))
+      void refreshHistoryData();
+    if (
+      identity &&
+      (route.view === "pk" || route.view === "pkDetail") &&
+      !pkCacheRef.current.has(scope)
+    )
       void refreshPK(route.view === "pk");
   }, [authResolved, identity, routeRecordId, view]);
   useEffect(() => {
@@ -927,23 +950,23 @@ export default function Home() {
         setSession(found);
         sessionRef.current = found;
         setRouteLoading(false);
-      } else setRouteLoading(historyInitialLoading);
+      } else setRouteLoading(false);
     }
     if (view === "historyDetail") {
       if (found) {
         setSelectedHistorySession(found);
         setRouteLoading(false);
-      } else setRouteLoading(historyInitialLoading);
+      } else setRouteLoading(false);
     }
-  }, [history, historyInitialLoading, routeRecordId, view]);
+  }, [history, routeRecordId, view]);
   useEffect(() => {
     if (view !== "pkDetail" || !routeRecordId) return;
     const found = pkChallenges.find((item) => item.id === routeRecordId);
     if (found) {
       setSelectedPKChallenge(found);
       setRouteLoading(false);
-    } else setRouteLoading(pkInitialLoading);
-  }, [pkChallenges, pkInitialLoading, routeRecordId, view]);
+    } else setRouteLoading(false);
+  }, [pkChallenges, routeRecordId, view]);
   if (view === "training" && (!session || !current))
     return (
       <main className="panel">
@@ -1242,22 +1265,18 @@ export default function Home() {
         <h1>历史记录</h1>
         {historyRefreshing && <p className="dataUpdating">正在更新记录…</p>}
         <RefreshNotice message={historyRefreshError} />
-        {historyInitialLoading && history.length === 0 ? (
-          <DataPagePlaceholder label="历史记录" />
-        ) : (
-          <HistoryList
-            key={historyScope(identity)}
-            currentAccountId={identity?.id}
-            currentUserId={(identity?.role ?? user) as "fish" | "cat"}
-            canViewPartner={Boolean(identity)}
-            onSync={syncOwnedSession}
-            sessions={history}
-            onOpen={(selected) => {
-              setSelectedHistorySession(selected);
-              navigate("historyDetail", selected.id);
-            }}
-          />
-        )}
+        <HistoryList
+          key={historyScope(identity)}
+          currentAccountId={identity?.id}
+          currentUserId={(identity?.role ?? user) as "fish" | "cat"}
+          canViewPartner={Boolean(identity)}
+          onSync={syncOwnedSession}
+          sessions={history}
+          onOpen={(selected) => {
+            setSelectedHistorySession(selected);
+            navigate("historyDetail", selected.id);
+          }}
+        />
         {false && (
           <>
             {history.length ? (
@@ -1283,8 +1302,13 @@ export default function Home() {
   if (view === "pk" && !identity)
     return (
       <main className="panel">
-        <h1>{authResolved ? "需要登录" : "正在确认账号…"}</h1>
-        <p>PK挑战仅对已绑定的同步账号开放。</p>
+        <button onClick={() => setView("home")}>← 首页</button>
+        <h1>PK挑战</h1>
+        <p>
+          {authResolved
+            ? "PK挑战仅对已绑定的同步账号开放。"
+            : "正在确认账号状态…"}
+        </p>
         <button onClick={() => setView("home")}>返回首页</button>
       </main>
     );
@@ -1294,32 +1318,20 @@ export default function Home() {
         <button onClick={() => setView("home")}>← 首页</button>
         {pkRefreshing && <p className="dataUpdating">正在更新PK挑战…</p>}
         <RefreshNotice message={pkRefreshError} />
-        {pkInitialLoading && pkChallenges.length === 0 ? (
-          <>
-            <div className="pkTitle">
-              <h1>PK挑战</h1>
-            </div>
-            <h2>待我处理</h2>
-            <DataPagePlaceholder label="PK挑战" />
-            <h2>等待对方</h2>
-            <DataPagePlaceholder label="PK结果" />
-          </>
-        ) : (
-          <PKPage
-            challenges={pkChallenges}
-            identityId={identity.id}
-            onContinue={continuePKChallenge}
-            onOpen={(challenge) => {
-              setSelectedPKChallenge(challenge);
-              navigate("pkDetail", challenge.id);
-            }}
-            onRefresh={() => void refreshPK()}
-            onStart={startPKChallenge}
-            sessions={
-              session?.status === "active" ? [...history, session] : history
-            }
-          />
-        )}
+        <PKPage
+          challenges={pkChallenges}
+          identityId={identity.id}
+          onContinue={continuePKChallenge}
+          onOpen={(challenge) => {
+            setSelectedPKChallenge(challenge);
+            navigate("pkDetail", challenge.id);
+          }}
+          onRefresh={() => void refreshPK()}
+          onStart={startPKChallenge}
+          sessions={
+            session?.status === "active" ? [...history, session] : history
+          }
+        />
       </main>
     );
   }
@@ -1364,14 +1376,10 @@ export default function Home() {
         <h1>我的成绩</h1>
         {historyRefreshing && <p className="dataUpdating">正在更新成绩…</p>}
         <RefreshNotice message={historyRefreshError} />
-        {historyInitialLoading && history.length === 0 ? (
-          <DataPagePlaceholder label="成绩与趋势" />
-        ) : (
-          <HistoryCharts
-            sessions={history}
-            userId={(identity?.role ?? user) as "fish" | "cat"}
-          />
-        )}
+        <HistoryCharts
+          sessions={history}
+          userId={(identity?.role ?? user) as "fish" | "cat"}
+        />
       </main>
     );
   }

@@ -116,12 +116,27 @@ describe("HistoryCharts", () => {
 
     // Standard type fish chart contains its single completed matching session.
     expect(fishStandardChart(container).dataset.covered).toBe("1");
-    // Every rendered chart is isolated; no active/abandoned record contributes.
-    const totalCovered = [
-      ...container.querySelectorAll<HTMLOutputElement>(
-        ".trend-chart-test-double",
-      ),
-    ].reduce((sum, chart) => sum + Number(chart.dataset.covered), 0);
+    // The page draws one selectable track at a time so opening the score page
+    // does not construct every chart before its frame becomes usable. Each
+    // track remains isolated; no active/abandoned record contributes.
+    const trackPicker = container.querySelector<HTMLSelectElement>(
+      '[aria-label="选择成长趋势题型"]',
+    );
+    if (!trackPicker) throw new Error("trend track picker is missing");
+    const totalCovered = [...trackPicker.options].reduce((sum, option) => {
+      fireEvent.change(trackPicker, { target: { value: option.value } });
+      return (
+        sum +
+        [
+          ...container.querySelectorAll<HTMLOutputElement>(
+            ".trend-chart-test-double",
+          ),
+        ].reduce(
+          (trackSum, chart) => trackSum + Number(chart.dataset.covered),
+          0,
+        )
+      );
+    }, 0);
     expect(totalCovered).toBe(8);
   });
 
