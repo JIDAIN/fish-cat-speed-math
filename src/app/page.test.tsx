@@ -166,9 +166,11 @@ describe("Home active-session interactions", () => {
     expect(
       await screen.findByText("输入近似商，相对误差不超过 3%"),
     ).toBeTruthy();
-    await expect(readActive()).resolves.toMatchObject({
-      questionType: "three_by_two_division",
-      subtype: "quotient_estimate_3_percent",
+    await waitFor(async () => {
+      expect(await readActive()).toMatchObject({
+        questionType: "three_by_two_division",
+        subtype: "quotient_estimate_3_percent",
+      });
     });
   });
 

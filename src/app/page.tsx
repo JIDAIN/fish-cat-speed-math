@@ -499,7 +499,7 @@ export default function Home() {
       const local = await readCompleted();
       const owned = identity
         ? local.filter((item) => item.ownerAccountId === identity.id)
-        : [];
+        : local.filter((item) => !item.ownerAccountId);
       setUnassignedHistory(local.filter((item) => !item.ownerAccountId));
       const cloud = identity ? await readCloudHistory().catch(() => []) : [];
       setHistory([
@@ -783,6 +783,8 @@ export default function Home() {
         <h1>历史记录</h1>
         <HistoryList
           currentAccountId={identity?.id}
+          currentUserId={(identity?.role ?? user) as "fish" | "cat"}
+          canViewPartner={Boolean(identity)}
           onSync={syncOwnedSession}
           sessions={history}
           onOpen={(selected) => {
@@ -817,7 +819,10 @@ export default function Home() {
       <main className="panel">
         <button onClick={() => setView("home")}>← 首页</button>
         <h1>我的成绩</h1>
-        <HistoryCharts sessions={history} />
+        <HistoryCharts
+          sessions={history}
+          userId={(identity?.role ?? user) as "fish" | "cat"}
+        />
       </main>
     );
   }
@@ -858,7 +863,7 @@ export default function Home() {
                 const local = await readCompleted();
                 const owned = identity
                   ? local.filter((item) => item.ownerAccountId === identity.id)
-                  : [];
+                  : local.filter((item) => !item.ownerAccountId);
                 const cloud = identity
                   ? await readCloudHistory().catch(() => [])
                   : [];

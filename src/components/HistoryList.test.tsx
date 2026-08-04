@@ -1,140 +1,132 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HistoryList } from "./HistoryList";
 import { TrainingSession } from "@/lib/types";
 
 function session(
   id: string,
   userId: "fish" | "cat",
-  startedAt: number,
-  questionType: TrainingSession["questionType"] = "two_digit_add_subtract",
+  overrides: Partial<TrainingSession> = {},
 ): TrainingSession {
+  const questions = Array.from({ length: 10 }, (_, index) => ({
+    id: `${id}-${index}`,
+  })) as TrainingSession["questions"];
   return {
     id,
     userId,
-    questionType,
+    questionType: "two_digit_add_subtract",
     subtype: "standard",
     questionCount: 10,
-    questions: [],
-    currentIndex: 0,
-    records: [],
+    questions,
+    currentIndex: 10,
+    records: questions.map((question, index) => ({
+      question,
+      userAnswer: "1",
+      isCorrect: index < 9,
+      accuracyLevel: "exact" as const,
+      timeUsedMs: 2_000,
+      restartCount: 0,
+      usedScratchpad: false,
+    })),
     currentAnswer: "",
     currentRestartCount: 0,
-    accumulatedMs: 0,
+    accumulatedMs: 20_000,
     runningSince: null,
     pauseDurationMs: 0,
     status: "completed",
-    startedAt,
+    startedAt: new Date(2026, 0, 3, 9).getTime(),
+    ...overrides,
   };
 }
 
 describe("HistoryList", () => {
-  it("selects the newest date after asynchronous records arrive and switches dates", () => {
-    const onOpen = vi.fn();
-    const older = session("older", "fish", new Date(2026, 0, 2, 9).getTime());
-    const newer = session("newer", "cat", new Date(2026, 0, 3, 9).getTime());
-    const rendered = render(<HistoryList onOpen={onOpen} sessions={[]} />);
-
-    rendered.rerender(
-      <HistoryList onOpen={onOpen} sessions={[older, newer]} />,
-    );
-    const dateButtons =
-      rendered.container.querySelectorAll<HTMLButtonElement>(
-        ".datePicker button",
-      );
-    expect(dateButtons).toHaveLength(2);
-    expect(
-      rendered.container.querySelector(".datePicker .selected")?.textContent,
-    ).toBe(dateButtons[0].textContent);
-
-    fireEvent.click(dateButtons[1]);
-    expect(
-      rendered.container.querySelector(".datePicker .selected")?.textContent,
-    ).toBe(dateButtons[1].textContent);
-    fireEvent.click(screen.getByRole("button", { name: /两位数加减/ }));
-    expect(onOpen).toHaveBeenCalledWith(older);
-  });
-
-  it("splits fish and cat, orders a day's sessions newest first, and opens details", () => {
-    const onOpen = vi.fn();
-    const day = new Date(2026, 0, 3);
-    const fishEarlier = session("fish-earlier", "fish", day.setHours(8));
-    const fishLater = session("fish-later", "fish", day.setHours(18));
-    const cat = session(
-      "cat",
-      "cat",
-      day.setHours(12),
-      "three_digit_add_subtract",
-    );
-    const { container } = render(
-      <HistoryList onOpen={onOpen} sessions={[fishEarlier, cat, fishLater]} />,
-    );
-
-    const sections = container.querySelectorAll(".historyUserSection");
-    expect(sections).toHaveLength(2);
-    expect(sections[0].textContent).toContain("小鱼");
-    expect(sections[1].textContent).toContain("小猫");
-
-    const fishButtons = sections[0].querySelectorAll<HTMLButtonElement>(
-      ".historySessionOpen",
-    );
-    expect(fishButtons).toHaveLength(2);
-    expect(fishButtons[0].textContent).toContain("18:00");
-    fireEvent.click(fishButtons[0]);
-    expect(onOpen).toHaveBeenCalledWith(fishLater);
-  });
-
-  it("does not show active or abandoned sessions in dates or user sections", () => {
-    const onOpen = vi.fn();
-    const completed = session(
-      "completed",
-      "fish",
-      new Date(2026, 0, 3).getTime(),
-    );
-    const active = {
-      ...session("active", "fish", new Date(2026, 0, 4).getTime()),
-      status: "active" as const,
-    };
-    const abandoned = {
-      ...session("abandoned", "cat", new Date(2026, 0, 5).getTime()),
-      status: "abandoned" as const,
-    };
-    const { container } = render(
-      <HistoryList onOpen={onOpen} sessions={[completed, active, abandoned]} />,
-    );
-
-    expect(container.querySelectorAll(".datePicker button")).toHaveLength(1);
-    expect(container.querySelectorAll(".historySession")).toHaveLength(1);
-    expect(container.textContent).not.toContain("active");
-    expect(container.textContent).not.toContain("abandoned");
-  });
-
-  it("only offers retry for the current account's unsynced records", () => {
-    const onOpen = vi.fn();
-    const onSync = vi.fn();
-    const own = {
-      ...session("own", "fish", new Date(2026, 0, 3).getTime()),
-      ownerAccountId: "account-fish",
-      syncStatus: "failed" as const,
-    };
-    const partner = {
-      ...session("partner", "cat", new Date(2026, 0, 3, 1).getTime()),
+  afterEach(cleanup);
+  it("defaults to the current user and exposes weighted summary values", () => {
+    const own = session("own", "fish", { ownerAccountId: "account-fish" });
+    const partner = session("partner", "cat", {
       ownerAccountId: "account-cat",
-      syncStatus: "failed" as const,
-    };
+    });
     render(
       <HistoryList
+        canViewPartner
         currentAccountId="account-fish"
-        onOpen={onOpen}
-        onSync={onSync}
+        currentUserId="fish"
+        onOpen={vi.fn()}
         sessions={[own, partner]}
       />,
     );
 
-    const retry = screen.getByRole("button", { name: "重试同步" });
-    fireEvent.click(retry);
-    expect(onSync).toHaveBeenCalledWith(own);
-    expect(screen.getAllByText("同步失败")).toHaveLength(1);
+    expect(screen.getByText("训练组数").parentElement?.textContent).toContain(
+      "1",
+    );
+    expect(screen.getByText("总正确率").parentElement?.textContent).toContain(
+      "90%",
+    );
+    expect(screen.getAllByText("两位数加减").length).toBeGreaterThan(0);
+    expect(screen.queryByText("共享只读")).toBeNull();
+  });
+
+  it("switches to the paired user as read-only and never exposes a retry action", () => {
+    const own = session("own", "fish", {
+      ownerAccountId: "account-fish",
+      syncStatus: "failed",
+    });
+    const partner = session("partner", "cat", {
+      ownerAccountId: "account-cat",
+      syncStatus: "failed",
+    });
+    const onSync = vi.fn();
+    render(
+      <HistoryList
+        canViewPartner
+        currentAccountId="account-fish"
+        currentUserId="fish"
+        onOpen={vi.fn()}
+        onSync={onSync}
+        sessions={[own, partner]}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "重试同步" })).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: /小猫/ })[0]);
+    expect(screen.getByText("共享只读")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "重试同步" })).toBeNull();
+  });
+
+  it("only offers type and subtype filters that exist for the selected user", () => {
+    const add = session("add", "fish");
+    const division = session("division", "fish", {
+      questionType: "three_by_two_division",
+      subtype: "quotient_first",
+    });
+    render(
+      <HistoryList
+        currentUserId="fish"
+        onOpen={vi.fn()}
+        sessions={[add, division]}
+      />,
+    );
+    const typeFilter = screen.getByLabelText("筛选题型");
+    expect(typeFilter.textContent).toContain("两位数加减");
+    expect(typeFilter.textContent).toContain("三位数÷两位数");
+    fireEvent.change(typeFilter, {
+      target: { value: "three_by_two_division" },
+    });
+    expect(screen.queryByLabelText("筛选子模式")).toBeNull();
+    expect(document.querySelectorAll(".historySession")).toHaveLength(1);
+    expect(document.querySelector(".historySession")?.textContent).toContain(
+      "求商首位",
+    );
+  });
+
+  it("keeps unlogged local records local and opens a selected card", () => {
+    const onOpen = vi.fn();
+    const local = session("local", "fish");
+    render(
+      <HistoryList currentUserId="fish" onOpen={onOpen} sessions={[local]} />,
+    );
+    expect(screen.getByText("仅本地")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /两位数加减/ }));
+    expect(onOpen).toHaveBeenCalledWith(local);
   });
 });

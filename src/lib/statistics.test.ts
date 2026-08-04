@@ -5,6 +5,7 @@ import {
   getRating,
   ratingTarget,
   sessionMetrics,
+  summarizeHistory,
   subtypesForType,
   trendPoints,
 } from "./statistics";
@@ -290,6 +291,36 @@ describe("training statistics", () => {
     ]);
     const frozen = { ...ten, rating: createRatingSnapshot(ten) };
     expect(getRating(frozen)).toBe(frozen.rating.level);
+  });
+
+  it("summarizes history with question-weighted accuracy and speed", () => {
+    const short = session({
+      questions: session().questions.slice(0, 10),
+      records: session()
+        .records.slice(0, 10)
+        .map((record, index) => ({
+          ...record,
+          isCorrect: index < 10,
+        })),
+      accumulatedMs: 10_000,
+      startedAt: 2,
+    });
+    const long = session({
+      records: session().records.map((record, index) => ({
+        ...record,
+        isCorrect: index < 10,
+      })),
+      accumulatedMs: 60_000,
+      startedAt: 1,
+    });
+    const summary = summarizeHistory([long, short]);
+    expect(summary).toMatchObject({
+      sessionCount: 2,
+      questionCount: 30,
+      correctCount: 20,
+      accuracy: 20 / 30,
+      averageMs: 70_000 / 30,
+    });
   });
 
   it("keeps count-isolated trend buckets weighted by actual questions", () => {

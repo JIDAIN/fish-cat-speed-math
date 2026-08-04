@@ -171,6 +171,60 @@ export function getRating(session: TrainingSession): Rating {
   return session.rating?.level ?? assessRating(session).level;
 }
 
+export type HistorySummary = {
+  sessionCount: number;
+  questionCount: number;
+  correctCount: number;
+  accuracy: number;
+  averageMs: number;
+  latestRating?: Rating;
+  bestRating?: Rating;
+  ratingCounts: Record<Rating, number>;
+};
+
+const ratingOrder: Rating[] = ["优秀", "良好", "合格", "继续加油"];
+
+/** Weighted summary: correctness and speed are calculated over all frozen questions. */
+export function summarizeHistory(sessions: TrainingSession[]): HistorySummary {
+  const completed = sessions
+    .filter((session) => session.status === "completed")
+    .sort((left, right) => right.startedAt - left.startedAt);
+  const ratingCounts: Record<Rating, number> = {
+    优秀: 0,
+    良好: 0,
+    合格: 0,
+    继续加油: 0,
+  };
+  const totals = completed.reduce(
+    (result, session) => {
+      const metrics = sessionMetrics(session);
+      const rating = getRating(session);
+      ratingCounts[rating] += 1;
+      return {
+        questionCount: result.questionCount + metrics.questionCount,
+        correctCount: result.correctCount + metrics.correctCount,
+        elapsedMs: result.elapsedMs + session.accumulatedMs,
+      };
+    },
+    { questionCount: 0, correctCount: 0, elapsedMs: 0 },
+  );
+  const ratings = completed.map(getRating);
+  return {
+    sessionCount: completed.length,
+    questionCount: totals.questionCount,
+    correctCount: totals.correctCount,
+    accuracy: totals.questionCount
+      ? totals.correctCount / totals.questionCount
+      : 0,
+    averageMs: totals.questionCount
+      ? totals.elapsedMs / totals.questionCount
+      : 0,
+    latestRating: ratings[0],
+    bestRating: ratingOrder.find((rating) => ratings.includes(rating)),
+    ratingCounts,
+  };
+}
+
 export function trendPoints(
   sessions: TrainingSession[],
   userId: string,

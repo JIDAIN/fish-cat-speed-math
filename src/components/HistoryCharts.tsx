@@ -36,10 +36,12 @@ function TrackCharts({
   sessions,
   type,
   subtype,
+  userId,
 }: {
   sessions: TrainingSession[];
   type: QuestionType;
   subtype: Subtype;
+  userId?: "fish" | "cat";
 }) {
   const questionCounts = useMemo(
     () =>
@@ -94,7 +96,7 @@ function TrackCharts({
         </label>
       )}
       <div className="userChartGrid">
-        {USERS.map((user) => {
+        {USERS.filter((user) => !userId || user.id === userId).map((user) => {
           const points = questionCount
             ? trendPoints(sessions, user.id, type, subtype, questionCount)
             : [];
@@ -119,7 +121,13 @@ function TrackCharts({
 }
 
 /** Renders all available question-type tracks independent of the current home-page selection. */
-export function HistoryCharts({ sessions }: { sessions: TrainingSession[] }) {
+export function HistoryCharts({
+  sessions,
+  userId,
+}: {
+  sessions: TrainingSession[];
+  userId?: "fish" | "cat";
+}) {
   const questionTypes = Object.keys(typeLabels) as QuestionType[];
   return (
     <section className="historyCharts" aria-label="各题型成长趋势">
@@ -135,6 +143,7 @@ export function HistoryCharts({ sessions }: { sessions: TrainingSession[] }) {
             sessions={sessions}
             type={type}
             subtype={subtype}
+            userId={userId}
           />
         )),
       )}
