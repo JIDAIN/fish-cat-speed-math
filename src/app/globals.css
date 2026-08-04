@@ -1072,23 +1072,8 @@ h2 {
 .pkResultOpen small {
   display: block;
 }
-.pkCompare {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-.pkCompare p {
-  margin: 0;
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--green-50);
-  line-height: 1.7;
-}
-.pkFilter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin: 16px 0;
+.pkParticipants {
+  color: var(--muted);
 }
 .pkQuestionRows {
   display: grid;
@@ -1106,8 +1091,33 @@ h2 {
 .pkQuestionRows span {
   font-size: 13px;
 }
-.pkDifference {
+.pkAnswer {
+  font-weight: 600;
+}
+.pkAnswerCorrect {
+  color: var(--green-700);
+}
+.pkAnswerWrong {
+  color: #b3343c;
+}
+.pkAnswerMissing {
+  color: #8a5d2a;
+}
+.pkCorrectAnswer {
+  color: var(--green-700);
+  font-weight: 600;
+}
+.pkOneCorrect {
   border-left: 4px solid #cf7b3d !important;
+  background: #fffaf2;
+}
+.pkBothWrong {
+  border-left: 4px solid #b3343c !important;
+  background: #fff6f6;
+}
+.pkMissing {
+  border-left: 4px solid #8a5d2a !important;
+  background: #fffaf2;
 }
 .pager {
   display: flex;
