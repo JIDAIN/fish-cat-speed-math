@@ -20,6 +20,32 @@ const formatTime = (milliseconds: number) =>
   `${(milliseconds / 1000).toFixed(1)}秒`;
 const PAGE_SIZE = 20;
 
+type SavedHistoryView = {
+  selectedUserId?: UserId;
+  selectedType?: QuestionType | "all";
+  selectedSubtype?: Subtype | "all";
+  selectedSource?: "all" | "normal" | "pk";
+  selectedCount?: number | "all";
+  selectedRating?: ReturnType<typeof getRating> | "all";
+  selectedRange?: "all" | "7d" | "30d";
+  page?: number;
+};
+
+function historyViewKey(currentAccountId: string | undefined, userId: UserId) {
+  return `speed-math-history-view:${currentAccountId ?? "local"}:${userId}`;
+}
+
+function readSavedHistoryView(key: string): SavedHistoryView {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(
+      window.sessionStorage.getItem(key) ?? "{}",
+    ) as SavedHistoryView;
+  } catch {
+    return {};
+  }
+}
+
 function syncLabel(
   session: TrainingSession,
   isOwn: boolean,
@@ -51,26 +77,35 @@ export function HistoryList({
   canViewPartner?: boolean;
   onSync?: (session: TrainingSession) => void;
 }) {
+  const savedView = readSavedHistoryView(
+    historyViewKey(currentAccountId, currentUserId),
+  );
   const completed = useMemo(
     () => sessions.filter((session) => session.status === "completed"),
     [sessions],
   );
-  const [selectedUserId, setSelectedUserId] = useState<UserId>(currentUserId);
-  const [selectedType, setSelectedType] = useState<QuestionType | "all">("all");
+  const [selectedUserId, setSelectedUserId] = useState<UserId>(
+    savedView.selectedUserId ?? currentUserId,
+  );
+  const [selectedType, setSelectedType] = useState<QuestionType | "all">(
+    savedView.selectedType ?? "all",
+  );
   const [selectedSubtype, setSelectedSubtype] = useState<Subtype | "all">(
-    "all",
+    savedView.selectedSubtype ?? "all",
   );
   const [selectedSource, setSelectedSource] = useState<"all" | "normal" | "pk">(
-    "all",
+    savedView.selectedSource ?? "all",
   );
-  const [selectedCount, setSelectedCount] = useState<number | "all">("all");
+  const [selectedCount, setSelectedCount] = useState<number | "all">(
+    savedView.selectedCount ?? "all",
+  );
   const [selectedRating, setSelectedRating] = useState<
     ReturnType<typeof getRating> | "all"
-  >("all");
+  >(savedView.selectedRating ?? "all");
   const [selectedRange, setSelectedRange] = useState<"all" | "7d" | "30d">(
-    "all",
+    savedView.selectedRange ?? "all",
   );
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(savedView.page ?? 1);
   useEffect(() => setSelectedUserId(currentUserId), [currentUserId]);
 
   const visibleUsers = canViewPartner
@@ -158,6 +193,38 @@ export function HistoryList({
     if (page !== safePage) setPage(safePage);
   }, [page, safePage]);
   const resetPage = () => setPage(1);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        historyViewKey(currentAccountId, currentUserId),
+        JSON.stringify({
+          selectedUserId,
+          selectedType,
+          selectedSubtype,
+          selectedSource,
+          selectedCount,
+          selectedRating,
+          selectedRange,
+          page: safePage,
+        } satisfies SavedHistoryView),
+      );
+    } catch {
+      // Page filtering remains usable when browser storage is unavailable.
+    }
+  }, [
+    currentAccountId,
+    currentUserId,
+    page,
+    safePage,
+    selectedCount,
+    selectedRange,
+    selectedRating,
+    selectedSource,
+    selectedSubtype,
+    selectedType,
+    selectedUserId,
+  ]);
 
   return (
     <section className="historyList">

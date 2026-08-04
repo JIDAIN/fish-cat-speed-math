@@ -41,7 +41,10 @@ function session(
 }
 
 describe("HistoryList", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    window.sessionStorage.clear();
+  });
   it("defaults to the current user and exposes weighted summary values", () => {
     const own = session("own", "fish", { ownerAccountId: "account-fish" });
     const partner = session("partner", "cat", {
@@ -128,5 +131,26 @@ describe("HistoryList", () => {
     expect(screen.getByText("仅本地")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /两位数加减/ }));
     expect(onOpen).toHaveBeenCalledWith(local);
+  });
+
+  it("restores the current account's last history filters without sharing them", () => {
+    window.sessionStorage.setItem(
+      "speed-math-history-view:account-fish:fish",
+      JSON.stringify({ selectedSource: "pk", selectedRange: "7d" }),
+    );
+    render(
+      <HistoryList
+        currentAccountId="account-fish"
+        currentUserId="fish"
+        onOpen={vi.fn()}
+        sessions={[session("own", "fish", { trainingSource: "pk" })]}
+      />,
+    );
+
+    const values = Array.from(document.querySelectorAll("select")).map(
+      (select) => select.value,
+    );
+    expect(values).toContain("pk");
+    expect(values).toContain("7d");
   });
 });
