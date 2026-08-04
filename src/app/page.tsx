@@ -770,18 +770,24 @@ export default function Home() {
           </button>
         </section>
       )}
-      <section className="userbar">
-        {users.map((u) => (
-          <button
-            className={u.id === user ? "selected" : ""}
-            disabled={Boolean(identity)}
-            key={u.id}
-            onClick={() => !identity && setUser(u.id)}
-          >
-            {u.name}
-          </button>
-        ))}
-      </section>
+      {identity ? (
+        <p className="boundIdentity">
+          当前训练身份：{identity.role === "fish" ? "🐟 小鱼" : "🐱 小猫"}
+          （账号已绑定）
+        </p>
+      ) : (
+        <section className="userbar">
+          {users.map((u) => (
+            <button
+              className={u.id === user ? "selected" : ""}
+              key={u.id}
+              onClick={() => setUser(u.id)}
+            >
+              {u.name}
+            </button>
+          ))}
+        </section>
+      )}
       <h2>选择训练题型</h2>
       <TrainingTypeSelector
         onDivisionRuleChange={setSubtype}

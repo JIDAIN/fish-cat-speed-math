@@ -583,17 +583,34 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 14px;
-  padding: 10px;
+  gap: 6px 8px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--green-50);
   font-size: 13px;
 }
 .accountPanel input {
-  min-width: 120px;
-  min-height: 38px;
+  min-width: 108px;
+  min-height: 34px;
+}
+.accountPanel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.accountPanel label span {
+  white-space: nowrap;
+}
+.boundIdentity {
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--green-50);
+  color: var(--green-900);
+  font-size: 14px;
 }
 .accountPanel small {
   width: 100%;

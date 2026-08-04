@@ -11,3 +11,7 @@
 1. 在 Supabase SQL Editor 执行 `supabase/migrations/20260804_minimal_pair_sync_repair.sql`。
 2. 在 Vercel 配置 `NEXT_PUBLIC_SUPABASE_URL` 与 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`，然后重新部署。
 3. 两个指定邮箱均应在 Supabase Auth 中创建密码账号。
+
+## 配对读取修复
+
+- 执行 `supabase/migrations/20260804_fix_paired_history_read.sql`，为配对双方增加只读自身配对行的 RLS 策略。它修复 completed 读取策略内部无法识别配对关系的问题，不改写现有训练。

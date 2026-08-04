@@ -44,20 +44,30 @@ export function AccountPanel({
   };
   return (
     <form className="accountPanel" onSubmit={submit}>
-      <input
-        aria-label="登录邮箱"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
-      <input
-        aria-label="登录密码"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
+      <label>
+        <span>邮箱</span>
+        <input
+          aria-label="登录邮箱"
+          autoComplete="email"
+          placeholder="邮箱"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </label>
+      <label>
+        <span>密码</span>
+        <input
+          aria-label="登录密码"
+          autoComplete="current-password"
+          placeholder="密码"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </label>
       <button type="submit">登录同步账号</button>
       {error && <small role="alert">{error}</small>}
     </form>
