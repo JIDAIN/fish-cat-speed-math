@@ -224,6 +224,15 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
         ? value.ownerAccountId
         : undefined,
     syncedAt: typeof value.syncedAt === "number" ? value.syncedAt : undefined,
+    syncStatus:
+      value.syncStatus === "syncing" ||
+      value.syncStatus === "synced" ||
+      value.syncStatus === "not_synced" ||
+      value.syncStatus === "failed"
+        ? value.syncStatus
+        : typeof value.syncedAt === "number"
+          ? "synced"
+          : "not_synced",
   };
 }
 

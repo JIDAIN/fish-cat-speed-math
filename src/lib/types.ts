@@ -67,6 +67,7 @@ export interface TrainingSession {
   ownerAccountId?: string;
   /** Timestamp of a successful idempotent cloud upload. */
   syncedAt?: number;
+  syncStatus?: "syncing" | "synced" | "not_synced" | "failed";
 }
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",

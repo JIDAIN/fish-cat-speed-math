@@ -50,7 +50,13 @@ export async function syncCompleted(session: TrainingSession) {
     return false;
   const { error } = await db.rpc("sync_completed_training_session", {
     p_session_id: session.id,
-    p_session_data: session,
+    // The cloud row itself proves the upload completed. Do not persist the
+    // short-lived local "syncing" state in the frozen cloud payload.
+    p_session_data: {
+      ...session,
+      syncStatus: "synced",
+      syncedAt: session.syncedAt ?? Date.now(),
+    },
     p_generator_version:
       session.questions[0]?.generationRuleVersion ?? "legacy_unknown",
     p_grading_version: "1.0.0",
@@ -69,5 +75,10 @@ export async function readCloudHistory(): Promise<TrainingSession[]> {
     .select("session_data")
     .order("completed_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((row) => row.session_data as TrainingSession);
+  return (data ?? []).map((row) => ({
+    ...(row.session_data as TrainingSession),
+    // Older uploads may have stored the in-flight UI state. A row returned by
+    // this completed-only endpoint has already been accepted by Supabase.
+    syncStatus: "synced" as const,
+  }));
 }

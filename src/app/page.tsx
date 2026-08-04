@@ -334,15 +334,37 @@ export default function Home() {
     const next = submitCurrentAnswer(session, elapsed, scratch);
     if (next === session) return;
     if (next.status === "completed") {
-      setSession(next);
-      saveSession(next).catch(() =>
+      const completed = {
+        ...next,
+        syncStatus:
+          identity && next.ownerAccountId === identity.id
+            ? ("syncing" as const)
+            : ("not_synced" as const),
+      };
+      setSession(completed);
+      const localSave = saveSession(completed);
+      localSave.catch(() =>
         setStorageError("本次训练已完成，但本地保存失败，请刷新后重试。"),
       );
-      if (identity && next.ownerAccountId === identity.id) {
-        syncCompleted(next)
-          .then((synced) => {
-            if (synced) return saveSession({ ...next, syncedAt: Date.now() });
-          })
+      if (identity && completed.ownerAccountId === identity.id) {
+        localSave
+          .then(() => syncCompleted(completed))
+          .then(
+            () => {
+              const synced = {
+                ...completed,
+                syncStatus: "synced" as const,
+                syncedAt: Date.now(),
+              };
+              setSession(synced);
+              return saveSession(synced);
+            },
+            () => {
+              const failed = { ...completed, syncStatus: "failed" as const };
+              setSession(failed);
+              return saveSession(failed);
+            },
+          )
           .catch(() =>
             setStorageError("本地已保存；云端同步失败，可稍后在历史中重试。"),
           );
@@ -395,6 +417,36 @@ export default function Home() {
       setView("history");
     } catch {
       setStorageError("历史记录读取失败，请刷新后重试。");
+    }
+  };
+  const syncOwnedSession = async (candidate: TrainingSession) => {
+    if (!identity || candidate.ownerAccountId !== identity.id) return;
+    const syncing = { ...candidate, syncStatus: "syncing" as const };
+    await saveSession(syncing);
+    setHistory((items) =>
+      items.map((item) => (item.id === syncing.id ? syncing : item)),
+    );
+    if (session?.id === syncing.id) setSession(syncing);
+    try {
+      await syncCompleted(syncing);
+      const synced = {
+        ...syncing,
+        syncStatus: "synced" as const,
+        syncedAt: Date.now(),
+      };
+      await saveSession(synced);
+      setHistory((items) =>
+        items.map((item) => (item.id === synced.id ? synced : item)),
+      );
+      if (session?.id === synced.id) setSession(synced);
+    } catch {
+      const failed = { ...syncing, syncStatus: "failed" as const };
+      await saveSession(failed);
+      setHistory((items) =>
+        items.map((item) => (item.id === failed.id ? failed : item)),
+      );
+      if (session?.id === failed.id) setSession(failed);
+      setStorageError("同步失败；本地训练已安全保留，可稍后重试。");
     }
   };
   if (view === "training" && session && current)
@@ -588,17 +640,30 @@ export default function Home() {
         </p>
         <QuestionDetails session={session} />
         {identity && session.ownerAccountId === identity.id && (
+          <p
+            className={`syncStatus syncStatus-${session.syncStatus ?? "not_synced"}`}
+          >
+            同步状态：
+            {session.syncStatus === "syncing"
+              ? "同步中"
+              : session.syncStatus === "synced" || session.syncedAt
+                ? "已同步"
+                : session.syncStatus === "failed"
+                  ? "同步失败"
+                  : "未同步"}
+          </p>
+        )}
+        {identity && session.ownerAccountId === identity.id && (
           <button
             className="wide"
-            onClick={() =>
-              syncCompleted(session)
-                .then(() => saveSession({ ...session, syncedAt: Date.now() }))
-                .catch(() =>
-                  setStorageError("同步失败；本地训练已安全保留，可稍后重试。"),
-                )
-            }
+            disabled={session.syncStatus === "syncing"}
+            onClick={() => syncOwnedSession(session)}
           >
-            {session.syncedAt ? "已同步，重新同步" : "同步本次训练"}
+            {session.syncStatus === "syncing"
+              ? "同步中"
+              : session.syncedAt
+                ? "已同步，重新同步"
+                : "同步本次训练"}
           </button>
         )}
         {session && false && (
@@ -625,6 +690,8 @@ export default function Home() {
         <button onClick={() => setView("home")}>← 首页</button>
         <h1>历史记录</h1>
         <HistoryList
+          currentAccountId={identity?.id}
+          onSync={syncOwnedSession}
           sessions={history}
           onOpen={(selected) => {
             setSelectedHistorySession(selected);

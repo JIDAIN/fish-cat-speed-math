@@ -832,18 +832,26 @@ h2 {
   margin: 0 0 10px;
 }
 .historySession {
+  width: 100%;
+  margin-bottom: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+}
+.historySessionOpen {
   display: flex;
   width: 100%;
-  min-height: 66px;
+  min-height: 58px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 9px;
-  border: 1px solid var(--line);
-  background: var(--card);
+  margin: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
   text-align: left;
 }
-.historySession > span {
+.historySessionOpen > span {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -863,6 +871,28 @@ h2 {
   flex-shrink: 0;
   text-align: right;
   font-size: 13px;
+}
+.historySync {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 8px;
+  font-size: 12px;
+}
+.syncStatus {
+  color: var(--muted);
+}
+.syncStatus-synced {
+  color: var(--green-700);
+}
+.syncStatus-failed {
+  color: #a33939;
+}
+.historySync button {
+  min-height: 32px;
+  padding: 4px 9px;
+  font-size: 12px;
 }
 .emptyHistory,
 .emptyUser {

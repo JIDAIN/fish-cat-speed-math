@@ -14,9 +14,13 @@ const dateKey = (value: number) => new Date(value).toLocaleDateString("zh-CN");
 export function HistoryList({
   sessions,
   onOpen,
+  currentAccountId,
+  onSync,
 }: {
   sessions: TrainingSession[];
   onOpen: (session: TrainingSession) => void;
+  currentAccountId?: string;
+  onSync?: (session: TrainingSession) => void;
 }) {
   // The component can be called with the raw local-session collection. Keep
   // unfinished or abandoned sessions out of the date picker and history UI.
@@ -79,28 +83,53 @@ export function HistoryList({
             {userSessions.length ? (
               userSessions.map((session) => {
                 const metrics = sessionMetrics(session);
+                const isOwn = session.ownerAccountId === currentAccountId;
+                const status = session.syncStatus ?? "not_synced";
+                const statusLabel =
+                  status === "syncing"
+                    ? "同步中"
+                    : status === "synced"
+                      ? "已同步"
+                      : status === "failed"
+                        ? "同步失败"
+                        : "未同步";
                 return (
-                  <button
-                    className="historySession"
-                    key={session.id}
-                    onClick={() => onOpen(session)}
-                  >
-                    <span>
-                      <strong>{typeLabels[session.questionType]}</strong>
-                      <small>
-                        {subtypeLabels[session.subtype]} ·{" "}
-                        {new Date(session.startedAt).toLocaleTimeString(
-                          "zh-CN",
-                          { hour: "2-digit", minute: "2-digit" },
-                        )}
-                      </small>
-                    </span>
-                    <span className="historySessionMetrics">
-                      {metrics.correctCount}/{metrics.questionCount} ·{" "}
-                      {(session.accumulatedMs / 1000).toFixed(1)}s<br />
-                      <small>点击查看详情</small>
-                    </span>
-                  </button>
+                  <article className="historySession" key={session.id}>
+                    <button
+                      className="historySessionOpen"
+                      onClick={() => onOpen(session)}
+                    >
+                      <span>
+                        <strong>{typeLabels[session.questionType]}</strong>
+                        <small>
+                          {subtypeLabels[session.subtype]} ·{" "}
+                          {new Date(session.startedAt).toLocaleTimeString(
+                            "zh-CN",
+                            { hour: "2-digit", minute: "2-digit" },
+                          )}
+                        </small>
+                      </span>
+                      <span className="historySessionMetrics">
+                        {metrics.correctCount}/{metrics.questionCount} ·{" "}
+                        {(session.accumulatedMs / 1000).toFixed(1)}s<br />
+                        <small>点击查看详情</small>
+                      </span>
+                    </button>
+                    {isOwn && (
+                      <div className="historySync">
+                        <span className={`syncStatus syncStatus-${status}`}>
+                          {statusLabel}
+                        </span>
+                        {status !== "synced" &&
+                          status !== "syncing" &&
+                          onSync && (
+                            <button onClick={() => onSync(session)}>
+                              重试同步
+                            </button>
+                          )}
+                      </div>
+                    )}
+                  </article>
                 );
               })
             ) : (

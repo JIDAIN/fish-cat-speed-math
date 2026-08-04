@@ -76,8 +76,9 @@ describe("HistoryList", () => {
     expect(sections[0].textContent).toContain("小鱼");
     expect(sections[1].textContent).toContain("小猫");
 
-    const fishButtons =
-      sections[0].querySelectorAll<HTMLButtonElement>(".historySession");
+    const fishButtons = sections[0].querySelectorAll<HTMLButtonElement>(
+      ".historySessionOpen",
+    );
     expect(fishButtons).toHaveLength(2);
     expect(fishButtons[0].textContent).toContain("18:00");
     fireEvent.click(fishButtons[0]);
@@ -107,5 +108,33 @@ describe("HistoryList", () => {
     expect(container.querySelectorAll(".historySession")).toHaveLength(1);
     expect(container.textContent).not.toContain("active");
     expect(container.textContent).not.toContain("abandoned");
+  });
+
+  it("only offers retry for the current account's unsynced records", () => {
+    const onOpen = vi.fn();
+    const onSync = vi.fn();
+    const own = {
+      ...session("own", "fish", new Date(2026, 0, 3).getTime()),
+      ownerAccountId: "account-fish",
+      syncStatus: "failed" as const,
+    };
+    const partner = {
+      ...session("partner", "cat", new Date(2026, 0, 3, 1).getTime()),
+      ownerAccountId: "account-cat",
+      syncStatus: "failed" as const,
+    };
+    render(
+      <HistoryList
+        currentAccountId="account-fish"
+        onOpen={onOpen}
+        onSync={onSync}
+        sessions={[own, partner]}
+      />,
+    );
+
+    const retry = screen.getByRole("button", { name: "重试同步" });
+    fireEvent.click(retry);
+    expect(onSync).toHaveBeenCalledWith(own);
+    expect(screen.getAllByText("同步失败")).toHaveLength(1);
   });
 });
