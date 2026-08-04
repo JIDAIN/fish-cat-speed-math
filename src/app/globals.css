@@ -557,10 +557,47 @@ h2 {
   font-size: 12px;
   line-height: 1.5;
 }
+.trendCountPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.trendCountPicker select {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: inherit;
+  font: inherit;
+}
 .userChartGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+.accountPanel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--green-50);
+  font-size: 13px;
+}
+.accountPanel input {
+  min-width: 120px;
+  min-height: 38px;
+}
+.accountPanel small {
+  width: 100%;
+  color: #a33939;
 }
 .userChart {
   min-width: 0;

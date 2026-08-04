@@ -9,10 +9,19 @@ import {
 } from "@/lib/types";
 import {
   discardSession,
+  claimCompletedSessions,
+  discardCompletedSessions,
   readActive,
   readCompleted,
   saveSession,
 } from "@/lib/storage";
+import { AccountPanel } from "@/components/AccountPanel";
+import {
+  CloudIdentity,
+  currentIdentity,
+  readCloudHistory,
+  syncCompleted,
+} from "@/lib/cloud";
 import { NumberPad } from "@/components/NumberPad";
 import { ScratchCanvas } from "@/components/ScratchCanvas";
 import { HistoryCharts } from "@/components/HistoryCharts";
@@ -168,6 +177,10 @@ export default function Home() {
     "home" | "training" | "result" | "history" | "stats" | "historyDetail"
   >("home");
   const [user, setUser] = useState("fish");
+  const [identity, setIdentity] = useState<CloudIdentity>();
+  const [unassignedHistory, setUnassignedHistory] = useState<TrainingSession[]>(
+    [],
+  );
   const [type, setType] = useState<QuestionType>("two_digit_add_subtract");
   const [subtype, setSubtype] = useState<Subtype>(
     defaultSubtype("two_digit_add_subtract"),
@@ -200,6 +213,21 @@ export default function Home() {
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(i);
+  }, []);
+  useEffect(() => {
+    readCompleted()
+      .then((items) =>
+        setUnassignedHistory(items.filter((item) => !item.ownerAccountId)),
+      )
+      .catch(() => undefined);
+  }, [identity?.id]);
+  useEffect(() => {
+    currentIdentity()
+      .then((next) => {
+        setIdentity(next);
+        if (next) setUser(next.role);
+      })
+      .catch(() => undefined);
   }, []);
   useEffect(() => {
     readActive()
@@ -247,6 +275,7 @@ export default function Home() {
     }
     const s = createTrainingSession({
       userId: user,
+      ownerAccountId: identity?.id,
       questionType: type,
       subtype,
       questionCount: count,
@@ -309,6 +338,15 @@ export default function Home() {
       saveSession(next).catch(() =>
         setStorageError("本次训练已完成，但本地保存失败，请刷新后重试。"),
       );
+      if (identity && next.ownerAccountId === identity.id) {
+        syncCompleted(next)
+          .then((synced) => {
+            if (synced) return saveSession({ ...next, syncedAt: Date.now() });
+          })
+          .catch(() =>
+            setStorageError("本地已保存；云端同步失败，可稍后在历史中重试。"),
+          );
+      }
       setView("result");
     } else setSession(next);
     setScratch(false);
@@ -342,7 +380,18 @@ export default function Home() {
   };
   const loadHistory = async () => {
     try {
-      setHistory(await readCompleted());
+      const local = await readCompleted();
+      const owned = identity
+        ? local.filter((item) => item.ownerAccountId === identity.id)
+        : [];
+      setUnassignedHistory(local.filter((item) => !item.ownerAccountId));
+      const cloud = identity ? await readCloudHistory().catch(() => []) : [];
+      setHistory([
+        ...owned,
+        ...cloud.filter(
+          (item) => !owned.some((localItem) => localItem.id === item.id),
+        ),
+      ]);
       setView("history");
     } catch {
       setStorageError("历史记录读取失败，请刷新后重试。");
@@ -538,6 +587,20 @@ export default function Home() {
           本次评级：<strong>{rating}</strong>
         </p>
         <QuestionDetails session={session} />
+        {identity && session.ownerAccountId === identity.id && (
+          <button
+            className="wide"
+            onClick={() =>
+              syncCompleted(session)
+                .then(() => saveSession({ ...session, syncedAt: Date.now() }))
+                .catch(() =>
+                  setStorageError("同步失败；本地训练已安全保留，可稍后重试。"),
+                )
+            }
+          >
+            {session.syncedAt ? "已同步，重新同步" : "同步本次训练"}
+          </button>
+        )}
         {session && false && (
           <>
             <h2>题目明细</h2>
@@ -633,7 +696,20 @@ export default function Home() {
           <button
             onClick={async () => {
               try {
-                setHistory(await readCompleted());
+                const local = await readCompleted();
+                const owned = identity
+                  ? local.filter((item) => item.ownerAccountId === identity.id)
+                  : [];
+                const cloud = identity
+                  ? await readCloudHistory().catch(() => [])
+                  : [];
+                setHistory([
+                  ...owned,
+                  ...cloud.filter(
+                    (item) =>
+                      !owned.some((localItem) => localItem.id === item.id),
+                  ),
+                ]);
                 setView("stats");
               } catch {
                 setStorageError("成绩记录读取失败，请刷新后重试。");
@@ -645,12 +721,62 @@ export default function Home() {
           <button onClick={loadHistory}>历史记录</button>
         </div>
       </header>
+      <AccountPanel
+        identity={identity}
+        onIdentity={(next) => {
+          setIdentity(next);
+          if (next) setUser(next.role);
+        }}
+      />
+      {identity && unassignedHistory.length > 0 && (
+        <section className="accountPanel">
+          <p>
+            此设备有 {unassignedHistory.length}{" "}
+            条登录前本地记录，尚未归属任何账号。
+          </p>
+          <button
+            onClick={async () => {
+              await claimCompletedSessions(
+                unassignedHistory.map((item) => item.id),
+                identity.id,
+              );
+              await Promise.all(
+                unassignedHistory.map((item) =>
+                  syncCompleted({ ...item, ownerAccountId: identity.id }).catch(
+                    () => false,
+                  ),
+                ),
+              );
+              setUnassignedHistory([]);
+            }}
+          >
+            合并到当前{identity.role === "fish" ? "🐟" : "🐱"}账号
+          </button>
+          <button
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  "确认仅从此设备移除这些未归属历史？云端数据不会变更。",
+                )
+              )
+                return;
+              await discardCompletedSessions(
+                unassignedHistory.map((item) => item.id),
+              );
+              setUnassignedHistory([]);
+            }}
+          >
+            丢弃本地历史
+          </button>
+        </section>
+      )}
       <section className="userbar">
         {users.map((u) => (
           <button
             className={u.id === user ? "selected" : ""}
+            disabled={Boolean(identity)}
             key={u.id}
-            onClick={() => setUser(u.id)}
+            onClick={() => !identity && setUser(u.id)}
           >
             {u.name}
           </button>

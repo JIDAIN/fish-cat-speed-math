@@ -63,6 +63,10 @@ export interface TrainingSession {
   startedAt: number;
   /** Optional so sessions saved by earlier releases remain readable. */
   updatedAt?: number;
+  /** Auth account that explicitly owns this local run; absent means legacy/unassigned. */
+  ownerAccountId?: string;
+  /** Timestamp of a successful idempotent cloud upload. */
+  syncedAt?: number;
 }
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",

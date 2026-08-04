@@ -1,5 +1,5 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { HistoryCharts } from "./HistoryCharts";
 import { TrainingSession } from "@/lib/types";
@@ -123,5 +123,37 @@ describe("HistoryCharts", () => {
       ),
     ].reduce((sum, chart) => sum + Number(chart.dataset.covered), 0);
     expect(totalCovered).toBe(8);
+  });
+
+  it("lets a track switch between existing question counts without mixing them", () => {
+    const ten = makeSession("ten");
+    const twentyQuestions = Array.from({ length: 20 }, (_, index) => ({
+      id: `twenty-${index}`,
+    })) as TrainingSession["questions"];
+    const twenty = makeSession("twenty", {
+      questionCount: 20,
+      questions: twentyQuestions,
+      records: twentyQuestions.map((question) => ({
+        question,
+        userAnswer: "1",
+        isCorrect: true,
+        accuracyLevel: "exact",
+        timeUsedMs: 1_000,
+        restartCount: 0,
+        usedScratchpad: false,
+      })),
+      accumulatedMs: 20_000,
+    });
+    const { container } = render(<HistoryCharts sessions={[ten, twenty]} />);
+    const picker = container.querySelector<HTMLSelectElement>(
+      ".trackCharts select",
+    );
+    if (!picker) throw new Error("question-count picker is missing");
+
+    expect(picker.value).toBe("20");
+    expect(fishStandardChart(container).dataset.covered).toBe("1");
+    fireEvent.change(picker, { target: { value: "10" } });
+    expect(picker.value).toBe("10");
+    expect(fishStandardChart(container).dataset.covered).toBe("1");
   });
 });

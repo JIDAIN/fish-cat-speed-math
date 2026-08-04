@@ -12,6 +12,7 @@ import {
   TWO_BY_ONE_MULTIPLY_QUOTAS,
   TWO_BY_TWO_MULTIPLY_QUOTAS,
   TWO_DIGIT_ADD_SUBTRACT_QUOTAS,
+  allocateMultiDigitDivisionQuota,
   allocateStructureQuota,
   classifyThreeDigitAddSubtract,
   classifyThreeByTwoDivision,
@@ -832,28 +833,102 @@ describe("question generators", () => {
     expect(grade(question, "Infinity").isCorrect).toBe(false);
   });
 
-  it("creates multi-digit quotient structures with exact quotas", () => {
+  it("creates feasible multi-digit joint quotas from actual questions", () => {
+    [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].forEach((count) => {
+      const questions = generateSet(
+        "multi_digit_division",
+        "quotient_two",
+        count,
+        deterministicContext(800 + count),
+      );
+      const planned = allocateMultiDigitDivisionQuota(count);
+      const expectedStructures = allocateStructureQuota(
+        count,
+        MULTI_DIGIT_DIVISION_QUOTAS,
+      );
+
+      expect(questions).toHaveLength(count);
+      expectedStructures.forEach(({ primaryStructure, count: expectedCount }) =>
+        expect(
+          questions.filter(
+            (question) => question.primaryStructure === primaryStructure,
+          ),
+        ).toHaveLength(expectedCount),
+      );
+      expect(
+        questions
+          .map((question) => ({
+            primaryStructure: question.primaryStructure,
+            divisorDigits: String(question.data.b).length,
+          }))
+          .sort((left, right) =>
+            `${left.primaryStructure}-${left.divisorDigits}`.localeCompare(
+              `${right.primaryStructure}-${right.divisorDigits}`,
+            ),
+          ),
+      ).toEqual(
+        planned
+          .map(({ primaryStructure, divisorDigits }) => ({
+            primaryStructure,
+            divisorDigits,
+          }))
+          .sort((left, right) =>
+            `${left.primaryStructure}-${left.divisorDigits}`.localeCompare(
+              `${right.primaryStructure}-${right.divisorDigits}`,
+            ),
+          ),
+      );
+      questions.forEach((question) => {
+        expect(
+          classifyMultiDigitDivision(
+            question.data.a as number,
+            question.data.b as number,
+          ),
+        ).toBe(question.primaryStructure);
+        expect(question.secondaryTags).toEqual([
+          `divisor_${String(question.data.b).length}_digit`,
+        ]);
+      });
+    });
+  });
+
+  it("keeps multi-digit joint labels intact when deterministic fallback is used", () => {
+    const context: GenerationContext = {
+      random: () => 0,
+      createId: (() => {
+        let id = 0;
+        return () => `fallback-${id++}`;
+      })(),
+    };
     const questions = generateSet(
       "multi_digit_division",
       "quotient_two",
-      100,
-      deterministicContext(800),
+      20,
+      context,
     );
-    const expected = allocateStructureQuota(100, MULTI_DIGIT_DIVISION_QUOTAS);
-    expected.forEach(({ primaryStructure, count }) =>
-      expect(
-        questions.filter(
-          (question) => question.primaryStructure === primaryStructure,
+
+    expect(
+      questions
+        .map((question) => ({
+          primaryStructure: question.primaryStructure,
+          divisorDigits: String(question.data.b).length,
+        }))
+        .sort((left, right) =>
+          `${left.primaryStructure}-${left.divisorDigits}`.localeCompare(
+            `${right.primaryStructure}-${right.divisorDigits}`,
+          ),
         ),
-      ).toHaveLength(count),
-    );
-    questions.forEach((question) =>
-      expect(
-        classifyMultiDigitDivision(
-          question.data.a as number,
-          question.data.b as number,
+    ).toEqual(
+      allocateMultiDigitDivisionQuota(20)
+        .map(({ primaryStructure, divisorDigits }) => ({
+          primaryStructure,
+          divisorDigits,
+        }))
+        .sort((left, right) =>
+          `${left.primaryStructure}-${left.divisorDigits}`.localeCompare(
+            `${right.primaryStructure}-${right.divisorDigits}`,
+          ),
         ),
-      ).toBe(question.primaryStructure),
     );
   });
 

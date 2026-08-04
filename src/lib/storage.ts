@@ -219,6 +219,11 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
     startedAt: value.startedAt,
     updatedAt:
       typeof value.updatedAt === "number" ? value.updatedAt : undefined,
+    ownerAccountId:
+      typeof value.ownerAccountId === "string"
+        ? value.ownerAccountId
+        : undefined,
+    syncedAt: typeof value.syncedAt === "number" ? value.syncedAt : undefined,
   };
 }
 
@@ -299,6 +304,27 @@ export async function readCompleted(): Promise<TrainingSession[]> {
   return all
     .filter((x) => x.status === "completed")
     .sort((a, b) => b.startedAt - a.startedAt);
+}
+
+/** Explicitly assigns legacy completed sessions only after the user confirms. */
+export async function claimCompletedSessions(
+  sessionIds: string[],
+  ownerAccountId: string,
+) {
+  const all = await readAllSessions();
+  await Promise.all(
+    all
+      .filter(
+        (session) =>
+          sessionIds.includes(session.id) && session.status === "completed",
+      )
+      .map((session) => saveSession({ ...session, ownerAccountId })),
+  );
+}
+
+/** Removes only explicitly discarded completed history from this browser. */
+export async function discardCompletedSessions(sessionIds: string[]) {
+  await removeSessions(sessionIds);
 }
 
 /** Removes only an abandoned in-progress session; completed history remains untouched. */

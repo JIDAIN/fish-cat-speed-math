@@ -155,6 +155,38 @@ describe("training statistics", () => {
         "fish",
         "two_digit_add_subtract",
         "standard",
+        20,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("filters trends by the frozen question-set length", () => {
+    const ten = session({
+      id: "ten",
+      questions: session().questions.slice(0, 10),
+      records: session().records.slice(0, 10),
+      questionCount: 20,
+    });
+    const twenty = session({ id: "twenty" });
+
+    // questionCount is deliberately stale on the first session: legacy
+    // history is grouped by the frozen set length, never an inferred field.
+    expect(
+      trendPoints(
+        [ten, twenty],
+        "fish",
+        "two_digit_add_subtract",
+        "standard",
+        10,
+      ),
+    ).toHaveLength(1);
+    expect(
+      trendPoints(
+        [ten, twenty],
+        "fish",
+        "two_digit_add_subtract",
+        "standard",
+        20,
       ),
     ).toHaveLength(1);
   });
@@ -168,6 +200,7 @@ describe("training statistics", () => {
       "fish",
       "two_digit_add_subtract",
       "standard",
+      20,
     );
 
     expect(points.length).toBeLessThanOrEqual(25);
@@ -193,6 +226,7 @@ describe("training statistics", () => {
         "fish",
         "two_digit_add_subtract",
         "standard",
+        20,
       );
 
       expect(points).toHaveLength(expectedPointCount);
@@ -206,7 +240,7 @@ describe("training statistics", () => {
     expect(ratingTarget("two_digit_add_subtract").excellentSeconds).toBe(50);
   });
 
-  it("weights aggregated duration and accuracy by actual question count", () => {
+  it("keeps count-isolated trend buckets weighted by actual questions", () => {
     const shortFast = session({
       id: "short",
       questions: session().questions.slice(0, 10),
@@ -229,18 +263,20 @@ describe("training statistics", () => {
       "fish",
       "two_digit_add_subtract",
       "standard",
+      20,
     );
 
-    expect(points).toHaveLength(2);
+    expect(points).toHaveLength(1);
     const aggregate = trendPoints(
-      Array.from({ length: 101 }, (_, index) =>
-        index === 0
-          ? shortFast
-          : { ...longSlow, id: `long-${index}`, startedAt: index + 2 },
-      ),
+      Array.from({ length: 101 }, (_, index) => ({
+        ...longSlow,
+        id: `long-${index}`,
+        startedAt: index + 1,
+      })),
       "fish",
       "two_digit_add_subtract",
       "standard",
+      20,
     );
     expect(aggregate.reduce((sum, point) => sum + point.sessionCount, 0)).toBe(
       101,
@@ -250,8 +286,8 @@ describe("training statistics", () => {
     // number of sessions.
     expect(aggregate[0]).toMatchObject({
       sessionCount: 4,
-      averageSeconds: 4.4,
-      accuracyPercent: 57,
+      averageSeconds: 5,
+      accuracyPercent: 50,
     });
   });
 
@@ -272,6 +308,7 @@ describe("training statistics", () => {
         "fish",
         "three_by_two_division",
         "quotient_first",
+        20,
       ),
     ).toHaveLength(1);
     expect(
@@ -280,6 +317,7 @@ describe("training statistics", () => {
         "fish",
         "three_by_two_division",
         "quotient_two",
+        20,
       ),
     ).toHaveLength(1);
   });

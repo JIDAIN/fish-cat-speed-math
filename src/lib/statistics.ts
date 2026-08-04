@@ -137,6 +137,7 @@ export function trendPoints(
   userId: string,
   type: QuestionType,
   subtype: Subtype,
+  questionCount: number,
 ) {
   const matchingSessions = sessions
     .filter(
@@ -144,7 +145,10 @@ export function trendPoints(
         session.status === "completed" &&
         session.userId === userId &&
         session.questionType === type &&
-        session.subtype === subtype,
+        session.subtype === subtype &&
+        // The frozen question set is authoritative for legacy records that
+        // did not explicitly persist their selected questionCount.
+        session.questions.length === questionCount,
     )
     .sort((a, b) => a.startedAt - b.startedAt);
 

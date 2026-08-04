@@ -14,6 +14,7 @@ interface CreateTrainingSessionOptions {
   now?: number;
   createSessionId?: () => string;
   generationContext?: GenerationContext;
+  ownerAccountId?: string;
 }
 
 /** Creates one entirely fresh training run from frozen training parameters. */
@@ -25,6 +26,7 @@ export function createTrainingSession({
   now = Date.now(),
   createSessionId = () => globalThis.crypto.randomUUID(),
   generationContext = productionGenerationContext,
+  ownerAccountId,
 }: CreateTrainingSessionOptions): TrainingSession {
   if (!isValidQuestionCount(questionCount)) {
     throw new RangeError("Invalid question count");
@@ -51,5 +53,6 @@ export function createTrainingSession({
     pauseDurationMs: 0,
     status: "active",
     startedAt: now,
+    ownerAccountId,
   };
 }

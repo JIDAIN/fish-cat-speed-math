@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   QuestionType,
   Subtype,
@@ -34,6 +35,33 @@ function TrackCharts({
   type: QuestionType;
   subtype: Subtype;
 }) {
+  const questionCounts = useMemo(
+    () =>
+      [
+        ...new Set(
+          sessions
+            .filter(
+              (session) =>
+                session.status === "completed" &&
+                session.questionType === type &&
+                session.subtype === subtype &&
+                session.questions.length > 0,
+            )
+            .map((session) => session.questions.length),
+        ),
+      ].sort((left, right) => left - right),
+    [sessions, subtype, type],
+  );
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState<
+    number | undefined
+  >(questionCounts.at(-1));
+
+  useEffect(() => {
+    if (!questionCounts.includes(selectedQuestionCount ?? -1))
+      setSelectedQuestionCount(questionCounts.at(-1));
+  }, [questionCounts, selectedQuestionCount]);
+
+  const questionCount = selectedQuestionCount ?? questionCounts.at(-1);
   return (
     <section className="trackCharts">
       <div className="trackTitle">
@@ -41,9 +69,29 @@ function TrackCharts({
         {subtype !== "standard" && <span>{subtypeLabels[subtype]}</span>}
       </div>
       <TargetHeader type={type} />
+      {questionCount !== undefined && (
+        <label className="trendCountPicker">
+          <span>题量</span>
+          <select
+            aria-label={`${typeLabels[type]}题量趋势`}
+            value={questionCount}
+            onChange={(event) =>
+              setSelectedQuestionCount(Number(event.target.value))
+            }
+          >
+            {questionCounts.map((count) => (
+              <option key={count} value={count}>
+                {count}题
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="userChartGrid">
         {USERS.map((user) => {
-          const points = trendPoints(sessions, user.id, type, subtype);
+          const points = questionCount
+            ? trendPoints(sessions, user.id, type, subtype, questionCount)
+            : [];
           const latest = points.at(-1);
           return (
             <article className="userChart" key={user.id}>

@@ -1,6 +1,8 @@
 import { GeneratedQuestion, QuestionType, Subtype } from "./types";
 
-export const GENERATOR_VERSION = "2.5.0";
+// 2.6.0 introduces feasible joint quotas for multi-digit division. Older
+// frozen questions keep their original per-question generationRuleVersion.
+export const GENERATOR_VERSION = "2.6.0";
 export const MAX_GENERATION_ATTEMPTS = 24;
 const MAX_NON_ROUND_ATTEMPTS = 12;
 
@@ -210,11 +212,83 @@ export const FRACTION_PERCENT_LIBRARY: readonly FractionPercentRelation[] = [
   commonFraction(5, 16, "31.25"),
   commonFraction(7, 16, "43.75"),
 ];
-const MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS: readonly StructureQuota[] = [
+export const MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS: readonly StructureQuota[] = [
   { primaryStructure: "3", ratio: 0.75 },
   { primaryStructure: "4", ratio: 0.15 },
   { primaryStructure: "5", ratio: 0.1 },
 ];
+
+export interface MultiDigitDivisionAllocation {
+  primaryStructure: MultiDigitDivisionStructure;
+  divisorDigits: 3 | 4 | 5;
+}
+
+/**
+ * Allocates compatible (quotient structure, divisor digit count) pairs.
+ *
+ * Quotient structures keep the normal largest-remainder allocation exactly.
+ * The digit target is then projected onto the feasible combinations: <1 needs
+ * five digits, 1–10 needs four/five digits, 10–100 needs three/four digits,
+ * and 100+ needs three digits. Among those constraints we maximize the target
+ * three-digit count, then choose the five-digit count closest to its target
+ * (with four digits taking the remainder). This is deterministic and makes
+ * the unavoidable low-count / mathematical deviation explicit.
+ */
+export function allocateMultiDigitDivisionQuota(
+  questionCount: number,
+): MultiDigitDivisionAllocation[] {
+  const structures = new Map(
+    allocateStructureQuota(questionCount, MULTI_DIGIT_DIVISION_QUOTAS).map(
+      ({ primaryStructure, count }) => [primaryStructure, count],
+    ),
+  );
+  const digits = new Map(
+    allocateStructureQuota(questionCount, MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS).map(
+      ({ primaryStructure, count }) => [Number(primaryStructure), count],
+    ),
+  );
+  const lessThanOne = structures.get("quotient_less_than_one") ?? 0;
+  const oneToTen = structures.get("quotient_one_to_ten") ?? 0;
+  const tenToOneHundred = structures.get("quotient_ten_to_one_hundred") ?? 0;
+  const oneHundredOrMore = structures.get("quotient_one_hundred_or_more") ?? 0;
+  const nearBoundary = structures.get("near_estimate_boundary") ?? 0;
+
+  // The five-digit target cannot be lower than the mandatory <1 allocation.
+  const fiveDigits = Math.min(
+    lessThanOne + oneToTen,
+    Math.max(lessThanOne, digits.get(5) ?? 0),
+  );
+  // All remaining <1/1–10 questions must be four digits. Keeping every other
+  // compatible question at three digits makes the result closest to 75%.
+  const fourDigits = lessThanOne + oneToTen - fiveDigits;
+
+  return [
+    ...Array.from({ length: lessThanOne }, () => ({
+      primaryStructure: "quotient_less_than_one" as const,
+      divisorDigits: 5 as const,
+    })),
+    ...Array.from({ length: fiveDigits - lessThanOne }, () => ({
+      primaryStructure: "quotient_one_to_ten" as const,
+      divisorDigits: 5 as const,
+    })),
+    ...Array.from({ length: fourDigits }, () => ({
+      primaryStructure: "quotient_one_to_ten" as const,
+      divisorDigits: 4 as const,
+    })),
+    ...Array.from({ length: tenToOneHundred }, () => ({
+      primaryStructure: "quotient_ten_to_one_hundred" as const,
+      divisorDigits: 3 as const,
+    })),
+    ...Array.from({ length: oneHundredOrMore }, () => ({
+      primaryStructure: "quotient_one_hundred_or_more" as const,
+      divisorDigits: 3 as const,
+    })),
+    ...Array.from({ length: nearBoundary }, () => ({
+      primaryStructure: "near_estimate_boundary" as const,
+      divisorDigits: 3 as const,
+    })),
+  ];
+}
 
 /**
  * Converts structure ratios into an exact set size. Remaining slots go to the
@@ -896,7 +970,7 @@ export function classifyMultiDigitDivision(
 function buildMultiDigitDivisionQuestion(
   context: GenerationContext,
   structure: MultiDigitDivisionStructure,
-  divisorDigits: number,
+  divisorDigits: 3 | 4 | 5,
 ): GeneratedQuestion {
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
     const a = nonRound(context, 10023, 99897);
@@ -923,14 +997,17 @@ function buildMultiDigitDivisionQuestion(
       },
     );
   }
-  const fallback: Record<MultiDigitDivisionStructure, [number, number]> = {
-    quotient_less_than_one: [12347, 58291],
-    quotient_one_to_ten: [81256, 39548],
-    quotient_ten_to_one_hundred: [81256, 395],
-    quotient_one_hundred_or_more: [81256, 123],
-    near_estimate_boundary: [49901, 499],
+  const fallback: Record<string, [number, number]> = {
+    quotient_less_than_one_5: [12347, 58291],
+    quotient_one_to_ten_4: [81256, 9948],
+    quotient_one_to_ten_5: [81256, 39548],
+    quotient_ten_to_one_hundred_3: [81256, 999],
+    quotient_one_hundred_or_more_3: [81256, 123],
+    near_estimate_boundary_3: [10480, 499],
+    near_estimate_boundary_4: [14998, 4999],
+    near_estimate_boundary_5: [99997, 49999],
   };
-  const [a, b] = fallback[structure];
+  const [a, b] = fallback[`${structure}_${divisorDigits}`];
   const quotient = a / b;
   return q(
     context,
@@ -938,13 +1015,13 @@ function buildMultiDigitDivisionQuestion(
     "quotient_two",
     `${a}÷${b}`,
     sig(quotient, 2),
-    { a, b, quotient, rule: "quotient_two", divisorDigits: String(b).length },
+    { a, b, quotient, rule: "quotient_two", divisorDigits },
     5,
     ["直除", "fallback"],
     undefined,
     {
       primaryStructure: structure,
-      secondaryTags: [`divisor_${String(b).length}_digit`],
+      secondaryTags: [`divisor_${divisorDigits}_digit`],
     },
   );
 }
@@ -1785,25 +1862,15 @@ export function generateSet(
     );
   }
   if (type === "multi_digit_division") {
-    const structures = allocateStructureQuota(
-      count,
-      MULTI_DIGIT_DIVISION_QUOTAS,
-    ).flatMap(({ primaryStructure, count: structureCount }) =>
-      Array.from(
-        { length: structureCount },
-        () => primaryStructure as MultiDigitDivisionStructure,
-      ),
-    );
-    const digits = allocateStructureQuota(
-      count,
-      MULTI_DIGIT_DIVISOR_DIGIT_QUOTAS,
-    ).flatMap(({ primaryStructure, count: digitCount }) =>
-      Array.from({ length: digitCount }, () => Number(primaryStructure)),
-    );
     return shuffle(
       context,
-      structures.map((structure, index) =>
-        buildMultiDigitDivisionQuestion(context, structure, digits[index]),
+      allocateMultiDigitDivisionQuota(count).map(
+        ({ primaryStructure, divisorDigits }) =>
+          buildMultiDigitDivisionQuestion(
+            context,
+            primaryStructure,
+            divisorDigits,
+          ),
       ),
     );
   }
