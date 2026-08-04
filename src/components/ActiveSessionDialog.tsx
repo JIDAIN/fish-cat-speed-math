@@ -33,6 +33,7 @@ export function ActiveSessionDialog({
           {typeLabels[session.questionType]} · 第{session.currentIndex + 1}/
           {session.questions.length} 题
         </span>
+        <small>未完成训练只保存在当前浏览器；完成后才会同步云端。</small>
         <button className="primary" onClick={onContinue}>
           继续原训练
         </button>

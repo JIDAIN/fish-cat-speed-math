@@ -105,6 +105,28 @@ describe("Home active-session interactions", () => {
     });
   });
 
+  it("immediately pauses and saves an active session when the page is hidden", async () => {
+    render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
+    await screen.findByText("重开训练");
+    await waitFor(async () => {
+      expect((await readActive())?.runningSince).toEqual(expect.any(Number));
+    });
+
+    const previous = Object.getOwnPropertyDescriptor(document, "hidden");
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    fireEvent(document, new Event("visibilitychange"));
+
+    await waitFor(async () => {
+      expect(await readActive()).toMatchObject({ runningSince: null });
+    });
+    if (previous) Object.defineProperty(document, "hidden", previous);
+    else delete (document as { hidden?: boolean }).hidden;
+  });
+
   it("freezes the selected three-percent division rule in a new session", async () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "三位数÷两位数" }));

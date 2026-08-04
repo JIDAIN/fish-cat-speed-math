@@ -120,6 +120,22 @@ describe("IndexedDB training storage", () => {
     expect(await readActive()).toBeUndefined();
   });
 
+  it("keeps one active session per explicit account without exposing another account", async () => {
+    await saveSession(
+      session("fish-active", { ownerAccountId: "account-fish", startedAt: 1 }),
+    );
+    await saveSession(
+      session("cat-active", { ownerAccountId: "account-cat", startedAt: 2 }),
+    );
+    await saveSession(session("local-active", { startedAt: 3 }));
+
+    expect((await readActive("account-fish"))?.id).toBe("fish-active");
+    expect((await readActive("account-cat"))?.id).toBe("cat-active");
+    // Legacy/unassigned training remains separate and is never claimed by a
+    // signed-in account merely because it is on the same device.
+    expect((await readActive())?.id).toBe("local-active");
+  });
+
   it("recovers the most recently saved legacy active record and safely removes stale actives", async () => {
     const oldActive = session("old", { startedAt: 1, updatedAt: 10 });
     const latestActive = session("latest", {

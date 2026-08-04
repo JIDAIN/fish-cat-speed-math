@@ -173,6 +173,7 @@ export default function Home() {
   >("home");
   const [user, setUser] = useState("fish");
   const [identity, setIdentity] = useState<CloudIdentity>();
+  const [authResolved, setAuthResolved] = useState(false);
   const [unassignedHistory, setUnassignedHistory] = useState<TrainingSession[]>(
     [],
   );
@@ -204,11 +205,19 @@ export default function Home() {
   // entered the training view.
   const startInFlight = useRef(false);
   const restartInFlight = useRef(false);
+  const sessionRef = useRef<TrainingSession | null>(null);
+  const viewRef = useRef(view);
   const [isRestartingTraining, setIsRestartingTraining] = useState(false);
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 100);
     return () => clearInterval(i);
   }, []);
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
   useEffect(() => {
     readCompleted()
       .then((items) =>
@@ -222,19 +231,29 @@ export default function Home() {
         setIdentity(next);
         if (next) setUser(next.role);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => setAuthResolved(true));
   }, []);
   useEffect(() => {
-    readActive()
+    if (!authResolved) return;
+    let cancelled = false;
+    readActive(identity?.id)
       .then((activeSession) => {
-        if (!activeSession) return;
+        if (!activeSession || cancelled) return;
+        // Recovery never continues an old running segment. This also repairs
+        // active sessions saved by versions that did not pause on page exit.
+        const pausedSession = pauseSessionTimer(activeSession);
+        if (pausedSession !== activeSession) void saveSession(pausedSession);
         setActiveSessionPrompt({
-          session: activeSession,
+          session: pausedSession,
           afterDiscard: "startNew",
         });
       })
       .catch(() => setStorageError("本地训练记录读取失败，请刷新后重试。"));
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [authResolved, identity?.id]);
   useEffect(() => {
     if (session?.status === "active") {
       saveSession(session).catch(() =>
@@ -243,20 +262,47 @@ export default function Home() {
     }
   }, [session]);
   useEffect(() => {
-    const pause = () =>
-      setSession((activeSession) =>
-        activeSession ? pauseSessionTimer(activeSession) : activeSession,
+    const pause = () => {
+      const activeSession = sessionRef.current;
+      if (!activeSession || activeSession.status !== "active") return;
+      const pausedSession = pauseSessionTimer(activeSession);
+      if (pausedSession === activeSession) return;
+      sessionRef.current = pausedSession;
+      setSession(pausedSession);
+      // pagehide/freeze can end JavaScript immediately; save in this handler
+      // instead of waiting for React's follow-up effect.
+      void saveSession(pausedSession).catch(() =>
+        setStorageError("训练暂存失败，请保持页面打开并刷新后重试。"),
       );
-    const resume = () =>
-      setSession((activeSession) =>
-        activeSession && view === "training"
-          ? resumeSessionTimer(activeSession)
-          : activeSession,
-      );
-    const v = () => (document.hidden ? pause() : resume());
-    document.addEventListener("visibilitychange", v);
-    return () => document.removeEventListener("visibilitychange", v);
-  }, [view]);
+    };
+    const resume = () => {
+      const activeSession = sessionRef.current;
+      if (
+        !activeSession ||
+        activeSession.status !== "active" ||
+        viewRef.current !== "training" ||
+        document.hidden
+      )
+        return;
+      const resumedSession = resumeSessionTimer(activeSession);
+      if (resumedSession === activeSession) return;
+      sessionRef.current = resumedSession;
+      setSession(resumedSession);
+    };
+    const onVisibilityChange = () => (document.hidden ? pause() : resume());
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    document.addEventListener("freeze", pause);
+    window.addEventListener("pagehide", pause);
+    window.addEventListener("blur", pause);
+    window.addEventListener("focus", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("freeze", pause);
+      window.removeEventListener("pagehide", pause);
+      window.removeEventListener("blur", pause);
+      window.removeEventListener("focus", resume);
+    };
+  }, []);
   const elapsed = session ? currentElapsedMs(session, now) : 0;
   const current = session?.questions[session.currentIndex];
   useEffect(() => {
@@ -275,6 +321,7 @@ export default function Home() {
       subtype,
       questionCount: count,
     });
+    sessionRef.current = s;
     setSession(s);
     setView("training");
   };
@@ -295,7 +342,9 @@ export default function Home() {
       // page-load check. This catches a session created earlier in this tab
       // or saved by another tab before this click.
       const activeSession =
-        session?.status === "active" ? session : await readActive();
+        session?.status === "active" && session.ownerAccountId === identity?.id
+          ? session
+          : await readActive(identity?.id);
       if (activeSession) {
         setActiveSessionPrompt({
           session: activeSession,
@@ -310,9 +359,28 @@ export default function Home() {
       startInFlight.current = false;
     }
   };
+  const changeIdentity = (next?: CloudIdentity) => {
+    const activeSession = sessionRef.current;
+    if (activeSession?.status === "active") {
+      const pausedSession = pauseSessionTimer(activeSession);
+      sessionRef.current = pausedSession;
+      void saveSession(pausedSession).catch(() =>
+        setStorageError("训练暂存失败，请保持页面打开并刷新后重试。"),
+      );
+    }
+    // A prompt/session from the previous account must never be continued,
+    // discarded, or overwritten after an account switch.
+    setSession(null);
+    sessionRef.current = null;
+    setActiveSessionPrompt(null);
+    setIdentity(next);
+    setUser(next?.role ?? "fish");
+  };
   const continueActiveSession = () => {
     if (!activeSessionPrompt) return;
-    setSession(resumeSessionTimer(activeSessionPrompt.session));
+    const resumedSession = resumeSessionTimer(activeSessionPrompt.session);
+    sessionRef.current = resumedSession;
+    setSession(resumedSession);
     setActiveSessionPrompt(null);
     setView("training");
   };
@@ -378,6 +446,7 @@ export default function Home() {
       // match a session that was resumed from IndexedDB.
       const replacement = createTrainingSession({
         userId: session.userId,
+        ownerAccountId: session.ownerAccountId,
         questionType: session.questionType,
         subtype: session.subtype,
         questionCount: session.questionCount,
@@ -386,6 +455,7 @@ export default function Home() {
       // there is never a recoverable half-restarted state.
       await saveSession(replacement);
       setScratch(false);
+      sessionRef.current = replacement;
       setSession(replacement);
       setView("training");
     } catch {
@@ -451,6 +521,7 @@ export default function Home() {
           <button
             onClick={() => {
               const pausedSession = pauseSessionTimer(session);
+              sessionRef.current = pausedSession;
               setSession(pausedSession);
               saveSession(pausedSession);
               setView("home");
@@ -783,13 +854,7 @@ export default function Home() {
           <button onClick={loadHistory}>历史记录</button>
         </div>
       </header>
-      <AccountPanel
-        identity={identity}
-        onIdentity={(next) => {
-          setIdentity(next);
-          if (next) setUser(next.role);
-        }}
-      />
+      <AccountPanel identity={identity} onIdentity={changeIdentity} />
       {identity && unassignedHistory.length > 0 && (
         <section className="accountPanel">
           <p>

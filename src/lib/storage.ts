@@ -271,15 +271,18 @@ export async function saveSession(session: TrainingSession) {
     const tx = db.transaction(STORE, "readwrite");
     const store = tx.objectStore(STORE);
 
-    // A browser can only resume one exercise. Remove stale active records in
-    // the same transaction before saving the current one.
+    // Each explicit account (and the separate unassigned/local scope) can
+    // resume one exercise. Never let one account replace another account's
+    // active session on the same browser.
     if (sessionToSave.status === "active") {
       const activeRequest = store.getAll();
       activeRequest.onsuccess = () => {
         (activeRequest.result as TrainingSession[])
           .filter(
             (saved) =>
-              saved.status === "active" && saved.id !== sessionToSave.id,
+              saved.status === "active" &&
+              saved.id !== sessionToSave.id &&
+              saved.ownerAccountId === sessionToSave.ownerAccountId,
           )
           .forEach((saved) => store.delete(saved.id));
         store.put(sessionToSave);
@@ -293,10 +296,21 @@ export async function saveSession(session: TrainingSession) {
   });
   db.close();
 }
-export async function readActive(): Promise<TrainingSession | undefined> {
+/**
+ * Reads the latest active session only from the requested ownership scope.
+ * `undefined` deliberately means legacy/unassigned local training, not any
+ * signed-in account.
+ */
+export async function readActive(
+  ownerAccountId?: string,
+): Promise<TrainingSession | undefined> {
   const all = await readAllSessions();
   const activeSessions = all
-    .filter((session) => session.status === "active")
+    .filter(
+      (session) =>
+        session.status === "active" &&
+        session.ownerAccountId === ownerAccountId,
+    )
     .sort(
       (left, right) =>
         (right.updatedAt ?? right.startedAt) -
