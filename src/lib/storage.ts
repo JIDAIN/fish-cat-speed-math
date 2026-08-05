@@ -305,7 +305,15 @@ export async function saveSession(session: TrainingSession) {
     if (sessionToSave.status === "active") {
       const activeRequest = store.getAll();
       activeRequest.onsuccess = () => {
-        (activeRequest.result as TrainingSession[])
+        const savedSessions = activeRequest.result as TrainingSession[];
+        const sameSession = savedSessions.find(
+          (saved) => saved.id === sessionToSave.id,
+        );
+        // A completed session is terminal. A delayed lifecycle/autosave write
+        // from its former active state must never turn it back into an active
+        // session or remove a newer active run for the same account.
+        if (sameSession && sameSession.status !== "active") return;
+        savedSessions
           .filter(
             (saved) =>
               saved.status === "active" &&

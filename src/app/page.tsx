@@ -470,6 +470,17 @@ export default function Home() {
     setFractionEntryPart("numerator");
     setHasAutoAdvancedFractionEntry(false);
   }, [current?.id]);
+  useEffect(() => {
+    if (view !== "training" || session?.status !== "completed") return;
+    // Some mobile browsers can restore the former training hash while the
+    // final answer is being committed. A completed in-memory session is the
+    // authoritative business state, so repair the route instead of showing
+    // the missing-active-session error.
+    setRouteRecordId(session.id);
+    setRouteLoading(false);
+    setViewState("result");
+    window.history.replaceState({}, "", locationHash("result", session.id));
+  }, [session?.id, session?.status, view]);
   const beginNewSession = () => {
     if (!isValidQuestionCount(count)) {
       setStorageError("题量无效，请重新选择 10～100 题。");
@@ -588,6 +599,10 @@ export default function Home() {
             : ("not_synced" as const),
         pkSyncStatus: next.pkChallengeId ? ("syncing" as const) : undefined,
       };
+      // Completion and mobile lifecycle events can occur in the same event
+      // turn. Update the imperative lifecycle source before React renders so
+      // pagehide/blur cannot pause and persist the just-finished run as active.
+      sessionRef.current = completed;
       setSession(completed);
       const localSave = saveSession(completed);
       localSave.catch(() =>
@@ -997,6 +1012,13 @@ export default function Home() {
       setRouteLoading(false);
     } else setRouteLoading(false);
   }, [pkChallenges, routeRecordId, view]);
+  if (view === "training" && session?.status === "completed")
+    return (
+      <main className="panel">
+        <h1>正在打开结算结果…</h1>
+        <p>本次PK训练已经完成，正在恢复结算页面。</p>
+      </main>
+    );
   if (view === "training" && (!session || !current))
     return (
       <main className="panel">

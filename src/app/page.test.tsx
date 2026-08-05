@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
-import { readActive, saveSession } from "@/lib/storage";
+import { readActive, readCompleted, saveSession } from "@/lib/storage";
 import { GeneratedQuestion, TrainingSession } from "@/lib/types";
 
 const DB_NAME = "speed-math-v1";
@@ -481,6 +481,54 @@ describe("Home active-session interactions", () => {
     expect(screen.getByText("1/1")).toBeTruthy();
     expect(screen.getByRole("button", { name: "打开复盘草稿" })).toBeTruthy();
     expect(screen.queryByText("重开")).toBeNull();
+  });
+
+  it("keeps a completed PK result when pagehide fires during result navigation", async () => {
+    const pkSession = activeSession({
+      id: crypto.randomUUID(),
+      questions: [question],
+      currentIndex: 0,
+      records: [],
+      currentAnswer: "",
+      currentRestartCount: 0,
+      trainingSource: "pk",
+      pkChallengeId: "challenge-1",
+      pkSyncStatus: "not_synced",
+    });
+    await saveSession(pkSession);
+    window.history.replaceState({}, "", "/#/training");
+    render(<Home />);
+    await screen.findByText("4+4");
+
+    const originalPushState = window.history.pushState.bind(window.history);
+    let restoredOldTrainingRoute = false;
+    vi.spyOn(window.history, "pushState").mockImplementation(
+      (data, unused, url) => {
+        originalPushState(data, unused, url);
+        if (String(url).includes("#/result/") && !restoredOldTrainingRoute) {
+          restoredOldTrainingRoute = true;
+          window.history.replaceState({}, "", "/#/training");
+          window.dispatchEvent(new Event("pagehide"));
+          window.dispatchEvent(new PopStateEvent("popstate"));
+        }
+      },
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "8" }));
+    fireEvent.click(screen.getByRole("button", { name: "确定" }));
+
+    expect(await screen.findByText("训练完成！")).toBeTruthy();
+    await waitFor(async () => {
+      expect(await readActive()).toBeUndefined();
+      expect(await readCompleted()).toEqual([
+        expect.objectContaining({
+          id: pkSession.id,
+          status: "completed",
+          trainingSource: "pk",
+          pkChallengeId: "challenge-1",
+        }),
+      ]);
+    });
   });
 
   it("abandons the old active session before creating a different new one", async () => {

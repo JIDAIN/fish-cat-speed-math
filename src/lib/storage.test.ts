@@ -171,6 +171,24 @@ describe("IndexedDB training storage", () => {
     ]);
   });
 
+  it("does not let a stale active write overwrite a completed session", async () => {
+    const active = session("terminal-session", { status: "active" });
+    const completed = {
+      ...active,
+      status: "completed" as const,
+      currentIndex: active.questions.length,
+      runningSince: null,
+    };
+
+    await saveSession(completed);
+    await saveSession(active);
+
+    await expect(readActive(active.ownerAccountId)).resolves.toBeUndefined();
+    await expect(readCompleted()).resolves.toEqual([
+      expect.objectContaining({ id: completed.id, status: "completed" }),
+    ]);
+  });
+
   it("reads completed history in reverse completion order and excludes active and abandoned sessions", async () => {
     await putRaw(
       session("active", { startedAt: 400 }),
