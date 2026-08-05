@@ -71,7 +71,8 @@ const defaultSubtype = (t: QuestionType): Subtype =>
           : "standard";
 type ActiveSessionPrompt = {
   session: TrainingSession;
-  afterDiscard: "startNew" | "stayHome";
+  afterDiscard: "startNew" | "stayHome" | "startPK";
+  challenge?: PKChallenge;
 };
 
 function FractionComparisonDisplay({
@@ -546,11 +547,18 @@ export default function Home() {
   };
   const discardActiveSession = async () => {
     if (!activeSessionPrompt) return;
-    const { afterDiscard, session: activeSession } = activeSessionPrompt;
+    const {
+      afterDiscard,
+      challenge,
+      session: activeSession,
+    } = activeSessionPrompt;
     await discardSession(activeSession.id);
     setSession(null);
+    sessionRef.current = null;
     setActiveSessionPrompt(null);
     if (afterDiscard === "startNew") beginNewSession();
+    if (afterDiscard === "startPK" && challenge)
+      void startPKChallenge(challenge);
   };
   const submit = () => {
     if (!session) return;
@@ -812,6 +820,14 @@ export default function Home() {
     try {
       const active = await readActive(identity.id);
       if (active) {
+        if (active.pkChallengeId !== challenge.id) {
+          setActiveSessionPrompt({
+            session: active,
+            afterDiscard: "startPK",
+            challenge,
+          });
+          return;
+        }
         if (active.pkChallengeId === challenge.id) {
           sessionRef.current = active;
           setSession(resumeSessionTimer(active));
@@ -1315,6 +1331,20 @@ export default function Home() {
   if (view === "pk" && identity) {
     return (
       <main className="panel">
+        {activeSessionPrompt && (
+          <ActiveSessionDialog
+            discardLabel={
+              activeSessionPrompt.afterDiscard === "startPK"
+                ? "放弃原训练并开始PK挑战"
+                : undefined
+            }
+            onCancel={() => setActiveSessionPrompt(null)}
+            onContinue={continueActiveSession}
+            onDiscard={discardActiveSession}
+            session={activeSessionPrompt.session}
+            showCancel={activeSessionPrompt.afterDiscard !== "stayHome"}
+          />
+        )}
         <button onClick={() => setView("home")}>← 首页</button>
         {pkRefreshing && <p className="dataUpdating">正在更新PK挑战…</p>}
         <RefreshNotice message={pkRefreshError} />
@@ -1414,11 +1444,16 @@ export default function Home() {
     <main className="home">
       {activeSessionPrompt && (
         <ActiveSessionDialog
+          discardLabel={
+            activeSessionPrompt.afterDiscard === "startPK"
+              ? "放弃原训练并开始PK挑战"
+              : undefined
+          }
           onCancel={() => setActiveSessionPrompt(null)}
           onContinue={continueActiveSession}
           onDiscard={discardActiveSession}
           session={activeSessionPrompt.session}
-          showCancel={activeSessionPrompt.afterDiscard === "startNew"}
+          showCancel={activeSessionPrompt.afterDiscard !== "stayHome"}
         />
       )}
       {storageError && (

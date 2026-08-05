@@ -9,6 +9,7 @@ type ActiveSessionDialogProps = {
   onContinue: () => void;
   onDiscard: () => void;
   onCancel: () => void;
+  discardLabel?: string;
 };
 
 /** Choice dialog shown whenever a saved in-progress exercise exists. */
@@ -18,6 +19,7 @@ export function ActiveSessionDialog({
   onContinue,
   onDiscard,
   onCancel,
+  discardLabel,
 }: ActiveSessionDialogProps) {
   return (
     <div className="modalBackdrop" role="presentation">
@@ -38,7 +40,7 @@ export function ActiveSessionDialog({
           继续原训练
         </button>
         <button onClick={onDiscard}>
-          {showCancel ? "放弃原训练并开始新的" : "放弃原训练"}
+          {discardLabel ?? (showCancel ? "放弃原训练并开始新的" : "放弃原训练")}
         </button>
         {showCancel && <button onClick={onCancel}>取消</button>}
       </section>
