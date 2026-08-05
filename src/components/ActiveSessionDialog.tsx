@@ -8,6 +8,7 @@ type ActiveSessionDialogProps = {
   showCancel: boolean;
   onContinue: () => void;
   onDiscard: () => void;
+  onEnd: () => void;
   onCancel: () => void;
   discardLabel?: string;
 };
@@ -18,6 +19,7 @@ export function ActiveSessionDialog({
   showCancel,
   onContinue,
   onDiscard,
+  onEnd,
   onCancel,
   discardLabel,
 }: ActiveSessionDialogProps) {
@@ -42,6 +44,7 @@ export function ActiveSessionDialog({
         <button onClick={onDiscard}>
           {discardLabel ?? (showCancel ? "放弃原训练并开始新的" : "放弃原训练")}
         </button>
+        <button onClick={onEnd}>放弃并结束原训练</button>
         {showCancel && <button onClick={onCancel}>取消</button>}
       </section>
     </div>

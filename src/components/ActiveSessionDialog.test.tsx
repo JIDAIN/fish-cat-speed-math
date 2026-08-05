@@ -32,6 +32,7 @@ describe("ActiveSessionDialog", () => {
         onCancel={vi.fn()}
         onContinue={vi.fn()}
         onDiscard={vi.fn()}
+        onEnd={vi.fn()}
         session={session}
         showCancel
       />,
@@ -45,12 +46,14 @@ describe("ActiveSessionDialog", () => {
   it("offers continue, discard and cancel before replacing a saved exercise", () => {
     const onContinue = vi.fn();
     const onDiscard = vi.fn();
+    const onEnd = vi.fn();
     const onCancel = vi.fn();
     render(
       <ActiveSessionDialog
         onCancel={onCancel}
         onContinue={onContinue}
         onDiscard={onDiscard}
+        onEnd={onEnd}
         session={session}
         showCancel
       />,
@@ -60,10 +63,12 @@ describe("ActiveSessionDialog", () => {
     fireEvent.click(
       screen.getByRole("button", { name: "放弃原训练并开始新的" }),
     );
+    fireEvent.click(screen.getByRole("button", { name: "放弃并结束原训练" }));
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
 
     expect(onContinue).toHaveBeenCalledOnce();
     expect(onDiscard).toHaveBeenCalledOnce();
+    expect(onEnd).toHaveBeenCalledOnce();
     expect(onCancel).toHaveBeenCalledOnce();
   });
 });

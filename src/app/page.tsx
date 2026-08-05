@@ -560,6 +560,20 @@ export default function Home() {
     if (afterDiscard === "startPK" && challenge)
       void startPKChallenge(challenge);
   };
+  const endActiveSession = async () => {
+    if (!activeSessionPrompt) return;
+    const activeId = activeSessionPrompt.session.id;
+    try {
+      await discardSession(activeId);
+      if (sessionRef.current?.id === activeId) {
+        sessionRef.current = null;
+        setSession(null);
+      }
+      setActiveSessionPrompt(null);
+    } catch {
+      setStorageError("结束原训练失败，请稍后重试。");
+    }
+  };
   const submit = () => {
     if (!session) return;
     const next = submitCurrentAnswer(session, elapsed, scratch);
@@ -1341,6 +1355,7 @@ export default function Home() {
             onCancel={() => setActiveSessionPrompt(null)}
             onContinue={continueActiveSession}
             onDiscard={discardActiveSession}
+            onEnd={endActiveSession}
             session={activeSessionPrompt.session}
             showCancel={activeSessionPrompt.afterDiscard !== "stayHome"}
           />
@@ -1452,6 +1467,7 @@ export default function Home() {
           onCancel={() => setActiveSessionPrompt(null)}
           onContinue={continueActiveSession}
           onDiscard={discardActiveSession}
+          onEnd={endActiveSession}
           session={activeSessionPrompt.session}
           showCancel={activeSessionPrompt.afterDiscard !== "stayHome"}
         />
