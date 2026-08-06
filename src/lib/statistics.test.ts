@@ -323,7 +323,7 @@ describe("training statistics", () => {
     });
   });
 
-  it("keeps count-isolated trend buckets weighted by actual questions", () => {
+  it("keeps count-isolated trend buckets measured by total session time", () => {
     const shortFast = session({
       id: "short",
       questions: session().questions.slice(0, 10),
@@ -365,11 +365,11 @@ describe("training statistics", () => {
       101,
     );
     // 101 sessions use 25 proportional buckets, so the first bucket contains
-    // four records. The value is weighted by 10 + 3×20 questions, not by the
-    // number of sessions.
+    // four records. Each point is a per-session mean total time, so all 100s
+    // sessions remain 100 seconds regardless of bucket size.
     expect(aggregate[0]).toMatchObject({
       sessionCount: 4,
-      averageSeconds: 5,
+      totalSeconds: 100,
       accuracyPercent: 50,
     });
   });

@@ -287,10 +287,11 @@ export function trendPoints(
         bucket.length === 1
           ? `第${lastIndex}次`
           : `第${firstIndex + 1}–${lastIndex}次`,
-      averageSeconds: Number(
-        (totalQuestions ? totalDurationMs / totalQuestions / 1000 : 0).toFixed(
-          1,
-        ),
+      // A plotted value represents one training group's total effective time.
+      // Dense histories are bucketed, so use the per-session mean rather than
+      // the bucket total; otherwise larger buckets would look artificially slow.
+      totalSeconds: Number(
+        (bucket.length ? totalDurationMs / bucket.length / 1000 : 0).toFixed(1),
       ),
       accuracyPercent: totalQuestions
         ? Math.round((totalCorrect / totalQuestions) * 100)

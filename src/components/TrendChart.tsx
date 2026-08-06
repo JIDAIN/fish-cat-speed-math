@@ -11,7 +11,7 @@ import {
 
 export interface TrendPoint {
   label: string;
-  averageSeconds: number;
+  totalSeconds: number;
   accuracyPercent: number;
   sessionCount: number;
 }
@@ -23,7 +23,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
     );
 
   return (
-    <div className="chart" aria-label="平均单题用时趋势图">
+    <div className="chart" aria-label="每组总用时趋势图">
       <ResponsiveContainer width="100%" height={170}>
         <LineChart
           data={points}
@@ -46,14 +46,14 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
           <Tooltip
             formatter={(value: number, _name, item) => [
               `${value}s`,
-              `平均每题（${item.payload.sessionCount}组）`,
+              `每组总用时（${item.payload.sessionCount}组平均）`,
             ]}
             labelFormatter={(label) => `训练范围：${label}`}
           />
           <Line
             type="monotone"
-            dataKey="averageSeconds"
-            name="平均秒数"
+            dataKey="totalSeconds"
+            name="总用时"
             stroke="#2f8566"
             strokeWidth={3}
             dot={{ r: points.length > 20 ? 2 : 4 }}

@@ -115,7 +115,7 @@ function TrackCharts({
                 <strong>{user.label}</strong>
                 <span>
                   {latest
-                    ? `最近：${latest.averageSeconds}s / ${latest.accuracyPercent}%`
+                    ? `最近：${latest.totalSeconds}s / ${latest.accuracyPercent}%`
                     : "暂无记录"}
                 </span>
               </div>
