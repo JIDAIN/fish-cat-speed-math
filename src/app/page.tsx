@@ -41,6 +41,7 @@ import {
 } from "@/components/SessionDetails";
 import { ActiveSessionDialog } from "@/components/ActiveSessionDialog";
 import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
+import { FractionPercentMemory } from "@/components/FractionPercentMemory";
 import {
   QuestionCountDialog,
   QuestionCountSelection,
@@ -116,7 +117,8 @@ type View =
   | "stats"
   | "historyDetail"
   | "pk"
-  | "pkDetail";
+  | "pkDetail"
+  | "memory";
 
 function locationRoute(): { view: View; id?: string } {
   if (typeof window === "undefined") return { view: "home" };
@@ -133,6 +135,7 @@ function locationRoute(): { view: View; id?: string } {
   if (parts[0] === "stats") return { view: "stats" };
   if (parts[0] === "pk" && parts[1]) return { view: "pkDetail", id: parts[1] };
   if (parts[0] === "pk") return { view: "pk" };
+  if (parts[0] === "memory") return { view: "memory" };
   return { view: "home" };
 }
 
@@ -144,6 +147,7 @@ function locationHash(view: View, id?: string) {
   if (view === "stats") return "#/stats";
   if (view === "pkDetail" && id) return `#/pk/${id}`;
   if (view === "pk") return "#/pk";
+  if (view === "memory") return "#/memory";
   return "#/";
 }
 
@@ -1443,10 +1447,16 @@ export default function Home() {
         <h1>我的成绩</h1>
         {historyRefreshing && <p className="dataUpdating">正在更新成绩…</p>}
         <RefreshNotice message={historyRefreshError} />
-        <HistoryCharts
-          sessions={history}
-          userId={(identity?.role ?? user) as "fish" | "cat"}
-        />
+        <HistoryCharts sessions={history} />
+      </main>
+    );
+  }
+  if (view === "memory") {
+    return (
+      <main className="panel memoryPage">
+        <button onClick={() => setView("home")}>← 首页</button>
+        <h1>百分互换速记</h1>
+        <FractionPercentMemory />
       </main>
     );
   }
@@ -1536,6 +1546,11 @@ export default function Home() {
         identity={identity}
         onIdentity={changeIdentity}
       />
+      <button className="memoryHomeEntry" onClick={() => setView("memory")}>
+        <span>百分互换速记</span>
+        <small>46组固定关系 · 分组记忆</small>
+        <b>查看 ›</b>
+      </button>
       {identity && unassignedHistory.length > 0 && (
         <section className="accountPanel">
           <p>

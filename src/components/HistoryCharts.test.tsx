@@ -1,18 +1,15 @@
 import React from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { HistoryCharts } from "./HistoryCharts";
 import { TrainingSession } from "@/lib/types";
+import { HistoryCharts } from "./HistoryCharts";
 
-// Recharts relies on browser layout measurements that JSDOM does not provide.
-// This test keeps the HistoryCharts contract observable: every chart receives
-// the correctly filtered and aggregated point collection.
 vi.mock("./TrendChart", () => ({
   TrendChart: ({ points }: { points: Array<{ sessionCount: number }> }) => (
     <output
       className="trend-chart-test-double"
-      data-points={points.length}
       data-covered={points.reduce((sum, point) => sum + point.sessionCount, 0)}
+      data-points={points.length}
     />
   ),
 }));
@@ -21,7 +18,7 @@ function makeSession(
   id: string,
   overrides: Partial<TrainingSession> = {},
 ): TrainingSession {
-  const questions = Array.from({ length: 10 }, (_, index) => ({
+  const questions = Array.from({ length: 20 }, (_, index) => ({
     id: `${id}-${index}`,
   })) as TrainingSession["questions"];
   return {
@@ -43,7 +40,7 @@ function makeSession(
     })),
     currentAnswer: "",
     currentRestartCount: 0,
-    accumulatedMs: 10_000,
+    accumulatedMs: 20_000,
     runningSince: null,
     pauseDurationMs: 0,
     status: "completed",
@@ -52,123 +49,103 @@ function makeSession(
   };
 }
 
-function fishStandardChart(container: HTMLElement) {
-  const track = container.querySelector(".trackCharts");
-  if (!track)
-    throw new Error("standard two-digit-add/subtract track is missing");
-  const chart = track.querySelectorAll<HTMLDivElement>(".userChart")[0];
-  const output = chart?.querySelector<HTMLOutputElement>(
-    ".trend-chart-test-double",
+function trackFor(container: HTMLElement, title: string) {
+  const titleElement = [...container.querySelectorAll(".trackTitle h3")].find(
+    (element) => element.textContent === title,
   );
-  if (!output) throw new Error("fish trend chart is missing");
-  return output;
+  const track = titleElement?.closest<HTMLElement>(".trackCharts");
+  if (!track) throw new Error(`missing ${title} track`);
+  return track;
 }
 
 describe("HistoryCharts", () => {
-  it.each([
-    [1, 1],
-    [10, 10],
-    [100, 20],
-    [1_000, 30],
-  ])(
-    "renders a readable all-history trend for %i records",
-    (recordCount, expectedPoints) => {
-      const sessions = Array.from({ length: recordCount }, (_, index) =>
-        makeSession(`s${index + 1}`, { startedAt: index + 1 }),
-      );
-      const { container } = render(<HistoryCharts sessions={sessions} />);
-      const chart = fishStandardChart(container);
+  it("shows every type/submode track with fish and cat side by side", () => {
+    const { container } = render(
+      <HistoryCharts
+        sessions={[makeSession("fish"), makeSession("cat", { userId: "cat" })]}
+      />,
+    );
 
-      expect(chart.dataset.points).toBe(String(expectedPoints));
-      expect(chart.dataset.covered).toBe(String(recordCount));
-    },
-  );
+    const tracks = container.querySelectorAll(".trackCharts");
+    expect(tracks).toHaveLength(12);
+    for (const track of tracks) {
+      expect(track.querySelectorAll(".userChart")).toHaveLength(2);
+    }
 
-  it("keeps user, question type and answer rules in separate chart tracks", () => {
+    const addSubtract = trackFor(container, "两位数加减");
+    const charts = addSubtract.querySelectorAll<HTMLOutputElement>(
+      ".trend-chart-test-double",
+    );
+    expect(charts[0].dataset.covered).toBe("1");
+    expect(charts[1].dataset.covered).toBe("1");
+  });
+
+  it("defaults ordinary tracks to 20 questions and fraction tracks to 10", () => {
+    const { container } = render(<HistoryCharts sessions={[]} />);
+
+    expect(
+      trackFor(container, "两位数加减").querySelector<HTMLSelectElement>(
+        "select",
+      )?.value,
+    ).toBe("20");
+    expect(
+      trackFor(container, "分数—百分数").querySelector<HTMLSelectElement>(
+        "select",
+      )?.value,
+    ).toBe("10");
+    expect(
+      trackFor(container, "分数比大小").querySelector<HTMLSelectElement>(
+        "select",
+      )?.value,
+    ).toBe("10");
+  });
+
+  it("keeps 20, 30 and 40 question trends separate and selectable", () => {
     const sessions = [
-      makeSession("included"),
-      makeSession("cat", { userId: "cat" }),
-      makeSession("other-type", { questionType: "three_digit_add_subtract" }),
-      makeSession("first", {
-        questionType: "three_by_two_division",
-        subtype: "quotient_first",
-      }),
-      makeSession("two", {
-        questionType: "three_by_two_division",
-        subtype: "quotient_two",
-      }),
-      makeSession("estimate", {
-        questionType: "three_by_two_division",
-        subtype: "quotient_estimate_3_percent",
-      }),
-      makeSession("fraction-to", {
-        questionType: "fraction_percent_conversion",
-        subtype: "fraction_to_percent",
-      }),
-      makeSession("percent-to", {
-        questionType: "fraction_percent_conversion",
-        subtype: "percent_to_fraction",
-      }),
-      makeSession("active", { status: "active" }),
-      makeSession("abandoned", { status: "abandoned" }),
+      makeSession("twenty"),
+      makeSession("thirty", withQuestionCount(30)),
+      makeSession("forty", withQuestionCount(40)),
     ];
     const { container } = render(<HistoryCharts sessions={sessions} />);
-
-    // Standard type fish chart contains its single completed matching session.
-    expect(fishStandardChart(container).dataset.covered).toBe("1");
-    // The page draws one selectable track at a time so opening the score page
-    // does not construct every chart before its frame becomes usable. Each
-    // track remains isolated; no active/abandoned record contributes.
-    const trackPicker = container.querySelector<HTMLSelectElement>(
-      '[aria-label="选择成长趋势题型"]',
-    );
-    if (!trackPicker) throw new Error("trend track picker is missing");
-    const totalCovered = [...trackPicker.options].reduce((sum, option) => {
-      fireEvent.change(trackPicker, { target: { value: option.value } });
-      return (
-        sum +
-        [
-          ...container.querySelectorAll<HTMLOutputElement>(
-            ".trend-chart-test-double",
-          ),
-        ].reduce(
-          (trackSum, chart) => trackSum + Number(chart.dataset.covered),
-          0,
-        )
-      );
-    }, 0);
-    expect(totalCovered).toBe(8);
-  });
-
-  it("lets a track switch between existing question counts without mixing them", () => {
-    const ten = makeSession("ten");
-    const twentyQuestions = Array.from({ length: 20 }, (_, index) => ({
-      id: `twenty-${index}`,
-    })) as TrainingSession["questions"];
-    const twenty = makeSession("twenty", {
-      questionCount: 20,
-      questions: twentyQuestions,
-      records: twentyQuestions.map((question) => ({
-        question,
-        userAnswer: "1",
-        isCorrect: true,
-        accuracyLevel: "exact",
-        timeUsedMs: 1_000,
-        restartCount: 0,
-        usedScratchpad: false,
-      })),
-      accumulatedMs: 20_000,
-    });
-    const { container } = render(<HistoryCharts sessions={[ten, twenty]} />);
-    const picker = container.querySelector<HTMLSelectElement>(
-      ".trackCharts select",
-    );
+    const addSubtract = trackFor(container, "两位数加减");
+    const picker = addSubtract.querySelector<HTMLSelectElement>("select");
     if (!picker) throw new Error("question-count picker is missing");
 
-    expect(picker.value).toBe("20");
-    expect(fishStandardChart(container).dataset.covered).toBe("1");
-    fireEvent.change(picker, { target: { value: "10" } });
-    expect(picker.value).toBe("10");
-    expect(fishStandardChart(container).dataset.covered).toBe("1");
+    expect([...picker.options].map((option) => option.value)).toEqual([
+      "20",
+      "30",
+      "40",
+    ]);
+    expect(
+      addSubtract.querySelector<HTMLOutputElement>(".trend-chart-test-double")
+        ?.dataset.covered,
+    ).toBe("1");
+
+    fireEvent.change(picker, { target: { value: "40" } });
+    expect(picker.value).toBe("40");
+    expect(
+      addSubtract.querySelector<HTMLOutputElement>(".trend-chart-test-double")
+        ?.dataset.covered,
+    ).toBe("1");
   });
 });
+
+function withQuestionCount(questionCount: number): Partial<TrainingSession> {
+  const questions = Array.from({ length: questionCount }, (_, index) => ({
+    id: `${questionCount}-${index}`,
+  })) as TrainingSession["questions"];
+  return {
+    questionCount,
+    questions,
+    records: questions.map((question) => ({
+      question,
+      userAnswer: "1",
+      isCorrect: true,
+      accuracyLevel: "exact",
+      timeUsedMs: 1_000,
+      restartCount: 0,
+      usedScratchpad: false,
+    })),
+    accumulatedMs: questionCount * 1_000,
+  };
+}

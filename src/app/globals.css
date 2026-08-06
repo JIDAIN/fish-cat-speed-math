@@ -786,6 +786,109 @@ h2 {
   font-size: 13px;
 }
 
+.memoryHomeEntry {
+  display: grid;
+  width: 100%;
+  min-height: 50px;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  margin: 0 0 16px;
+  padding: 9px 13px;
+  border: 1px solid #abd8c0;
+  background: rgb(255 255 255 / 68%);
+  text-align: left;
+}
+.memoryHomeEntry span {
+  font-size: 15px;
+}
+.memoryHomeEntry small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.memoryHomeEntry b {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--green-700);
+  font-size: 13px;
+}
+
+/* Fraction-percent memory page: native text stays crisp and responsive on phones. */
+.memoryPage > h1 {
+  margin-bottom: 14px;
+}
+.memoryDirectionTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.memoryDirectionTabs button[aria-selected="true"] {
+  background: var(--green-700);
+  color: #fff;
+}
+.memoryHint {
+  margin: 10px 2px 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.memoryGroup {
+  margin: 0 0 18px;
+}
+.memoryGroup h2 {
+  margin: 0 0 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--green-100);
+  font-size: 15px;
+}
+.memoryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.memoryEquation {
+  display: grid;
+  min-height: 66px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 5px;
+  padding: 6px 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 72%);
+  font-size: clamp(15px, 4.3vw, 20px);
+}
+.memoryFraction {
+  display: grid;
+  justify-self: center;
+  min-width: 2.1em;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.18em;
+  line-height: 1.03;
+  text-align: center;
+}
+.memoryFraction span {
+  padding: 1px 5px;
+}
+.memoryFraction span:first-child {
+  border-bottom: 2px solid currentColor;
+}
+.memoryPercent {
+  justify-self: center;
+  white-space: nowrap;
+}
+.memoryEquals {
+  color: var(--green-700);
+  font-size: 1.1em;
+}
+@media (min-width: 460px) {
+  .memoryGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .sessionSubtitle {
   margin: -12px 0 16px;
   color: var(--muted);

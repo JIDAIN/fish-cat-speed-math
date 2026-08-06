@@ -107,6 +107,18 @@ describe("Home active-session interactions", () => {
     });
   });
 
+  it("opens the native fraction-percent memory page from home", async () => {
+    render(<Home />);
+
+    fireEvent.click(screen.getByRole("button", { name: /百分互换速记/ }));
+
+    expect(
+      await screen.findByRole("heading", { name: "百分互换速记" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "分数 → 百分数" })).toBeTruthy();
+    expect(window.location.hash).toBe("#/memory");
+  });
+
   it("immediately pauses and saves an active session when the page is hidden", async () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
