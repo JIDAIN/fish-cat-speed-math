@@ -1273,15 +1273,28 @@ export default function Home() {
         )}
         {identity &&
           session.ownerAccountId === identity.id &&
-          session.trainingSource !== "pk" && (
+          session.trainingSource !== "pk" &&
+          (hasLaunchedPK ? (
+            <section
+              aria-live="polite"
+              className="pkLaunchedNotice"
+              role="status"
+            >
+              <strong>✓ 已成功向对方发起 PK 挑战</strong>
+              <span>正在等待对方完成同一套题目</span>
+              <button onClick={() => setView("pk")} type="button">
+                查看 PK 挑战
+              </button>
+            </section>
+          ) : (
             <button
               className="wide"
-              disabled={session.syncStatus === "syncing" || hasLaunchedPK}
+              disabled={session.syncStatus === "syncing"}
               onClick={() => launchPK(session)}
             >
-              {hasLaunchedPK ? "已向对方发起PK" : "向对方发起PK"}
+              向对方发起PK
             </button>
-          )}
+          ))}
         {session.trainingSource === "pk" && (
           <p
             className={`syncStatus syncStatus-${session.pkSyncStatus ?? "not_synced"}`}

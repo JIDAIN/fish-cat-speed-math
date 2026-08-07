@@ -1163,6 +1163,34 @@ h2 {
 .syncStatus-failed {
   color: #a33939;
 }
+.pkLaunchedNotice {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 16px;
+  border: 2px solid #5ab28a;
+  border-radius: 16px;
+  background: #e0f5e8;
+  color: var(--green-900);
+  text-align: center;
+}
+.pkLaunchedNotice strong {
+  font-size: 18px;
+}
+.pkLaunchedNotice span {
+  color: #39735b;
+  font-size: 13px;
+}
+.pkLaunchedNotice button {
+  justify-self: center;
+  min-height: 38px;
+  margin-top: 5px;
+  padding: 6px 14px;
+  border-color: var(--green-700);
+  background: var(--card);
+  color: var(--green-900);
+  font-size: 13px;
+}
 .historySync button {
   min-height: 32px;
   padding: 4px 9px;
