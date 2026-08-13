@@ -4,6 +4,26 @@ import { PKChallenge } from "./pk";
 
 export type CloudIdentity = { id: string; role: "fish" | "cat"; email: string };
 
+export type CloudCompletedTrainingRow = {
+  session_id: string;
+  owner_id: string;
+  owner_role: "fish" | "cat";
+  question_type: string;
+  subtype: string;
+  question_count: number;
+  generator_version: string;
+  grading_version: string;
+  rating_version: string;
+  schema_version: number;
+  session_data: Record<string, unknown>;
+  completed_at: string;
+  real_completed_at: string | null;
+  created_at: string;
+};
+
+export type ExportReadProgress = { page: number; recordCount: number };
+const EXPORT_PAGE_SIZE = 200;
+
 let client: SupabaseClient | undefined;
 
 export function supabase(): SupabaseClient | undefined {
@@ -82,6 +102,35 @@ export async function readCloudHistory(): Promise<TrainingSession[]> {
     // this completed-only endpoint has already been accepted by Supabase.
     syncStatus: "synced" as const,
   }));
+}
+
+/** Reads every cloud-completed session belonging to the authenticated owner only. */
+export async function readOwnCompletedTrainingForExport(
+  identityId: string,
+  onProgress?: (progress: ExportReadProgress) => void,
+): Promise<CloudCompletedTrainingRow[]> {
+  const db = supabase();
+  if (!db) throw new Error("Supabase is not configured");
+
+  const rows: CloudCompletedTrainingRow[] = [];
+  for (let page = 0; ; page += 1) {
+    const from = page * EXPORT_PAGE_SIZE;
+    const to = from + EXPORT_PAGE_SIZE - 1;
+    const { data, error } = await db
+      .from("completed_training_sessions")
+      .select(
+        "session_id,owner_id,owner_role,question_type,subtype,question_count,generator_version,grading_version,rating_version,schema_version,session_data,completed_at,real_completed_at,created_at",
+      )
+      .eq("owner_id", identityId)
+      .order("real_completed_at", { ascending: false, nullsFirst: false })
+      .order("session_id", { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    const pageRows = (data ?? []) as unknown as CloudCompletedTrainingRow[];
+    rows.push(...pageRows);
+    onProgress?.({ page: page + 1, recordCount: rows.length });
+    if (pageRows.length < EXPORT_PAGE_SIZE) return rows;
+  }
 }
 
 type CloudPKRow = {

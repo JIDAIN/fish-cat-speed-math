@@ -68,6 +68,8 @@ export interface TrainingSession {
   pauseDurationMs: number;
   status: "active" | "completed" | "abandoned";
   startedAt: number;
+  /** Real completion time in Unix milliseconds. Old sessions intentionally omit it. */
+  completedAt?: number;
   /** Optional so sessions saved by earlier releases remain readable. */
   updatedAt?: number;
   /** Auth account that explicitly owns this local run; absent means legacy/unassigned. */

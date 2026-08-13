@@ -9,6 +9,7 @@ export function submitCurrentAnswer(
   session: TrainingSession,
   elapsedMs: number,
   usedScratchpad: boolean,
+  completedAt = Date.now(),
 ): TrainingSession {
   const question = session.questions[session.currentIndex];
   if (!question || !session.currentAnswer || session.status !== "active") {
@@ -43,6 +44,7 @@ export function submitCurrentAnswer(
         status: "completed" as const,
         accumulatedMs: elapsedMs,
         runningSince: null,
+        completedAt,
       }
     : next;
 }

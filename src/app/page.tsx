@@ -34,6 +34,7 @@ import { NumberPad } from "@/components/NumberPad";
 import { ScratchCanvas } from "@/components/ScratchCanvas";
 import { HistoryCharts } from "@/components/HistoryCharts";
 import { HistoryList } from "@/components/HistoryList";
+import { PersonalDataExport } from "@/components/PersonalDataExport";
 import {
   QuestionDetails,
   RatingBreakdown,
@@ -591,7 +592,7 @@ export default function Home() {
   };
   const submit = () => {
     if (!session) return;
-    const next = submitCurrentAnswer(session, elapsed, scratch);
+    const next = submitCurrentAnswer(session, elapsed, scratch, Date.now());
     if (next === session) return;
     if (next.status === "completed") {
       const completed = {
@@ -1334,6 +1335,7 @@ export default function Home() {
         <h1>历史记录</h1>
         {historyRefreshing && <p className="dataUpdating">正在更新记录…</p>}
         <RefreshNotice message={historyRefreshError} />
+        <PersonalDataExport identity={identity} />
         <HistoryList
           key={historyScope(identity)}
           currentAccountId={identity?.id}

@@ -217,6 +217,8 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
       typeof value.pauseDurationMs === "number" ? value.pauseDurationMs : 0,
     status,
     startedAt: value.startedAt,
+    completedAt:
+      typeof value.completedAt === "number" ? value.completedAt : undefined,
     updatedAt:
       typeof value.updatedAt === "number" ? value.updatedAt : undefined,
     ownerAccountId:

@@ -1444,3 +1444,21 @@ h2 {
     border-radius: 0;
   }
 }
+.personalDataExport {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #b9d8ca;
+  border-radius: 0.75rem;
+  background: #f3fbf6;
+}
+.personalDataExport h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+.personalDataExport p {
+  margin: 0.4rem 0;
+}
+.personalDataExport small {
+  display: block;
+  margin-top: 0.4rem;
+}

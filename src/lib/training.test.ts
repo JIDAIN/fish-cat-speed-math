@@ -38,7 +38,7 @@ function session(overrides: Partial<TrainingSession> = {}): TrainingSession {
 
 describe("submitCurrentAnswer", () => {
   it("records the answer once and carries the restart count into history", () => {
-    const completed = submitCurrentAnswer(session(), 3_000, true);
+    const completed = submitCurrentAnswer(session(), 3_000, true, 7_000);
 
     expect(completed.status).toBe("completed");
     expect(completed.records).toHaveLength(1);
@@ -47,13 +47,15 @@ describe("submitCurrentAnswer", () => {
       timeUsedMs: 3_000,
       usedScratchpad: true,
     });
+    expect(completed.completedAt).toBe(7_000);
   });
 
   it("does not add a duplicate record when submit is invoked again", () => {
-    const completed = submitCurrentAnswer(session(), 3_000, false);
-    const repeated = submitCurrentAnswer(completed, 3_000, false);
+    const completed = submitCurrentAnswer(session(), 3_000, false, 7_000);
+    const repeated = submitCurrentAnswer(completed, 3_000, false, 9_000);
 
     expect(repeated.records).toHaveLength(1);
+    expect(repeated.completedAt).toBe(7_000);
   });
 
   it("does not submit an empty answer or a session that is no longer active", () => {
