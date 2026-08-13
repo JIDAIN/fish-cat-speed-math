@@ -56,4 +56,33 @@ describe("readOwnCompletedTrainingForExport", () => {
       "page failed",
     );
   });
+
+  it("retries every page without the new database column before its migration", async () => {
+    const selected: string[] = [];
+    const chain = {
+      select: vi.fn((columns: string) => {
+        selected.push(columns);
+        return chain;
+      }),
+      eq: vi.fn(() => chain),
+      order: vi.fn(() => chain),
+      range: vi.fn(() =>
+        Promise.resolve(
+          selected.at(-1)?.includes("real_completed_at")
+            ? {
+                data: null,
+                error: { message: 'column "real_completed_at" does not exist' },
+              }
+            : { data: [], error: null },
+        ),
+      ),
+    };
+    query.mockReturnValue(chain);
+    const { readOwnCompletedTrainingForExport } = await import("./cloud");
+    await expect(readOwnCompletedTrainingForExport("mine")).resolves.toEqual(
+      [],
+    );
+    expect(selected).toHaveLength(2);
+    expect(selected[1]).not.toContain("real_completed_at");
+  });
 });

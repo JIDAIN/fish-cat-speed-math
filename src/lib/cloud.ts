@@ -17,12 +17,16 @@ export type CloudCompletedTrainingRow = {
   schema_version: number;
   session_data: Record<string, unknown>;
   completed_at: string;
-  real_completed_at: string | null;
+  real_completed_at?: string | null;
   created_at: string;
 };
 
 export type ExportReadProgress = { page: number; recordCount: number };
 const EXPORT_PAGE_SIZE = 200;
+const EXPORT_COLUMNS =
+  "session_id,owner_id,owner_role,question_type,subtype,question_count,generator_version,grading_version,rating_version,schema_version,session_data,completed_at,created_at";
+const EXPORT_COLUMNS_WITH_REAL_COMPLETED_AT =
+  `${EXPORT_COLUMNS},real_completed_at`;
 
 let client: SupabaseClient | undefined;
 
@@ -113,18 +117,37 @@ export async function readOwnCompletedTrainingForExport(
   if (!db) throw new Error("Supabase is not configured");
 
   const rows: CloudCompletedTrainingRow[] = [];
+  let includeRealCompletedAt = true;
   for (let page = 0; ; page += 1) {
     const from = page * EXPORT_PAGE_SIZE;
     const to = from + EXPORT_PAGE_SIZE - 1;
     const { data, error } = await db
       .from("completed_training_sessions")
       .select(
-        "session_id,owner_id,owner_role,question_type,subtype,question_count,generator_version,grading_version,rating_version,schema_version,session_data,completed_at,real_completed_at,created_at",
+        includeRealCompletedAt
+          ? EXPORT_COLUMNS_WITH_REAL_COMPLETED_AT
+          : EXPORT_COLUMNS,
       )
       .eq("owner_id", identityId)
-      .order("real_completed_at", { ascending: false, nullsFirst: false })
+      .order(includeRealCompletedAt ? "real_completed_at" : "completed_at", {
+        ascending: false,
+        nullsFirst: false,
+      })
       .order("session_id", { ascending: false })
       .range(from, to);
+    // The application can be deployed before its Supabase migration. Retry
+    // from page one using the long-standing columns; completedAt remains in
+    // session_data and is still exported when the new DB column is absent.
+    if (
+      error &&
+      includeRealCompletedAt &&
+      /real_completed_at/i.test(error.message ?? "")
+    ) {
+      includeRealCompletedAt = false;
+      rows.length = 0;
+      page = -1;
+      continue;
+    }
     if (error) throw error;
     const pageRows = (data ?? []) as unknown as CloudCompletedTrainingRow[];
     rows.push(...pageRows);

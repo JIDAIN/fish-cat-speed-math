@@ -56,7 +56,7 @@ describe("PersonalDataExport", () => {
   });
 
   it("does not download either file when reading fails", async () => {
-    read.mockRejectedValue(new Error("network down"));
+    read.mockRejectedValue({ message: "network down" });
     render(
       <PersonalDataExport
         identity={{ id: "owner", role: "fish", email: "a@test" }}
@@ -64,7 +64,7 @@ describe("PersonalDataExport", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "导出 XLSX 和 JSON" }));
     await waitFor(() =>
-      expect(screen.getByRole("status").textContent).toContain("导出失败"),
+      expect(screen.getByRole("status").textContent).toContain("network down"),
     );
     expect(download).not.toHaveBeenCalled();
   });

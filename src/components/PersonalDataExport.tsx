@@ -10,6 +10,18 @@ import {
   exportFileBaseName,
 } from "@/lib/data-export-files";
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  )
+    return error.message;
+  return "无法完整读取或生成文件";
+}
+
 export function PersonalDataExport({ identity }: { identity?: CloudIdentity }) {
   const [status, setStatus] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -38,9 +50,7 @@ export function PersonalDataExport({ identity }: { identity?: CloudIdentity }) {
           : "导出完成：当前没有云端已同步的完成训练。",
       );
     } catch (error) {
-      setStatus(
-        `导出失败：${error instanceof Error ? error.message : "无法完整读取或生成文件"}`,
-      );
+      setStatus(`导出失败：${errorMessage(error)}`);
     } finally {
       setBusy(false);
     }
