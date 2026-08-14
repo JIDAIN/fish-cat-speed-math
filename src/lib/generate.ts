@@ -2,7 +2,7 @@ import { GeneratedQuestion, QuestionType, Subtype } from "./types";
 
 // 2.6.0 introduces feasible joint quotas for multi-digit division. Older
 // frozen questions keep their original per-question generationRuleVersion.
-export const GENERATOR_VERSION = "2.6.0";
+export const GENERATOR_VERSION = "2.7.0";
 export const MAX_GENERATION_ATTEMPTS = 24;
 const MAX_NON_ROUND_ATTEMPTS = 12;
 
@@ -70,17 +70,43 @@ export const TWO_BY_TWO_MULTIPLY_QUOTAS: readonly StructureQuota[] = [
 ];
 
 export type FractionComparisonStructure =
-  "direct_comparison" | "same_direction" | "near_half" | "general_comparison";
+  | "direct_relation"
+  | "benchmark_opposite_sides"
+  | "benchmark_same_side"
+  | "cross_scale_near_ratio"
+  | "two_axis_hard"
+  | "very_close_ratio";
 
 /**
  * Primary structures are mutually exclusive. Secondary tags remain available
  * for later analysis, but never participate in set-level quota arithmetic.
  */
 export const FRACTION_COMPARISON_QUOTAS: readonly StructureQuota[] = [
-  { primaryStructure: "direct_comparison", ratio: 0.1 },
-  { primaryStructure: "same_direction", ratio: 0.4 },
-  { primaryStructure: "near_half", ratio: 0.2 },
-  { primaryStructure: "general_comparison", ratio: 0.3 },
+  { primaryStructure: "direct_relation", ratio: 0.1 },
+  { primaryStructure: "benchmark_opposite_sides", ratio: 0.1 },
+  { primaryStructure: "benchmark_same_side", ratio: 0.2 },
+  { primaryStructure: "cross_scale_near_ratio", ratio: 0.2 },
+  { primaryStructure: "two_axis_hard", ratio: 0.2 },
+  { primaryStructure: "very_close_ratio", ratio: 0.2 },
+];
+
+export const SPECIAL_TWO_BY_TWO_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "single_side_medium_load", ratio: 0.2 },
+  { primaryStructure: "ordinary_no_shortcut", ratio: 0.45 },
+  { primaryStructure: "double_high_load", ratio: 0.35 },
+];
+export const HUNDRED_SCALING_DEVIATION_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "0_to_0_5_percent", ratio: 0.15 },
+  { primaryStructure: "0_5_to_1_percent", ratio: 0.2 },
+  { primaryStructure: "1_to_2_percent", ratio: 0.3 },
+  { primaryStructure: "2_to_3_percent", ratio: 0.25 },
+  { primaryStructure: "3_to_4_percent", ratio: 0.1 },
+];
+export const HUNDRED_SCALING_BASE_QUOTAS: readonly StructureQuota[] = [
+  { primaryStructure: "600", ratio: 0.2 },
+  { primaryStructure: "700", ratio: 0.3 },
+  { primaryStructure: "800", ratio: 0.3 },
+  { primaryStructure: "900", ratio: 0.2 },
 ];
 
 export type FourThreeDigitAdditionStructure =
@@ -605,8 +631,20 @@ const isValidFraction = (numerator: number, denominator: number) =>
   numerator > 0 &&
   denominator > numerator;
 
-const isNearHalf = (numerator: number, denominator: number) =>
-  Math.abs(numerator * 2 - denominator) <= 2;
+const FRACTION_BENCHMARKS = [
+  1 / 3,
+  2 / 5,
+  1 / 2,
+  3 / 5,
+  2 / 3,
+  3 / 4,
+  4 / 5,
+  5 / 6,
+];
+const nearestBenchmark = (value: number) =>
+  FRACTION_BENCHMARKS.reduce((best, benchmark) =>
+    Math.abs(value - benchmark) < Math.abs(value - best) ? benchmark : best,
+  );
 
 /**
  * The ordered checks keep overlapping visual patterns out of quota buckets.
@@ -623,21 +661,21 @@ export function classifyFractionComparison(
   if (!isValidFraction(a, b) || !isValidFraction(c, d)) return undefined;
 
   if (a * d === c * b) return undefined;
-  if (isNearHalf(a, b) && isNearHalf(c, d)) return "near_half";
-
-  const direct = a === c || b === d || (a > c && b < d) || (a < c && b > d);
-  if (direct) return "direct_comparison";
-
-  const numeratorDirection = Math.sign(a - c);
-  const denominatorDirection = Math.sign(b - d);
+  if (a === c || b === d || (a > c && b < d) || (a < c && b > d))
+    return "direct_relation";
+  if (Math.max(b, d) / Math.min(b, d) >= 4) return "cross_scale_near_ratio";
+  const difference = Math.abs(a / b - c / d);
+  const benchmark = nearestBenchmark((a / b + c / d) / 2);
+  const sameSide =
+    Math.sign(a / b - benchmark) === Math.sign(c / d - benchmark);
   if (
-    numeratorDirection !== 0 &&
-    numeratorDirection === denominatorDirection &&
-    Math.abs(Math.abs(a - c) - Math.abs(b - d)) <= 10
+    difference >= 0.015 &&
+    Math.abs(a / b - benchmark) < 0.06 &&
+    Math.abs(c / d - benchmark) < 0.06
   )
-    return "same_direction";
-
-  return "general_comparison";
+    return sameSide ? "benchmark_same_side" : "benchmark_opposite_sides";
+  if (difference < 0.015) return "very_close_ratio";
+  return "two_axis_hard";
 }
 
 function fractionComparisonAnswer(a: number, b: number, c: number, d: number) {
@@ -654,10 +692,12 @@ function fallbackFractionComparison(
     FractionComparisonStructure,
     { a: number; b: number; c: number; d: number }
   > = {
-    direct_comparison: { a: 37, b: 83, c: 37, d: 91 },
-    same_direction: { a: 41, b: 83, c: 47, d: 97 },
-    near_half: { a: 49, b: 99, c: 51, d: 101 },
-    general_comparison: { a: 31, b: 79, c: 43, d: 107 },
+    direct_relation: { a: 37, b: 83, c: 37, d: 91 },
+    benchmark_opposite_sides: { a: 49, b: 99, c: 51, d: 101 },
+    benchmark_same_side: { a: 41, b: 83, c: 47, d: 97 },
+    cross_scale_near_ratio: { a: 42, b: 56, c: 416, d: 545 },
+    two_axis_hard: { a: 31, b: 79, c: 43, d: 107 },
+    very_close_ratio: { a: 231, b: 528, c: 344, d: 786 },
   };
   const { a, b, c, d } = fallback[primaryStructure];
   return q(
@@ -678,7 +718,7 @@ function fractionComparisonOperandsForStructure(
   context: GenerationContext,
   primaryStructure: FractionComparisonStructure,
 ): { a: number; b: number; c: number; d: number } {
-  if (primaryStructure === "direct_comparison") {
+  if (primaryStructure === "direct_relation") {
     const a = randomInteger(context, 12, 98);
     return {
       a,
@@ -687,20 +727,62 @@ function fractionComparisonOperandsForStructure(
       d: randomInteger(context, a + 21, 200),
     };
   }
-  if (primaryStructure === "near_half") {
+  if (
+    primaryStructure === "benchmark_opposite_sides" ||
+    primaryStructure === "benchmark_same_side"
+  ) {
     const b = randomInteger(context, 71, 149);
     const d = randomInteger(context, 151, 229);
-    const a = Math.floor(b / 2) + (context.random() < 0.5 ? -1 : 1);
-    const c = Math.floor(d / 2) + (context.random() < 0.5 ? -1 : 1);
+    const benchmark =
+      FRACTION_BENCHMARKS[
+        randomInteger(context, 0, FRACTION_BENCHMARKS.length - 1)
+      ];
+    const side = context.random() < 0.5 ? -1 : 1;
+    const a = Math.max(
+      1,
+      Math.min(
+        b - 1,
+        Math.round(b * benchmark) + side * randomInteger(context, 4, 6),
+      ),
+    );
+    const c = Math.max(
+      1,
+      Math.min(
+        d - 1,
+        Math.round(d * benchmark) +
+          (primaryStructure === "benchmark_same_side" ? side : -side) *
+            randomInteger(context, 4, 6),
+      ),
+    );
     return { a, b, c, d };
   }
-  if (primaryStructure === "same_direction") {
+  if (primaryStructure === "cross_scale_near_ratio") {
     const a = randomInteger(context, 21, 70);
     const b = randomInteger(context, a + 30, a + 100);
-    const numeratorIncrease = randomInteger(context, 2, 15);
-    const denominatorIncrease =
-      numeratorIncrease + randomInteger(context, -5, 5);
-    return { a, b, c: a + numeratorIncrease, d: b + denominatorIncrease };
+    const factor = randomInteger(context, 5, 9);
+    return {
+      a,
+      b,
+      c: a * factor + randomInteger(context, -2, 2),
+      d: b * factor + randomInteger(context, -2, 2),
+    };
+  }
+  if (primaryStructure === "very_close_ratio") {
+    const b = randomInteger(context, 120, 220),
+      d = randomInteger(context, 120, 220);
+    const a = randomInteger(context, 35, b - 35);
+    return {
+      a,
+      b,
+      c: Math.max(
+        1,
+        Math.min(
+          d - 1,
+          Math.round((a / b) * d) + (context.random() < 0.5 ? -1 : 1),
+        ),
+      ),
+      d,
+    };
   }
   const a = randomInteger(context, 21, 60);
   const b = randomInteger(context, 120, 170);
@@ -722,15 +804,40 @@ function generateFractionComparisonByStructure(
       primaryStructure,
     );
     if (classifyFractionComparison(a, b, c, d) !== primaryStructure) continue;
+    const leftValue = a / b,
+      rightValue = c / d,
+      benchmark = nearestBenchmark((leftValue + rightValue) / 2);
+    const sameSide =
+      Math.sign(leftValue - benchmark) === Math.sign(rightValue - benchmark);
     return q(
       context,
       "fraction_comparison",
       "comparison",
       `${a}/${b} ？ ${c}/${d}`,
       fractionComparisonAnswer(a, b, c, d),
-      { a, b, c, d },
+      {
+        a,
+        b,
+        c,
+        d,
+        leftValue,
+        rightValue,
+        difference: Math.abs(leftValue - rightValue),
+        crossScale: Math.max(b, d) / Math.min(b, d) >= 4,
+        benchmark,
+        benchmarkSide: sameSide ? "same" : "opposite",
+        benchmarkDeviationLeft: Math.abs(leftValue - benchmark),
+        benchmarkDeviationRight: Math.abs(rightValue - benchmark),
+        closeness: Math.abs(leftValue - rightValue),
+      },
       4,
-      ["分数比较"],
+      [
+        "分数比较",
+        `benchmark_${benchmark.toFixed(4)}`,
+        sameSide ? "benchmark_same_side" : "benchmark_opposite_sides",
+        ...(Math.max(b, d) / Math.min(b, d) >= 4 ? ["cross_scale"] : []),
+        ...(Math.abs(leftValue - rightValue) < 0.02 ? ["close_ratio"] : []),
+      ],
       undefined,
       structuredFractionComparisonQuestion(primaryStructure),
     );
@@ -748,10 +855,12 @@ function randomFractionComparisonStructure(
   context: GenerationContext,
 ): FractionComparisonStructure {
   const choice = context.random();
-  if (choice < 0.1) return "direct_comparison";
-  if (choice < 0.5) return "same_direction";
-  if (choice < 0.7) return "near_half";
-  return "general_comparison";
+  if (choice < 0.1) return "direct_relation";
+  if (choice < 0.2) return "benchmark_opposite_sides";
+  if (choice < 0.4) return "benchmark_same_side";
+  if (choice < 0.6) return "cross_scale_near_ratio";
+  if (choice < 0.8) return "two_axis_hard";
+  return "very_close_ratio";
 }
 
 export interface AdditionCarryProfile {
@@ -1616,7 +1725,8 @@ function randomTwoByTwoMultiplyStructure(
   return "general";
 }
 
-function fallbackQuestion(
+// Retained as a compatibility fallback catalogue for older callers.
+export function fallbackQuestion(
   type: QuestionType,
   subtype: Subtype,
   context: GenerationContext,
@@ -1713,6 +1823,10 @@ export function generateQuestion(
       randomTwoByTwoMultiplyStructure(context),
     );
   }
+  if (type === "special_two_by_two_multiply")
+    return buildSpecialTwoByTwo(context, "ordinary_no_shortcut");
+  if (type === "special_hundred_scaling_division")
+    return buildHundredScalingQuestion(context, "1_to_2_percent", 700, true);
   if (type === "fraction_comparison") {
     return generateFractionComparisonByStructure(
       context,
@@ -1770,12 +1884,176 @@ export function generateQuestion(
   );
 }
 
+function multiplicationCarryLoad(a: number, b: number) {
+  const ones = (a % 10) * (b % 10);
+  const cross =
+    Math.floor(a / 10) * (b % 10) +
+    (a % 10) * Math.floor(b / 10) +
+    Math.floor(ones / 10);
+  return (ones >= 10 ? 1 : 0) + (cross >= 10 ? 1 : 0) + (cross >= 100 ? 1 : 0);
+}
+function buildSpecialTwoByTwo(
+  context: GenerationContext,
+  structure: string,
+): GeneratedQuestion {
+  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+    const high = () => randomInteger(context, 6, 9);
+    const ordinary = () => randomInteger(context, 23, 87);
+    let a = ordinary(),
+      b = ordinary();
+    if (structure === "single_side_medium_load") {
+      a = randomInteger(context, 31, 59);
+      b = ordinary();
+    }
+    if (structure === "double_high_load") {
+      a = high() * 10 + high();
+      b = high() * 10 + high();
+    }
+    const easy =
+      [25, 50, 99].includes(a) ||
+      [25, 50, 99].includes(b) ||
+      a % 10 === 0 ||
+      b % 10 === 0 ||
+      a >= 90 ||
+      b >= 90;
+    if (easy || a === b) continue;
+    const carryLoad = multiplicationCarryLoad(a, b),
+      highDigits = [a, b]
+        .flatMap((n) => [Math.floor(n / 10), n % 10])
+        .filter((n) => n >= 6).length;
+    if (structure === "double_high_load" && highDigits < 3) continue;
+    return q(
+      context,
+      "special_two_by_two_multiply",
+      "special_two_by_two",
+      `${a} × ${b}`,
+      String(a * b),
+      {
+        a,
+        b,
+        factorATens: Math.floor(a / 10),
+        factorAOnes: a % 10,
+        factorBTens: Math.floor(b / 10),
+        factorBOnes: b % 10,
+        highMultiplierLoad: highDigits >= 2,
+        highDigitCount: highDigits,
+        hasCarry: carryLoad > 0,
+        carryLoad,
+      },
+      structure === "double_high_load" ? 5 : 4,
+      ["专项训练", "两位数乘两位数", structure],
+      undefined,
+      {
+        primaryStructure: structure,
+        secondaryTags: [
+          highDigits ? "contains_6_to_9" : "",
+          carryLoad ? "carry" : "",
+        ].filter(Boolean),
+      },
+    );
+  }
+  return buildSpecialTwoByTwo(context, "ordinary_no_shortcut");
+}
+function buildHundredScalingQuestion(
+  context: GenerationContext,
+  deviationStructure: string,
+  base: number,
+  upward: boolean,
+): GeneratedQuestion {
+  const ranges: Record<string, [number, number]> = {
+    "0_to_0_5_percent": [0.001, 0.005],
+    "0_5_to_1_percent": [0.005, 0.01],
+    "1_to_2_percent": [0.01, 0.02],
+    "2_to_3_percent": [0.02, 0.03],
+    "3_to_4_percent": [0.03, 0.04],
+  };
+  const [min, max] = ranges[deviationStructure];
+  const delta = Math.max(
+    1,
+    Math.round(base * (min + context.random() * (max - min))),
+  );
+  const denominator = base + (upward ? -delta : delta);
+  let numerator = randomInteger(context, 12037, 98763);
+  while (numerator % 100 === 0 || numerator % base === 0) numerator += 1;
+  const exact = numerator / denominator;
+  return q(
+    context,
+    "special_hundred_scaling_division",
+    "hundred_scaling",
+    `${numerator} ÷ ${denominator}`,
+    exact.toFixed(2),
+    {
+      numerator,
+      denominator,
+      theoreticalNearestHundred: base,
+      baseline: base,
+      absoluteDifference: delta,
+      relativeDeviation: delta / base,
+      deviationLevel: deviationStructure,
+      correctionDirection: upward ? "up" : "down",
+      exactAnswer: exact,
+      baselineQuotient: numerator / base,
+    },
+    5,
+    [
+      "专项训练",
+      "整百放缩修正",
+      deviationStructure,
+      upward ? "up_correction" : "down_correction",
+    ],
+    { min: exact * 0.97, max: exact * 1.03 },
+    {
+      primaryStructure: deviationStructure,
+      secondaryTags: [
+        `base_${base}`,
+        upward ? "up_correction" : "down_correction",
+      ],
+    },
+  );
+}
+
 export function generateSet(
   type: QuestionType,
   subtype: Subtype,
   count: number,
   context: GenerationContext = productionGenerationContext,
 ) {
+  if (type === "special_two_by_two_multiply") {
+    return shuffle(
+      context,
+      allocateStructureQuota(count, SPECIAL_TWO_BY_TWO_QUOTAS).flatMap(
+        ({ primaryStructure, count: quantity }) =>
+          Array.from({ length: quantity }, () =>
+            buildSpecialTwoByTwo(context, primaryStructure),
+          ),
+      ),
+    );
+  }
+  if (type === "special_hundred_scaling_division") {
+    const deviations = allocateStructureQuota(
+      count,
+      HUNDRED_SCALING_DEVIATION_QUOTAS,
+    ).flatMap(({ primaryStructure, count: quantity }) =>
+      Array.from({ length: quantity }, () => primaryStructure),
+    );
+    const bases = allocateStructureQuota(
+      count,
+      HUNDRED_SCALING_BASE_QUOTAS,
+    ).flatMap(({ primaryStructure, count: quantity }) =>
+      Array.from({ length: quantity }, () => Number(primaryStructure)),
+    );
+    return shuffle(
+      context,
+      deviations.map((deviation, index) =>
+        buildHundredScalingQuestion(
+          context,
+          deviation,
+          bases[index],
+          index % 2 === 0,
+        ),
+      ),
+    );
+  }
   if (type === "two_digit_add_subtract") {
     const questions = allocateStructureQuota(
       count,

@@ -60,6 +60,10 @@ export type QuestionExportRow = {
   numerator: Value | null;
   denominator: Value | null;
   percent_answer: Value | null;
+  special_baseline: Value | null;
+  relative_deviation: Value | null;
+  correction_direction: Value | null;
+  carry_load: Value | null;
   question_data_json: string;
 };
 
@@ -227,6 +231,10 @@ export function createDataExport(
         numerator: (data.numerator as Value) ?? null,
         denominator: (data.denominator as Value) ?? null,
         percent_answer: (data.percentAnswer as Value) ?? null,
+        special_baseline: (data.baseline as Value) ?? null,
+        relative_deviation: (data.relativeDeviation as Value) ?? null,
+        correction_direction: (data.correctionDirection as Value) ?? null,
+        carry_load: (data.carryLoad as Value) ?? null,
         question_data_json: json(data),
       });
     });

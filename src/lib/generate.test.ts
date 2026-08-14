@@ -12,6 +12,7 @@ import {
   TWO_BY_ONE_MULTIPLY_QUOTAS,
   TWO_BY_TWO_MULTIPLY_QUOTAS,
   TWO_DIGIT_ADD_SUBTRACT_QUOTAS,
+  SPECIAL_TWO_BY_TWO_QUOTAS,
   allocateMultiDigitDivisionQuota,
   allocateStructureQuota,
   classifyThreeDigitAddSubtract,
@@ -654,13 +655,18 @@ describe("question generators", () => {
   });
 
   it("classifies fraction comparisons into mutually exclusive strategies", () => {
-    expect(classifyFractionComparison(37, 83, 37, 91)).toBe(
-      "direct_comparison",
+    expect(classifyFractionComparison(37, 83, 37, 91)).toBe("direct_relation");
+    expect(classifyFractionComparison(46, 83, 56, 97)).toBe(
+      "benchmark_same_side",
     );
-    expect(classifyFractionComparison(41, 83, 47, 97)).toBe("same_direction");
-    expect(classifyFractionComparison(49, 99, 51, 101)).toBe("near_half");
-    expect(classifyFractionComparison(31, 79, 43, 107)).toBe(
-      "general_comparison",
+    expect(classifyFractionComparison(46, 99, 56, 101)).toBe(
+      "benchmark_opposite_sides",
+    );
+    expect(classifyFractionComparison(42, 56, 416, 545)).toBe(
+      "cross_scale_near_ratio",
+    );
+    expect(classifyFractionComparison(231, 528, 344, 786)).toBe(
+      "very_close_ratio",
     );
     expect(classifyFractionComparison(17, 51, 34, 102)).toBeUndefined();
     expect(classifyFractionComparison(10, 10, 1, 2)).toBeUndefined();
@@ -1011,5 +1017,51 @@ describe("question generators", () => {
         deterministicContext(596),
       ),
     );
+  });
+
+  it("creates constrained special-training sets with required metadata", () => {
+    const multiplication = generateSet(
+      "special_two_by_two_multiply",
+      "special_two_by_two",
+      20,
+      deterministicContext(701),
+    );
+    expect(
+      Object.fromEntries(
+        new Map(
+          SPECIAL_TWO_BY_TWO_QUOTAS.map(({ primaryStructure, ratio }) => [
+            primaryStructure,
+            Math.round(ratio * 20),
+          ]),
+        ),
+      ),
+    ).toEqual({
+      single_side_medium_load: 4,
+      ordinary_no_shortcut: 9,
+      double_high_load: 7,
+    });
+    expect(multiplication).toHaveLength(20);
+    multiplication.forEach((question) => {
+      expect(question.data.carryLoad).toBeTypeOf("number");
+      expect(question.data.factorAOnes).toBeTypeOf("number");
+    });
+    const scaling = generateSet(
+      "special_hundred_scaling_division",
+      "hundred_scaling",
+      20,
+      deterministicContext(702),
+    );
+    expect(
+      scaling.filter((question) => question.data.correctionDirection === "up"),
+    ).toHaveLength(10);
+    expect(
+      scaling.filter(
+        (question) => question.data.correctionDirection === "down",
+      ),
+    ).toHaveLength(10);
+    scaling.forEach((question) => {
+      expect([600, 700, 800, 900]).toContain(question.data.baseline);
+      expect(question.data.relativeDeviation).toBeTypeOf("number");
+    });
   });
 });

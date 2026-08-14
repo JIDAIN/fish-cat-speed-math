@@ -11,3 +11,7 @@ JSON 同时保留 Supabase 原始行和规范化分析结构。它是机器可�
 时间同时使用 Unix 毫秒和 ISO-8601 表达；ISO 时间固定使用 `Asia/Shanghai`（`+08:00`），时长单位为毫秒，正确率为 0–1（XLSX 以百分比格式显示）。新版本训练会记录真实完成时间；旧记录没有真实完成时间时保持为空。原表的 legacy `completed_at` 历史上实际保存的是开始时间，只在 JSON 原始行中保留，不能作为真实完成时间使用。
 
 导出会完整分页读取云端记录。任一读取或文件生成步骤失败时不会下载部分文件。
+
+# 专项训练导出补充
+
+专项训练与普通训练同样导出为 completed 训练和逐题记录；以 `question_type` / `subtype` 区分。逐题表新增 `special_baseline`、`relative_deviation`、`correction_direction` 与 `carry_load`，完整专项/分数比较分析元数据保留在 `question_data_json`。字段含义及题目规则见 [SPECIAL_TRAINING.md](./SPECIAL_TRAINING.md)。

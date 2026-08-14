@@ -1462,3 +1462,31 @@ h2 {
   display: block;
   margin-top: 0.4rem;
 }
+.specialTrainingEntry {
+  width: 100%;
+  margin: 0 0 1rem;
+  border: 2px solid var(--green-700);
+  background: #e5f5eb;
+  color: var(--green-900);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.specialTrainingGrid {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+}
+.specialTrainingGrid button {
+  display: grid;
+  gap: 8px;
+  min-height: 110px;
+  padding: 18px;
+  text-align: left;
+}
+.specialTrainingGrid strong {
+  font-size: 1.1rem;
+}
+.specialTrainingGrid small {
+  color: var(--muted);
+  line-height: 1.5;
+}

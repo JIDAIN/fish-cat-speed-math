@@ -112,6 +112,7 @@ function FractionComparisonDisplay({
 type FractionEntryPart = "numerator" | "denominator";
 type View =
   | "home"
+  | "special"
   | "training"
   | "result"
   | "history"
@@ -137,6 +138,7 @@ function locationRoute(): { view: View; id?: string } {
   if (parts[0] === "pk" && parts[1]) return { view: "pkDetail", id: parts[1] };
   if (parts[0] === "pk") return { view: "pk" };
   if (parts[0] === "memory") return { view: "memory" };
+  if (parts[0] === "special") return { view: "special" };
   return { view: "home" };
 }
 
@@ -149,6 +151,7 @@ function locationHash(view: View, id?: string) {
   if (view === "pkDetail" && id) return `#/pk/${id}`;
   if (view === "pk") return "#/pk";
   if (view === "memory") return "#/memory";
+  if (view === "special") return "#/special";
   return "#/";
 }
 
@@ -501,6 +504,12 @@ export default function Home() {
     sessionRef.current = s;
     setSession(s);
     setView("training");
+  };
+  const chooseSpecial = (questionType: QuestionType, subtype: Subtype) => {
+    setType(questionType);
+    setSubtype(subtype);
+    setCount(STANDARD_QUESTION_COUNT);
+    setView("home");
   };
   const confirmQuestionCount = ({
     count: selectedCount,
@@ -1502,6 +1511,41 @@ export default function Home() {
       </main>
     );
   }
+  if (view === "special")
+    return (
+      <main className="homePage">
+        <button onClick={() => setView("home")} type="button">
+          返回首页
+        </button>
+        <h1>专项训练</h1>
+        <p className="hint">
+          每次默认 20 题；结果、计时、历史、同步和导出与普通训练共用。
+        </p>
+        <section className="specialTrainingGrid" aria-label="专项训练选择">
+          <button
+            onClick={() =>
+              chooseSpecial("special_two_by_two_multiply", "special_two_by_two")
+            }
+            type="button"
+          >
+            <strong>两位数 × 两位数</strong>
+            <small>连续心算、进位、部分积保持与最终合并</small>
+          </button>
+          <button
+            onClick={() =>
+              chooseSpecial(
+                "special_hundred_scaling_division",
+                "hundred_scaling",
+              )
+            }
+            type="button"
+          >
+            <strong>整百放缩修正</strong>
+            <small>五位数 ÷ 三位数：整百估算与上/下修正</small>
+          </button>
+        </section>
+      </main>
+    );
   return (
     <main className="home">
       {activeSessionPrompt && (
@@ -1609,6 +1653,13 @@ export default function Home() {
         </section>
       )}
       <h2>选择训练题型</h2>
+      <button
+        className="specialTrainingEntry"
+        onClick={() => setView("special")}
+        type="button"
+      >
+        专项训练
+      </button>
       <TrainingTypeSelector
         onDivisionRuleChange={setSubtype}
         onSelect={(selectedType, selectedSubtype) => {

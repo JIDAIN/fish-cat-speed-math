@@ -67,7 +67,7 @@ describe("HistoryCharts", () => {
     );
 
     const tracks = container.querySelectorAll(".trackCharts");
-    expect(tracks).toHaveLength(12);
+    expect(tracks).toHaveLength(14);
     for (const track of tracks) {
       expect(track.querySelectorAll(".userChart")).toHaveLength(2);
     }

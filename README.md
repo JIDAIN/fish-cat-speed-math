@@ -115,3 +115,7 @@ npm.cmd run build
 项目使用严格 TypeScript，`allowJs` 已关闭。IndexedDB 操作集中在 storage 模块；当前没有 Supabase 依赖或占位代码；写入失败会显示应用内错误提示。
 
 旧版本地会话在读取时会经过结构校验并补齐新增字段的默认值；无效记录不会进入训练或历史页面。提交前请运行 format、typecheck、lint、test 和 build。
+
+# 专项训练更新
+
+本版本新增独立“专项训练”入口，包含“两位数 × 两位数”与“整百放缩修正”，均默认 20 题，并复用既有计时、历史、同步和数据导出。分数比大小的六类新权重、专项生成规则与字段说明见 [SPECIAL_TRAINING.md](./SPECIAL_TRAINING.md)。
