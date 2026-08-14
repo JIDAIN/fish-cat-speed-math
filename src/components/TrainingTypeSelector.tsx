@@ -82,6 +82,18 @@ const trainingTypeOptions: readonly TrainingTypeOption[] = [
     questionType: "fraction_comparison",
     subtype: "comparison",
   },
+  {
+    id: "special_two_by_two_multiply",
+    label: "两位数×两位数",
+    questionType: "special_two_by_two_multiply",
+    subtype: "special_two_by_two",
+  },
+  {
+    id: "special_hundred_scaling_division",
+    label: "整百放缩修正",
+    questionType: "special_hundred_scaling_division",
+    subtype: "hundred_scaling",
+  },
 ];
 
 interface TrainingTypeSelectorProps {

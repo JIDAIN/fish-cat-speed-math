@@ -23,7 +23,7 @@ function StatefulSelector() {
 }
 
 describe("TrainingTypeSelector", () => {
-  it("shows ten independent primary entries and maps both fraction directions", () => {
+  it("shows twelve independent primary entries and maps both fraction directions", () => {
     const onSelect = vi.fn();
     const { container } = render(
       <TrainingTypeSelector
@@ -36,7 +36,7 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(10);
+    ).toHaveLength(12);
     expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "分数转百分数" }));
