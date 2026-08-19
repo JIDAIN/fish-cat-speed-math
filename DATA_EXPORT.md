@@ -14,4 +14,4 @@ JSON 同时保留 Supabase 原始行和规范化分析结构。它是机器可�
 
 # 专项训练导出补充
 
-专项训练与普通训练同样导出为 completed 训练和逐题记录；以 `question_type` / `subtype` 区分。逐题表新增 `special_baseline`、`relative_deviation`、`correction_direction` 与 `carry_load`，完整专项/分数比较分析元数据保留在 `question_data_json`。字段含义及题目规则见 [SPECIAL_TRAINING.md](./SPECIAL_TRAINING.md)。
+专项训练与普通训练同样导出为 completed 训练和逐题记录；以 `question_type` / `subtype` 区分。其中“两位数×两位数”固定使用 `question_type: two_by_two_multiply`，`subtype: standard` 表示综合训练，`subtype: carry_intensive` 表示进位强化；不再导出独立的两位数乘法专项类型。逐题表新增 `special_baseline`、`relative_deviation`、`correction_direction` 与 `carry_load`，完整专项/分数比较分析元数据保留在 `question_data_json`。字段含义及题目规则见 [SPECIAL_TRAINING.md](./SPECIAL_TRAINING.md)。

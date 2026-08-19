@@ -624,6 +624,8 @@ describe("question generators", () => {
         expect((a as number) % 10).not.toBe(0);
         expect((b as number) % 10).not.toBe(0);
         expect(question.answer).toBe(String((a as number) * (b as number)));
+        expect(question.type).toBe("two_by_two_multiply");
+        expect(question.subtype).toBe("standard");
         expect(classifyTwoByTwoMultiply(a as number, b as number)).toBe(
           question.primaryStructure,
         );
@@ -1021,8 +1023,8 @@ describe("question generators", () => {
 
   it("creates constrained special-training sets with required metadata", () => {
     const multiplication = generateSet(
-      "special_two_by_two_multiply",
-      "special_two_by_two",
+      "two_by_two_multiply",
+      "carry_intensive",
       20,
       deterministicContext(701),
     );
@@ -1042,6 +1044,8 @@ describe("question generators", () => {
     });
     expect(multiplication).toHaveLength(20);
     multiplication.forEach((question) => {
+      expect(question.type).toBe("two_by_two_multiply");
+      expect(question.subtype).toBe("carry_intensive");
       expect(question.data.carryLoad).toBeTypeOf("number");
       expect(question.data.factorAOnes).toBeTypeOf("number");
     });

@@ -5,7 +5,7 @@ import {
   QuestionType,
   Subtype,
   TrainingSession,
-  subtypeLabels,
+  getSubtypeLabel,
   typeLabels,
 } from "@/lib/types";
 import { ratingTarget, subtypesForType, trendPoints } from "@/lib/statistics";
@@ -82,7 +82,9 @@ function TrackCharts({
     <section className="trackCharts">
       <div className="trackTitle">
         <h3>{typeLabels[type]}</h3>
-        {subtype !== "standard" && <span>{subtypeLabels[subtype]}</span>}
+        {(subtype !== "standard" || type === "two_by_two_multiply") && (
+          <span>{getSubtypeLabel(type, subtype)}</span>
+        )}
       </div>
       <TargetHeader subtype={subtype} type={type} />
       {questionCount !== undefined && (

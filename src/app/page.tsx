@@ -5,7 +5,7 @@ import {
   Subtype,
   TrainingSession,
   typeLabels,
-  subtypeLabels,
+  getSubtypeLabel,
 } from "@/lib/types";
 import {
   discardSession,
@@ -1226,7 +1226,8 @@ export default function Home() {
       <main className="panel">
         <h1>训练完成！</h1>
         <p>
-          {typeLabels[session.questionType]} · {subtypeLabels[session.subtype]}
+          {typeLabels[session.questionType]} ·{" "}
+          {getSubtypeLabel(session.questionType, session.subtype)}
         </p>
         <div className="metrics">
           <b>
@@ -1614,10 +1615,7 @@ export default function Home() {
         onSelect={(selectedType, selectedSubtype) => {
           setType(selectedType);
           setSubtype(selectedSubtype);
-          if (
-            selectedType === "special_two_by_two_multiply" ||
-            selectedType === "special_hundred_scaling_division"
-          )
+          if (selectedType === "special_hundred_scaling_division")
             setCount(STANDARD_QUESTION_COUNT);
         }}
         subtype={subtype}

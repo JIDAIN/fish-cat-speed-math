@@ -6,6 +6,7 @@ import {
   QuestionType,
   Subtype,
   TrainingSession,
+  getSubtypeLabel,
   subtypeLabels,
   typeLabels,
 } from "@/lib/types";
@@ -279,7 +280,9 @@ export function HistoryList({
               <option value="all">全部模式</option>
               {availableSubtypes.map((subtype) => (
                 <option key={subtype} value={subtype}>
-                  {subtypeLabels[subtype]}
+                  {selectedType === "all"
+                    ? subtypeLabels[subtype]
+                    : getSubtypeLabel(selectedType, subtype)}
                 </option>
               ))}
             </select>
@@ -406,7 +409,7 @@ export function HistoryList({
                     <span>
                       <strong>
                         {typeLabels[session.questionType]} ·{" "}
-                        {subtypeLabels[session.subtype]}
+                        {getSubtypeLabel(session.questionType, session.subtype)}
                       </strong>
                       <small>
                         {new Date(session.startedAt).toLocaleString("zh-CN", {

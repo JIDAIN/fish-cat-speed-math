@@ -8,7 +8,6 @@ export const questionTypes = [
   "multi_number_add_subtract",
   "fraction_percent_conversion",
   "fraction_comparison",
-  "special_two_by_two_multiply",
   "special_hundred_scaling_division",
 ] as const;
 export type QuestionType = (typeof questionTypes)[number];
@@ -20,7 +19,7 @@ export type Subtype =
   | "percent_to_fraction"
   | "fraction_to_percent"
   | "comparison"
-  | "special_two_by_two"
+  | "carry_intensive"
   | "hundred_scaling";
 export interface GeneratedQuestion {
   id: string;
@@ -100,7 +99,6 @@ export const typeLabels: Record<QuestionType, string> = {
   multi_number_add_subtract: "多位数相加",
   fraction_percent_conversion: "分数—百分数",
   fraction_comparison: "分数比大小",
-  special_two_by_two_multiply: "专项：两位数 × 两位数",
   special_hundred_scaling_division: "专项：整百放缩修正",
 };
 export const subtypeLabels: Record<Subtype, string> = {
@@ -111,6 +109,17 @@ export const subtypeLabels: Record<Subtype, string> = {
   percent_to_fraction: "百分数转分数",
   fraction_to_percent: "分数转百分数",
   comparison: "比较大小",
-  special_two_by_two: "两位数 × 两位数",
+  carry_intensive: "进位强化",
   hundred_scaling: "整百放缩修正",
 };
+
+/** Type-specific presentation names for shared subtypes. */
+export function getSubtypeLabel(
+  questionType: QuestionType,
+  subtype: Subtype,
+): string {
+  if (questionType === "two_by_two_multiply" && subtype === "standard") {
+    return "综合训练";
+  }
+  return subtypeLabels[subtype];
+}

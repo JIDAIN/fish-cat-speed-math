@@ -11,6 +11,7 @@ type DivisionSubtype = Extract<
   Subtype,
   "quotient_first" | "quotient_two" | "quotient_estimate_3_percent"
 >;
+type TwoByTwoSubtype = Extract<Subtype, "standard" | "carry_intensive">;
 
 const divisionRuleOptions: readonly {
   label: string;
@@ -19,6 +20,13 @@ const divisionRuleOptions: readonly {
   { label: "商首位", value: "quotient_first" },
   { label: "商前两位", value: "quotient_two" },
   { label: "3%估算", value: "quotient_estimate_3_percent" },
+];
+const twoByTwoModeOptions: readonly {
+  label: string;
+  value: TwoByTwoSubtype;
+}[] = [
+  { label: "综合训练", value: "standard" },
+  { label: "进位强化", value: "carry_intensive" },
 ];
 
 const trainingTypeOptions: readonly TrainingTypeOption[] = [
@@ -83,12 +91,6 @@ const trainingTypeOptions: readonly TrainingTypeOption[] = [
     subtype: "comparison",
   },
   {
-    id: "special_two_by_two_multiply",
-    label: "两位数×两位数",
-    questionType: "special_two_by_two_multiply",
-    subtype: "special_two_by_two",
-  },
-  {
     id: "special_hundred_scaling_division",
     label: "整百放缩修正",
     questionType: "special_hundred_scaling_division",
@@ -139,6 +141,27 @@ export function TrainingTypeSelector({
           <p>答题要求</p>
           <div className="divisionRuleOptions">
             {divisionRuleOptions.map((option) => (
+              <button
+                aria-pressed={subtype === option.value}
+                className={subtype === option.value ? "selected" : ""}
+                key={option.value}
+                onClick={() => onDivisionRuleChange(option.value)}
+                type="button"
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+      {type === "two_by_two_multiply" && (
+        <section
+          className="divisionRulePanel"
+          aria-label="两位数乘两位数训练模式"
+        >
+          <p>训练模式</p>
+          <div className="divisionRuleOptions">
+            {twoByTwoModeOptions.map((option) => (
               <button
                 aria-pressed={subtype === option.value}
                 className={subtype === option.value ? "selected" : ""}

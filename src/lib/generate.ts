@@ -1640,6 +1640,7 @@ function randomTwoByOneMultiplyStructure(
 function fallbackTwoByTwoMultiply(
   context: GenerationContext,
   primaryStructure: TwoByTwoMultiplyStructure,
+  subtype: Extract<Subtype, "standard" | "carry_intensive"> = "standard",
 ): GeneratedQuestion {
   const fallback =
     primaryStructure === "near_ten"
@@ -1654,7 +1655,7 @@ function fallbackTwoByTwoMultiply(
   return q(
     context,
     "two_by_two_multiply",
-    "standard",
+    subtype,
     `${a}×${b}＝`,
     String(a * b),
     { a, b },
@@ -1668,6 +1669,7 @@ function fallbackTwoByTwoMultiply(
 function generateTwoByTwoMultiplyByStructure(
   context: GenerationContext,
   primaryStructure: TwoByTwoMultiplyStructure,
+  subtype: Extract<Subtype, "standard" | "carry_intensive"> = "standard",
 ): GeneratedQuestion {
   for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
     const { a, b } = twoByTwoOperandsForStructure(context, primaryStructure);
@@ -1675,7 +1677,7 @@ function generateTwoByTwoMultiplyByStructure(
     return q(
       context,
       "two_by_two_multiply",
-      "standard",
+      subtype,
       `${a}×${b}＝`,
       String(a * b),
       { a, b },
@@ -1688,10 +1690,10 @@ function generateTwoByTwoMultiplyByStructure(
 
   context.onFallback?.({
     type: "two_by_two_multiply",
-    subtype: "standard",
+    subtype,
     attempts: MAX_GENERATION_ATTEMPTS,
   });
-  return fallbackTwoByTwoMultiply(context, primaryStructure);
+  return fallbackTwoByTwoMultiply(context, primaryStructure, subtype);
 }
 
 function twoByTwoOperandsForStructure(
@@ -1725,7 +1727,7 @@ function randomTwoByTwoMultiplyStructure(
   return "general";
 }
 
-// Retained as a compatibility fallback catalogue for older callers.
+// Deterministic fallback catalogue for generator callers.
 export function fallbackQuestion(
   type: QuestionType,
   subtype: Subtype,
@@ -1737,6 +1739,8 @@ export function fallbackQuestion(
     return fallbackThreeDigitAddSubtract(context, "no_carry_or_borrow");
   if (type === "two_by_one_multiply")
     return fallbackTwoByOneMultiply(context, "double_carry");
+  if (type === "two_by_two_multiply" && subtype === "carry_intensive")
+    return buildSpecialTwoByTwo(context, "ordinary_no_shortcut");
   if (type === "two_by_two_multiply")
     return fallbackTwoByTwoMultiply(context, "general");
   if (type === "three_by_two_division") {
@@ -1818,13 +1822,13 @@ export function generateQuestion(
     );
   }
   if (type === "two_by_two_multiply") {
+    if (subtype === "carry_intensive")
+      return buildSpecialTwoByTwo(context, "ordinary_no_shortcut");
     return generateTwoByTwoMultiplyByStructure(
       context,
       randomTwoByTwoMultiplyStructure(context),
     );
   }
-  if (type === "special_two_by_two_multiply")
-    return buildSpecialTwoByTwo(context, "ordinary_no_shortcut");
   if (type === "special_hundred_scaling_division")
     return buildHundredScalingQuestion(context, "1_to_2_percent", 700, true);
   if (type === "fraction_comparison") {
@@ -1924,8 +1928,8 @@ function buildSpecialTwoByTwo(
     if (structure === "double_high_load" && highDigits < 3) continue;
     return q(
       context,
-      "special_two_by_two_multiply",
-      "special_two_by_two",
+      "two_by_two_multiply",
+      "carry_intensive",
       `${a} × ${b}`,
       String(a * b),
       {
@@ -2018,7 +2022,7 @@ export function generateSet(
   count: number,
   context: GenerationContext = productionGenerationContext,
 ) {
-  if (type === "special_two_by_two_multiply") {
+  if (type === "two_by_two_multiply" && subtype === "carry_intensive") {
     return shuffle(
       context,
       allocateStructureQuota(count, SPECIAL_TWO_BY_TWO_QUOTAS).flatMap(
@@ -2105,6 +2109,7 @@ export function generateSet(
         generateTwoByTwoMultiplyByStructure(
           context,
           primaryStructure as TwoByTwoMultiplyStructure,
+          "standard",
         ),
       ),
     );

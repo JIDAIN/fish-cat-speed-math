@@ -8,7 +8,7 @@ import {
   pkOutcome,
   pkParticipantSummary,
 } from "@/lib/pk";
-import { TrainingSession, subtypeLabels, typeLabels } from "@/lib/types";
+import { getSubtypeLabel, TrainingSession, typeLabels } from "@/lib/types";
 
 const label = (role: "fish" | "cat") =>
   role === "fish" ? "🐟 小鱼" : "🐱 小猫";
@@ -110,8 +110,11 @@ export function PKPage({
                   <p>
                     {label(challenge.challengerRole)} ·{" "}
                     {typeLabels[challenge.frozenSession.questionType]} ·{" "}
-                    {subtypeLabels[challenge.frozenSession.subtype]} ·{" "}
-                    {challenge.frozenSession.questions.length}题
+                    {getSubtypeLabel(
+                      challenge.frozenSession.questionType,
+                      challenge.frozenSession.subtype,
+                    )}{" "}
+                    · {challenge.frozenSession.questions.length}题
                   </p>
                   <p>
                     当前进度：{localActive.records.length}/
@@ -133,8 +136,11 @@ export function PKPage({
                 <b>{label(challenge.challengerRole)} 发起挑战</b>
                 <p>
                   {typeLabels[challenge.frozenSession.questionType]} ·{" "}
-                  {subtypeLabels[challenge.frozenSession.subtype]} ·{" "}
-                  {challenge.frozenSession.questions.length}题
+                  {getSubtypeLabel(
+                    challenge.frozenSession.questionType,
+                    challenge.frozenSession.subtype,
+                  )}{" "}
+                  · {challenge.frozenSession.questions.length}题
                 </p>
                 <small>
                   {new Date(challenge.createdAt).toLocaleString("zh-CN")}
@@ -156,8 +162,11 @@ export function PKPage({
               <b>等待 {label(challenge.opponentRole)}</b>
               <p>
                 {typeLabels[challenge.frozenSession.questionType]} ·{" "}
-                {subtypeLabels[challenge.frozenSession.subtype]} ·{" "}
-                {challenge.frozenSession.questions.length}题
+                {getSubtypeLabel(
+                  challenge.frozenSession.questionType,
+                  challenge.frozenSession.subtype,
+                )}{" "}
+                · {challenge.frozenSession.questions.length}题
               </p>
               <small>
                 {new Date(challenge.createdAt).toLocaleString("zh-CN")} ·
@@ -192,8 +201,11 @@ export function PKPage({
                   >
                     <b>
                       {typeLabels[challenge.frozenSession.questionType]} ·{" "}
-                      {subtypeLabels[challenge.frozenSession.subtype]} ·{" "}
-                      {challenge.frozenSession.questions.length}题
+                      {getSubtypeLabel(
+                        challenge.frozenSession.questionType,
+                        challenge.frozenSession.subtype,
+                      )}{" "}
+                      · {challenge.frozenSession.questions.length}题
                     </b>
                     <p>
                       {label(challenge.challengerRole)}{" "}

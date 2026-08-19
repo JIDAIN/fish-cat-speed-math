@@ -1,10 +1,12 @@
 # 专项训练与分数比较规则
 
-首页的“专项训练”是独立入口，训练记录使用独立 `questionType`/`subtype`，但沿用同一做题、计时、判题、历史、同步与导出链路。两个专项默认 20 题，也可沿用现有题量选择。
+“两位数×两位数”不再是独立专项入口，而是首页的一个主题型；选中后在同一训练选择区显示两个模式。训练记录沿用同一做题、计时、判题、历史、同步与导出链路，并通过统一的 `questionType` 与 `subtype` 区分模式。整百放缩修正仍为独立专项，默认 20 题。
 
 ## 两位数 × 两位数
 
-主结构采用受配额约束的随机：单侧中等负荷 20%、普通无明显技巧型 45%、双高负荷型 35%。生成器主动回避整十、25、50、99、90 以上等明显技巧数。每题保留两个因数、十位/个位、6–9 高负荷数量、是否进位与进位负荷，供后续分析。
+“两位数×两位数”是一个主题型，首页选中后提供两个模式：`综合训练`（`subtype: standard`）和`进位强化`（`subtype: carry_intensive`），均通过同一 `questionType: two_by_two_multiply` 进入训练、历史、同步和导出。
+
+综合训练保留原有 `near_ten`、`teen_factor`、`small_ones`、`general` 结构及比例。进位强化采用受配额约束的随机：单侧中等负荷 20%、普通无明显技巧型 45%、双高负荷型 35%。生成器主动回避整十、25、50、99、90 以上等明显技巧数。每题保留两个因数、十位/个位、6–9 高负荷数量、是否进位与进位负荷，供后续分析。
 
 ## 整百放缩修正
 
@@ -16,4 +18,4 @@
 
 ## 导出字段
 
-逐题导出仍保留完整 `question_data_json`；同时新增专项常用平铺列：`special_baseline`、`relative_deviation`、`correction_direction`、`carry_load`。训练类型和子模式用于区分普通训练与两个专项。
+逐题导出仍保留完整 `question_data_json`；同时新增专项常用平铺列：`special_baseline`、`relative_deviation`、`correction_direction` 与 `carry_load`。两位数×两位数始终导出为 `question_type: two_by_two_multiply`，再以 `subtype: standard` 或 `carry_intensive` 区分两个模式。

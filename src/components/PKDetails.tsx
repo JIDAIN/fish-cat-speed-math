@@ -5,7 +5,7 @@ import { PKChallenge } from "@/lib/pk";
 import {
   QuestionRecord,
   TrainingSession,
-  subtypeLabels,
+  getSubtypeLabel,
   typeLabels,
 } from "@/lib/types";
 
@@ -100,8 +100,11 @@ export function PKDetails({
       <h1>PK逐题详情</h1>
       <p>
         {typeLabels[challenge.frozenSession.questionType]} ·{" "}
-        {subtypeLabels[challenge.frozenSession.subtype]} ·{" "}
-        {challenge.frozenSession.questions.length}题
+        {getSubtypeLabel(
+          challenge.frozenSession.questionType,
+          challenge.frozenSession.subtype,
+        )}{" "}
+        · {challenge.frozenSession.questions.length}题
       </p>
       <p className="pkParticipants">
         {label(challenge.challengerRole)} 与 {label(challenge.opponentRole)}

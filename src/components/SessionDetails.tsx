@@ -11,7 +11,7 @@ import {
 import {
   GeneratedQuestion,
   TrainingSession,
-  subtypeLabels,
+  getSubtypeLabel,
   typeLabels,
 } from "@/lib/types";
 
@@ -32,7 +32,8 @@ export function SessionSummary({ session }: { session: TrainingSession }) {
   return (
     <>
       <p className="sessionSubtitle">
-        {typeLabels[session.questionType]} · {subtypeLabels[session.subtype]}
+        {typeLabels[session.questionType]} ·{" "}
+        {getSubtypeLabel(session.questionType, session.subtype)}
       </p>
       <div className="metrics">
         <b>

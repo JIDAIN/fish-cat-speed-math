@@ -33,6 +33,7 @@ const TARGETS: Partial<Record<`${QuestionType}:${Subtype}`, RatingTarget>> = {
   "three_digit_add_subtract:standard": target(40, 120, 150, 180),
   "two_by_one_multiply:standard": target(40, 60, 75, 90),
   "two_by_two_multiply:standard": target(20, 120, 150, 180),
+  "two_by_two_multiply:carry_intensive": target(20, 120, 150, 180),
   "three_by_two_division:quotient_first": target(20, 40, 50, 60),
   "three_by_two_division:quotient_two": target(20, 180, 210, 240),
   "three_by_two_division:quotient_estimate_3_percent": target(20, 80, 100, 120),
@@ -41,7 +42,6 @@ const TARGETS: Partial<Record<`${QuestionType}:${Subtype}`, RatingTarget>> = {
   "fraction_percent_conversion:fraction_to_percent": target(40, 70, 85, 100),
   "fraction_percent_conversion:percent_to_fraction": target(40, 80, 95, 110),
   "fraction_comparison:comparison": target(40, 100, 120, 140),
-  "special_two_by_two_multiply:special_two_by_two": target(20, 120, 150, 180),
   "special_hundred_scaling_division:hundred_scaling": target(20, 150, 180, 220),
 };
 
@@ -66,7 +66,7 @@ export function subtypesForType(type: QuestionType): Subtype[] {
   if (type === "fraction_percent_conversion")
     return ["fraction_to_percent", "percent_to_fraction"];
   if (type === "fraction_comparison") return ["comparison"];
-  if (type === "special_two_by_two_multiply") return ["special_two_by_two"];
+  if (type === "two_by_two_multiply") return ["standard", "carry_intensive"];
   if (type === "special_hundred_scaling_division") return ["hundred_scaling"];
   return ["standard"];
 }
