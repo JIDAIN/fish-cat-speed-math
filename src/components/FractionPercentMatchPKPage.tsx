@@ -47,10 +47,7 @@ export function FractionPercentMatchPKPage({
             <b>等待对方完成挑战</b>
             <p>
               我的成绩：
-              {(
-                (own(item.challengerRecordId)?.totalTimeMs ?? 0) / 1000
-              ).toFixed(1)}
-              秒
+              {own(item.challengerRecordId) ? `${(own(item.challengerRecordId)!.totalTimeMs / 1000).toFixed(1)}秒` : "成绩读取中…"}
             </p>
           </article>
         ))}
@@ -61,12 +58,14 @@ export function FractionPercentMatchPKPage({
         const outcome =
           first && second
             ? matchPKOutcome(item, first.totalTimeMs, second.totalTimeMs)
-            : "draw";
+            : "pending";
         return (
           <article className="pkCard" key={item.id}>
             <b>
               百分互换消消乐 ·{" "}
-              {outcome === "draw"
+              {outcome === "pending"
+                ? "成绩读取中…"
+                : outcome === "draw"
                 ? "平局"
                 : outcome === "fish"
                   ? "🐟胜"

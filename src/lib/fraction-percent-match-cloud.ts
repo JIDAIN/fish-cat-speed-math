@@ -74,3 +74,11 @@ export async function readOwnMatchRecordsForExport(
   if (error) throw error;
   return (data ?? []) as CloudMatchRow[];
 }
+export type MatchCloudCapability = "not_configured" | "ready" | "base_not_deployed" | "request_failed";
+export async function checkFractionPercentMatchCloudCapability(): Promise<MatchCloudCapability> {
+  const db = supabase(); if (!db) return "not_configured";
+  const { error } = await db.from("fraction_percent_match_records").select("id").limit(1);
+  if (!error) return "ready";
+  if (/relation|fraction_percent_match|does not exist|schema cache|not found/i.test(error.message ?? "")) return "base_not_deployed";
+  return "request_failed";
+}

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CloudIdentity } from "@/lib/cloud";
 import {
+  checkFractionPercentMatchCloudCapability,
   readMatchHistory,
   syncMatchRecord,
 } from "@/lib/fraction-percent-match-cloud";
@@ -35,6 +36,7 @@ export function FractionPercentMatchHistory({
     identity?.role ?? userId,
   );
   const load = useCallback(async () => {
+    setNotice(undefined);
     let local: FractionPercentMatchRecord[] = [];
     let localFailed = false;
     try {
@@ -68,19 +70,28 @@ export function FractionPercentMatchHistory({
   }, [load]);
   const retry = async (record: FractionPercentMatchRecord) => {
     try {
-      if (!identity) return;
-      await syncMatchRecord({ ...record, ownerAccountId: identity.id });
+      if (!identity || record.ownerAccountId !== identity.id) return;
+      const capability = await checkFractionPercentMatchCloudCapability();
+      if (capability === "base_not_deployed") { setNotice("消消乐云端功能尚未完成数据库升级，记录已安全保存在本机。"); return; }
+      if (capability === "not_configured") { setNotice("云端暂未配置，记录已安全保存在本机。"); return; }
+      if (capability === "request_failed") { setNotice("云端暂时连接失败，记录仍保存在本机，可稍后重试。"); return; }
+      const synced = await syncMatchRecord(record);
+      if (!synced) throw new Error("sync unavailable");
       const saved = {
         ...record,
-        ownerAccountId: identity.id,
         syncStatus: "synced" as const,
         syncedAt: Date.now(),
       };
       await saveMatchRecord(saved);
       await load();
     } catch {
-      setNotice("同步失败，记录仍保存在本机。");
+      setNotice("云端同步失败，记录仍保存在本机。");
     }
+  };
+  const retryAll = async () => {
+    const candidates = records.filter((record) => record.ownerAccountId === identity?.id && (record.syncStatus === "failed" || record.syncStatus === "not_synced"));
+    let succeeded = 0; for (const record of candidates) { await retry(record).then(() => { succeeded += 1; }).catch(() => undefined); }
+    setNotice(`成功同步 ${succeeded} 条，失败 ${candidates.length - succeeded} 条`); void load();
   };
   return (
     <main className="panel matchHistory">
@@ -106,6 +117,7 @@ export function FractionPercentMatchHistory({
         </div>
       )}
       {notice && <p role="status">{notice}</p>}
+      {identity && selectedUser === identity.role && records.some((record) => record.ownerAccountId === identity.id && (record.syncStatus === "failed" || record.syncStatus === "not_synced")) && <button onClick={() => void retryAll()}>重试全部同步</button>}
       {records.length ? (
         <div>
           {records.map((record) => (
@@ -113,7 +125,7 @@ export function FractionPercentMatchHistory({
               <span>{stamp(record.completedAt)}</span>
               <strong>{(record.totalTimeMs / 1000).toFixed(1)}秒</strong>
               {record.trainingSource === "pk" && <small>PK</small>}
-              {record.syncStatus === "failed" && identity && (
+              {record.syncStatus !== "synced" && identity && record.ownerAccountId === identity.id && (
                 <button onClick={() => void retry(record)}>重试同步</button>
               )}
             </article>

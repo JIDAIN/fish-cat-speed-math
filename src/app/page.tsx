@@ -48,6 +48,8 @@ import { FractionPercentMatchHistory } from "@/components/FractionPercentMatchHi
 import { FractionPercentMatchPKPage } from "@/components/FractionPercentMatchPKPage";
 import { FractionPercentMatchRecord } from "@/lib/fraction-percent-match";
 import { saveMatchRecord } from "@/lib/fraction-percent-match-storage";
+import { readMatchRecords } from "@/lib/fraction-percent-match-storage";
+import { readMatchHistory } from "@/lib/fraction-percent-match-cloud";
 import { syncMatchRecord } from "@/lib/fraction-percent-match-cloud";
 import {
   createMatchPKChallenge,
@@ -345,6 +347,7 @@ export default function Home() {
   const [matchPKChallenges, setMatchPKChallenges] = useState<
     FractionPercentMatchPKChallenge[]
   >([]);
+  const [matchRecords, setMatchRecords] = useState<FractionPercentMatchRecord[]>([]);
   const loadMatchPK = async () => {
     try {
       setMatchPKChallenges(await readMatchPKChallenges());
@@ -373,6 +376,7 @@ export default function Home() {
     )
       void loadMatchPK();
   }, [view, identity?.id]);
+  useEffect(() => { if (view !== "fractionMatchPK") return; void readMatchRecords(identity?.id).then(async (local) => { setMatchRecords(local); if (!identity) return; try { const cloud = await readMatchHistory(); setMatchRecords([...local, ...cloud.filter((item) => !local.some((saved) => saved.id === item.id))]); } catch { /* local records remain visible */ } }); }, [view, identity?.id]);
   const navigate = (next: View, id?: string, replace = false) => {
     if (next === "result" || next === "historyDetail" || next === "pkDetail")
       setRouteLoading(true);
@@ -1580,7 +1584,7 @@ export default function Home() {
     return (
       <FractionPercentMatchPKPage
         challenges={matchPKChallenges}
-        records={[]}
+        records={matchRecords}
         identityId={identity?.id}
         onHome={() => setView("home")}
         onStart={(challenge) => navigate("fractionMatchPKPlay", challenge.id)}

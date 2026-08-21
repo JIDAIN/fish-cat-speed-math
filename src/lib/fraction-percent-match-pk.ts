@@ -16,14 +16,14 @@ export type FractionPercentMatchPKChallenge = {
   createdAt: number;
   completedAt?: number;
 };
-export type MatchPKOutcome = "fish" | "cat" | "draw";
+export type MatchPKOutcome = "fish" | "cat" | "draw" | "pending";
 export function matchPKOutcome(
   challenge: FractionPercentMatchPKChallenge,
   challengerTime: number,
   opponentTime?: number,
 ): MatchPKOutcome {
-  if (opponentTime === undefined || challengerTime === opponentTime)
-    return opponentTime === undefined ? "draw" : "draw";
+  if (opponentTime === undefined) return "pending";
+  if (challengerTime === opponentTime) return "draw";
   return challengerTime < opponentTime
     ? challenge.challengerRole
     : challenge.opponentRole;

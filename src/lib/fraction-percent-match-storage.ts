@@ -13,19 +13,27 @@ function open() {
   });
 }
 
-function valid(value: unknown): value is FractionPercentMatchRecord {
-  if (!value || typeof value !== "object") return false;
+/** Legacy migration rule: early v1 records are known to use the same 32-relation set. */
+export function normalizeLegacyMatchRecord(value: unknown): FractionPercentMatchRecord | undefined {
+  if (!value || typeof value !== "object") return undefined;
   const item = value as Record<string, unknown>;
-  return (
+  const valid =
     typeof item.id === "string" &&
     (item.userId === "fish" || item.userId === "cat") &&
     typeof item.startedAt === "number" &&
     typeof item.completedAt === "number" &&
     typeof item.totalTimeMs === "number" &&
-    item.relationCount === 32 &&
-    typeof item.relationSetVersion === "string" &&
-    typeof item.gameVersion === "string"
-  );
+    item.relationCount === 32;
+  if (!valid) return undefined;
+  return {
+    ...(item as unknown as FractionPercentMatchRecord),
+    relationSetVersion: typeof item.relationSetVersion === "string" ? item.relationSetVersion : "1.0.0",
+    gameVersion: typeof item.gameVersion === "string" ? item.gameVersion : "1.0.0",
+    trainingSource: item.trainingSource === "pk" ? "pk" : "normal",
+    pkChallengeId: typeof item.pkChallengeId === "string" ? item.pkChallengeId : undefined,
+    syncStatus: item.syncStatus === "synced" || item.syncStatus === "syncing" || item.syncStatus === "failed" || item.syncStatus === "not_synced" ? item.syncStatus : "not_synced",
+    syncedAt: typeof item.syncedAt === "number" ? item.syncedAt : undefined,
+  };
 }
 
 export async function saveMatchRecord(record: FractionPercentMatchRecord) {
@@ -51,7 +59,8 @@ export async function readMatchRecords(ownerAccountId?: string) {
       request.onerror = () => reject(request.error);
     });
     return rows
-      .filter(valid)
+      .map(normalizeLegacyMatchRecord)
+      .filter((record): record is FractionPercentMatchRecord => Boolean(record))
       .filter((record) => record.ownerAccountId === ownerAccountId)
       .sort((left, right) => right.completedAt - left.completedAt);
   } finally {
