@@ -31,21 +31,38 @@ export function FractionPercentMatchHistory({
 }) {
   const [records, setRecords] = useState<FractionPercentMatchRecord[]>([]);
   const [notice, setNotice] = useState<string>();
+  const [selectedUser, setSelectedUser] = useState<"fish" | "cat">(
+    identity?.role ?? userId,
+  );
   const load = useCallback(async () => {
+    let local: FractionPercentMatchRecord[] = [];
+    let localFailed = false;
     try {
-      const local = await readMatchRecords(identity?.id);
-      const cloud = identity ? await readMatchHistory() : [];
+      local = await readMatchRecords(identity?.id);
+      setRecords(local.filter((item) => item.userId === selectedUser));
+    } catch {
+      localFailed = true;
+      setNotice("本机历史读取失败，正在尝试云端记录。");
+    }
+    if (!identity) return;
+    try {
+      const cloud = await readMatchHistory();
       const merged = [
         ...local,
         ...cloud.filter((item) => !local.some((saved) => saved.id === item.id)),
       ]
-        .filter((item) => identity || item.userId === userId)
+        .filter((item) => item.userId === selectedUser)
         .sort((a, b) => b.completedAt - a.completedAt);
       setRecords(merged);
+      if (localFailed) setNotice(undefined);
     } catch {
-      setNotice("历史读取失败，请稍后重试。");
+      setNotice(
+        localFailed
+          ? "历史暂时无法读取。"
+          : "云端记录暂时无法更新，当前显示本机记录。",
+      );
     }
-  }, [identity, userId]);
+  }, [identity, selectedUser]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -73,9 +90,20 @@ export function FractionPercentMatchHistory({
       </div>
       <h1>消消乐历史</h1>
       {identity && (
-        <p className="matchHistoryUser">
-          {identity.role === "fish" ? "🐟 小鱼" : "🐱 小猫"}
-        </p>
+        <div className="historyUserTabs">
+          <button
+            className={selectedUser === "fish" ? "selected" : ""}
+            onClick={() => setSelectedUser("fish")}
+          >
+            🐟 小鱼{identity.role !== "fish" && "（只读）"}
+          </button>
+          <button
+            className={selectedUser === "cat" ? "selected" : ""}
+            onClick={() => setSelectedUser("cat")}
+          >
+            🐱 小猫{identity.role !== "cat" && "（只读）"}
+          </button>
+        </div>
       )}
       {notice && <p role="status">{notice}</p>}
       {records.length ? (
@@ -84,6 +112,7 @@ export function FractionPercentMatchHistory({
             <article className="matchHistoryRow" key={record.id}>
               <span>{stamp(record.completedAt)}</span>
               <strong>{(record.totalTimeMs / 1000).toFixed(1)}秒</strong>
+              {record.trainingSource === "pk" && <small>PK</small>}
               {record.syncStatus === "failed" && identity && (
                 <button onClick={() => void retry(record)}>重试同步</button>
               )}

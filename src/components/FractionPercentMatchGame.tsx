@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
   createMatchRecord,
-  createMatchRounds,
+  createMatchBlueprint,
+  cloneMatchBlueprint,
   FractionPercentMatchRecord,
+  MatchGameBlueprint,
   MatchCard,
 } from "@/lib/fraction-percent-match";
 
@@ -30,14 +32,31 @@ export function FractionPercentMatchGame({
   onComplete,
   onHome,
   onHistory,
+  blueprint,
+  trainingSource = "normal",
+  pkChallengeId,
+  onLaunchPK,
 }: {
   userId: "fish" | "cat";
   ownerAccountId?: string;
-  onComplete: (record: FractionPercentMatchRecord) => Promise<void> | void;
+  onComplete: (
+    record: FractionPercentMatchRecord,
+    blueprint: MatchGameBlueprint,
+  ) => Promise<void> | void;
   onHome: () => void;
   onHistory: () => void;
+  blueprint?: MatchGameBlueprint;
+  trainingSource?: "normal" | "pk";
+  pkChallengeId?: string;
+  onLaunchPK?: (
+    record: FractionPercentMatchRecord,
+    blueprint: MatchGameBlueprint,
+  ) => void;
 }) {
-  const [rounds, setRounds] = useState(() => createMatchRounds());
+  const [gameBlueprint, setGameBlueprint] = useState(() =>
+    blueprint ? cloneMatchBlueprint(blueprint) : createMatchBlueprint(),
+  );
+  const rounds = gameBlueprint.rounds;
   const [roundIndex, setRoundIndex] = useState(0);
   const [matched, setMatched] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<MatchCard>();
@@ -49,6 +68,9 @@ export function FractionPercentMatchGame({
   const runningSince = useRef<number | null>(Date.now());
   const startedAt = useRef(Date.now());
   const completed = useRef(false);
+  const completedRecord = useRef<FractionPercentMatchRecord | undefined>(
+    undefined,
+  );
   const transition = useRef<number | undefined>(undefined);
   const current = rounds[roundIndex];
   const nowElapsed = () =>
@@ -76,12 +98,14 @@ export function FractionPercentMatchGame({
     const visibility = () => (document.hidden ? pause() : resume());
     document.addEventListener("visibilitychange", visibility);
     return () => document.removeEventListener("visibilitychange", visibility);
-  });
+  }, [complete]);
   useEffect(() => () => window.clearTimeout(transition.current), []);
 
   const restart = () => {
     window.clearTimeout(transition.current);
-    setRounds(createMatchRounds());
+    setGameBlueprint(
+      blueprint ? cloneMatchBlueprint(blueprint) : createMatchBlueprint(),
+    );
     setRoundIndex(0);
     setMatched(new Set());
     setSelected(undefined);
@@ -101,15 +125,17 @@ export function FractionPercentMatchGame({
     runningSince.current = null;
     setElapsed(accumulated.current);
     setComplete(true);
-    void onComplete(
-      createMatchRecord({
-        userId,
-        ownerAccountId,
-        startedAt: startedAt.current,
-        completedAt: Date.now(),
-        totalTimeMs: accumulated.current,
-      }),
-    );
+    const record = createMatchRecord({
+      userId,
+      ownerAccountId,
+      startedAt: startedAt.current,
+      completedAt: Date.now(),
+      totalTimeMs: accumulated.current,
+      trainingSource,
+      pkChallengeId,
+    });
+    completedRecord.current = record;
+    void onComplete(record, gameBlueprint);
   };
   const choose = (card: MatchCard) => {
     if (paused || complete || matched.has(card.id) || feedback) return;
@@ -149,7 +175,9 @@ export function FractionPercentMatchGame({
       <section className="fractionMatchGame">
         <div className="matchNav">
           <button onClick={onHome}>← 首页</button>
-          <button onClick={onHistory}>历史记录</button>
+          {trainingSource === "normal" && (
+            <button onClick={onHistory}>查看历史</button>
+          )}
         </div>
         <div className="matchComplete">
           <h1>全部完成</h1>
@@ -157,7 +185,18 @@ export function FractionPercentMatchGame({
           <button className="primary wide" onClick={restart}>
             再来一轮
           </button>
-          <button onClick={onHistory}>查看历史</button>
+          {onLaunchPK && completedRecord.current && (
+            <button
+              onClick={() =>
+                onLaunchPK(completedRecord.current!, gameBlueprint)
+              }
+            >
+              向对方发起PK
+            </button>
+          )}
+          {trainingSource === "normal" && (
+            <button onClick={onHistory}>查看历史</button>
+          )}
           <button onClick={onHome}>返回首页</button>
         </div>
       </section>
@@ -166,7 +205,9 @@ export function FractionPercentMatchGame({
     <section className="fractionMatchGame" aria-label="百分互换消消乐">
       <div className="matchNav">
         <button onClick={onHome}>← 首页</button>
-        <button onClick={onHistory}>历史记录</button>
+        <button onClick={() => (paused ? resume() : pause())}>
+          {paused ? "继续" : "暂停"}
+        </button>
       </div>
       <div className="matchStatus">
         <strong>{displayTime(elapsed)}</strong>
@@ -191,12 +232,6 @@ export function FractionPercentMatchGame({
           </button>
         ))}
       </div>
-      <button
-        className="matchPause"
-        onClick={() => (paused ? resume() : pause())}
-      >
-        {paused ? "继续" : "暂停"}
-      </button>
       {paused && <p className="matchPaused">已暂停</p>}
     </section>
   );

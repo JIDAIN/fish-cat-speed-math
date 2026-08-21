@@ -60,6 +60,7 @@ export type MatchCard = {
   numerator: number;
   denominator: number;
 };
+export type MatchGameBlueprint = { rounds: MatchCard[][] };
 
 export function shuffle<T>(items: readonly T[], random = Math.random): T[] {
   const shuffled = [...items];
@@ -98,6 +99,16 @@ export function createMatchRounds(random = Math.random): MatchCard[][] {
     }, [])
     .map((round) => shuffle(round, random));
 }
+export function createMatchBlueprint(random = Math.random): MatchGameBlueprint {
+  return { rounds: createMatchRounds(random) };
+}
+export function cloneMatchBlueprint(
+  blueprint: MatchGameBlueprint,
+): MatchGameBlueprint {
+  return {
+    rounds: blueprint.rounds.map((round) => round.map((card) => ({ ...card }))),
+  };
+}
 
 export type FractionPercentMatchRecord = {
   id: string;
@@ -111,6 +122,8 @@ export type FractionPercentMatchRecord = {
   gameVersion: string;
   syncedAt?: number;
   syncStatus?: "not_synced" | "syncing" | "synced" | "failed";
+  trainingSource?: "normal" | "pk";
+  pkChallengeId?: string;
 };
 
 export function createMatchRecord(

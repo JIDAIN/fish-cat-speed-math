@@ -45,9 +45,16 @@ import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
 import { FractionPercentMemory } from "@/components/FractionPercentMemory";
 import { FractionPercentMatchGame } from "@/components/FractionPercentMatchGame";
 import { FractionPercentMatchHistory } from "@/components/FractionPercentMatchHistory";
+import { FractionPercentMatchPKPage } from "@/components/FractionPercentMatchPKPage";
 import { FractionPercentMatchRecord } from "@/lib/fraction-percent-match";
 import { saveMatchRecord } from "@/lib/fraction-percent-match-storage";
 import { syncMatchRecord } from "@/lib/fraction-percent-match-cloud";
+import {
+  createMatchPKChallenge,
+  readMatchPKChallenges,
+  submitMatchPKResult,
+} from "@/lib/fraction-percent-match-pk-cloud";
+import { FractionPercentMatchPKChallenge } from "@/lib/fraction-percent-match-pk";
 import {
   QuestionCountDialog,
   QuestionCountSelection,
@@ -126,7 +133,9 @@ type View =
   | "pkDetail"
   | "memory"
   | "fractionMatch"
-  | "fractionMatchHistory";
+  | "fractionMatchHistory"
+  | "fractionMatchPK"
+  | "fractionMatchPKPlay";
 
 function locationRoute(): { view: View; id?: string } {
   if (typeof window === "undefined") return { view: "home" };
@@ -144,6 +153,10 @@ function locationRoute(): { view: View; id?: string } {
   if (parts[0] === "pk" && parts[1]) return { view: "pkDetail", id: parts[1] };
   if (parts[0] === "pk") return { view: "pk" };
   if (parts[0] === "memory") return { view: "memory" };
+  if (parts[0] === "fraction-match" && parts[1] === "pk" && parts[2])
+    return { view: "fractionMatchPKPlay", id: parts[2] };
+  if (parts[0] === "fraction-match" && parts[1] === "pk")
+    return { view: "fractionMatchPK" };
   if (parts[0] === "fraction-match" && parts[1] === "history")
     return { view: "fractionMatchHistory" };
   if (parts[0] === "fraction-match") return { view: "fractionMatch" };
@@ -161,6 +174,8 @@ function locationHash(view: View, id?: string) {
   if (view === "memory") return "#/memory";
   if (view === "fractionMatchHistory") return "#/fraction-match/history";
   if (view === "fractionMatch") return "#/fraction-match";
+  if (view === "fractionMatchPK") return "#/fraction-match/pk";
+  if (view === "fractionMatchPKPlay" && id) return `#/fraction-match/pk/${id}`;
   return "#/";
 }
 
@@ -327,6 +342,16 @@ export default function Home() {
   const historyRefreshInFlight = useRef(new Map<string, Promise<void>>());
   const pkRefreshInFlight = useRef(new Map<string, Promise<void>>());
   const [isRestartingTraining, setIsRestartingTraining] = useState(false);
+  const [matchPKChallenges, setMatchPKChallenges] = useState<
+    FractionPercentMatchPKChallenge[]
+  >([]);
+  const loadMatchPK = async () => {
+    try {
+      setMatchPKChallenges(await readMatchPKChallenges());
+    } catch {
+      setStorageError("消消乐PK读取失败，请稍后重试。");
+    }
+  };
   const completeFractionMatch = async (record: FractionPercentMatchRecord) => {
     await saveMatchRecord(record);
     if (!identity) return;
@@ -341,6 +366,13 @@ export default function Home() {
       await saveMatchRecord({ ...record, syncStatus: "failed" });
     }
   };
+  useEffect(() => {
+    if (
+      (view === "fractionMatchPK" || view === "fractionMatchPKPlay") &&
+      identity
+    )
+      void loadMatchPK();
+  }, [view, identity?.id]);
   const navigate = (next: View, id?: string, replace = false) => {
     if (next === "result" || next === "historyDetail" || next === "pkDetail")
       setRouteLoading(true);
@@ -1511,6 +1543,25 @@ export default function Home() {
           onComplete={completeFractionMatch}
           onHome={() => setView("home")}
           onHistory={() => setView("fractionMatchHistory")}
+          onLaunchPK={
+            identity
+              ? async (record, blueprint) => {
+                  try {
+                    const challenge = await createMatchPKChallenge(
+                      record.id,
+                      blueprint,
+                    );
+                    setMatchPKChallenges((old) => [
+                      challenge,
+                      ...old.filter((item) => item.id !== challenge.id),
+                    ]);
+                    navigate("fractionMatchPK");
+                  } catch {
+                    setStorageError("发起消消乐PK失败，请确认本局成绩已同步。");
+                  }
+                }
+              : undefined
+          }
         />
       </main>
     );
@@ -1523,6 +1574,47 @@ export default function Home() {
         onHome={() => setView("home")}
         onGame={() => setView("fractionMatch")}
       />
+    );
+  }
+  if (view === "fractionMatchPK") {
+    return (
+      <FractionPercentMatchPKPage
+        challenges={matchPKChallenges}
+        records={[]}
+        identityId={identity?.id}
+        onHome={() => setView("home")}
+        onStart={(challenge) => navigate("fractionMatchPKPlay", challenge.id)}
+      />
+    );
+  }
+  if (view === "fractionMatchPKPlay") {
+    const challenge = matchPKChallenges.find(
+      (item) => item.id === routeRecordId,
+    );
+    if (!challenge)
+      return (
+        <main className="panel">
+          <button onClick={() => setView("fractionMatchPK")}>← 消消乐PK</button>
+          <p>挑战读取中或不可用。</p>
+        </main>
+      );
+    return (
+      <main className="panel matchPage">
+        <FractionPercentMatchGame
+          userId={(identity?.role ?? user) as "fish" | "cat"}
+          ownerAccountId={identity?.id}
+          blueprint={challenge.blueprint}
+          trainingSource="pk"
+          pkChallengeId={challenge.id}
+          onHome={() => setView("fractionMatchPK")}
+          onHistory={() => setView("fractionMatchHistory")}
+          onComplete={async (record) => {
+            await completeFractionMatch(record);
+            await submitMatchPKResult(challenge.id, record.id);
+            void loadMatchPK();
+          }}
+        />
+      </main>
     );
   }
   if (view === "historyDetail" && !selectedHistorySession)
@@ -1616,14 +1708,17 @@ export default function Home() {
         <small>46组固定关系 · 分组记忆</small>
         <b>查看 ›</b>
       </button>
-      <button
-        className="memoryHomeEntry"
-        onClick={() => setView("fractionMatch")}
-      >
+      <section className="memoryHomeEntry matchHomeEntry">
         <span>百分互换消消乐</span>
         <small>32组核心关系 · 配对消除</small>
-        <b>开始 ›</b>
-      </button>
+        <div className="matchHomeActions">
+          <button className="primary" onClick={() => setView("fractionMatch")}>
+            开始
+          </button>
+          <button onClick={() => setView("fractionMatchHistory")}>历史</button>
+          <button onClick={() => setView("fractionMatchPK")}>PK</button>
+        </div>
+      </section>
       {identity && unassignedHistory.length > 0 && (
         <section className="accountPanel">
           <p>

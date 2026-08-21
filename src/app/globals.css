@@ -813,6 +813,19 @@ h2 {
   color: var(--green-700);
   font-size: 13px;
 }
+.matchHomeEntry {
+  display: block;
+}
+.matchHomeActions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.matchHomeActions button {
+  min-height: 36px;
+  padding: 6px;
+}
 
 :root {
   --match-fraction-bg: #e3f1f2;
