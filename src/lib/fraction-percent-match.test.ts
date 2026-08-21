@@ -62,5 +62,8 @@ describe("fraction percent match", () => {
     expect(validateMatchBlueprint(blueprint)).toBe(true);
     expect(matchBlueprintFingerprint(blueprint)).toBe(matchBlueprintFingerprint(JSON.parse(JSON.stringify(blueprint))));
     expect(validateMatchBlueprint({ rounds: blueprint.rounds.slice(0, 3) })).toBe(false);
+    const changed = JSON.parse(JSON.stringify(blueprint));
+    [changed.rounds[0][0], changed.rounds[0][1]] = [changed.rounds[0][1], changed.rounds[0][0]];
+    expect(matchBlueprintFingerprint(changed)).not.toBe(matchBlueprintFingerprint(blueprint));
   });
 });
