@@ -1,4 +1,5 @@
 import { CloudCompletedTrainingRow } from "./cloud";
+import { CloudMatchRow } from "./fraction-percent-match-cloud";
 
 export const DATA_EXPORT_SCHEMA_VERSION = "1.0.0";
 
@@ -72,10 +73,23 @@ export type ExportWarning = {
   training_id: string;
   message: string;
 };
+export type MatchExportRow = {
+  record_id: string;
+  owner_role: string;
+  started_at_ms: number;
+  started_at_iso: string;
+  completed_at_ms: number;
+  completed_at_iso: string;
+  total_time_ms: number;
+  relation_count: number;
+  relation_set_version: string;
+  game_version: string;
+};
 
 export type DataExport = {
   trainings: TrainingExportRow[];
   questions: QuestionExportRow[];
+  fraction_percent_match_history: MatchExportRow[];
   warnings: ExportWarning[];
   archive: {
     export_metadata: Record<string, unknown>;
@@ -83,6 +97,7 @@ export type DataExport = {
     normalized_export: {
       trainings: TrainingExportRow[];
       questions: QuestionExportRow[];
+      fraction_percent_match_history: MatchExportRow[];
     };
     warnings: ExportWarning[];
   };
@@ -123,10 +138,25 @@ function median(values: number[]) {
 export function createDataExport(
   rows: CloudCompletedTrainingRow[],
   exportedAt = Date.now(),
+  matchRows: CloudMatchRow[] = [],
 ): DataExport {
   const trainings: TrainingExportRow[] = [];
   const questions: QuestionExportRow[] = [];
   const warnings: ExportWarning[] = [];
+  const fraction_percent_match_history: MatchExportRow[] = matchRows.map(
+    (row) => ({
+      record_id: row.id,
+      owner_role: row.owner_role,
+      started_at_ms: new Date(row.started_at).getTime(),
+      started_at_iso: row.started_at,
+      completed_at_ms: new Date(row.completed_at).getTime(),
+      completed_at_iso: row.completed_at,
+      total_time_ms: row.total_time_ms,
+      relation_count: row.relation_count,
+      relation_set_version: row.relation_set_version,
+      game_version: row.game_version,
+    }),
+  );
 
   for (const row of rows) {
     const session = record(row.session_data);
@@ -243,6 +273,7 @@ export function createDataExport(
   return {
     trainings,
     questions,
+    fraction_percent_match_history,
     warnings,
     archive: {
       export_metadata: {
@@ -256,9 +287,15 @@ export function createDataExport(
           "raw_cloud_rows.completed_at historically stores startedAt, not real completion time.",
         training_count: trainings.length,
         question_count: questions.length,
+        fraction_percent_match_record_count:
+          fraction_percent_match_history.length,
       },
       raw_cloud_rows: rows,
-      normalized_export: { trainings, questions },
+      normalized_export: {
+        trainings,
+        questions,
+        fraction_percent_match_history,
+      },
       warnings,
     },
   };

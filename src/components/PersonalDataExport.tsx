@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CloudIdentity, readOwnCompletedTrainingForExport } from "@/lib/cloud";
 import { createDataExport } from "@/lib/data-export";
+import { readOwnMatchRecordsForExport } from "@/lib/fraction-percent-match-cloud";
 import {
   createJsonBlob,
   createXlsxBlob,
@@ -37,17 +38,16 @@ export function PersonalDataExport({ identity }: { identity?: CloudIdentity }) {
         ({ page, recordCount }) =>
           setStatus(`正在读取第 ${page} 页，已读取 ${recordCount} 条训练…`),
       );
+      const matchRows = await readOwnMatchRecordsForExport(identity.id);
       setStatus("正在整理并生成 XLSX 和 JSON 文件…");
-      const data = createDataExport(rows);
+      const data = createDataExport(rows, Date.now(), matchRows);
       const xlsx = createXlsxBlob(data);
       const json = createJsonBlob(data);
       const base = exportFileBaseName();
       downloadBlob(xlsx, `${base}.xlsx`);
       downloadBlob(json, `${base}.json`);
       setStatus(
-        rows.length
-          ? `导出完成：${rows.length} 条云端训练。`
-          : "导出完成：当前没有云端已同步的完成训练。",
+        `导出完成：${rows.length} 条云端训练，${matchRows.length} 条消消乐记录。`,
       );
     } catch (error) {
       setStatus(`导出失败：${errorMessage(error)}`);

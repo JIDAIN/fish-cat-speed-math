@@ -3,6 +3,7 @@ import {
   DataExport,
   formatShanghaiIso,
   QuestionExportRow,
+  MatchExportRow,
   TrainingExportRow,
 } from "./data-export";
 
@@ -207,6 +208,25 @@ const questionFields: Field[] = [
   emptyMeaning,
   limitation,
 }));
+const matchFields: Field[] = [
+  ["record_id", "记录 ID", "文本", "", "原始", "无"],
+  ["owner_role", "用户", "文本", "", "原始", "无"],
+  ["started_at_iso", "开始时间", "文本", "ISO-8601", "原始", "无"],
+  ["started_at_ms", "开始时间（毫秒）", "数值", "ms", "原始", "无"],
+  ["completed_at_iso", "完成时间", "文本", "ISO-8601", "原始", "无"],
+  ["completed_at_ms", "完成时间（毫秒）", "数值", "ms", "原始", "无"],
+  ["total_time_ms", "总用时", "数值", "ms", "原始", "无"],
+  ["relation_count", "关系数量", "数值", "组", "原始", "无"],
+  ["relation_set_version", "关系集版本", "文本", "", "原始", "无"],
+  ["game_version", "游戏版本", "文本", "", "原始", "无"],
+].map(([key, label, type, unit, source, emptyMeaning]) => ({
+  key,
+  label,
+  type,
+  unit,
+  source: source as Field["source"],
+  emptyMeaning,
+}));
 
 const formulaSafe = (value: unknown) =>
   typeof value === "string" && /^[=+\-@]/.test(value) ? `'${value}` : value;
@@ -278,8 +298,12 @@ export function createXlsxBlob(data: DataExport) {
     data.questions,
     questionFields,
   );
+  const matches = worksheet<MatchExportRow>(
+    data.fraction_percent_match_history,
+    matchFields,
+  );
   const documentation = XLSX.utils.json_to_sheet(
-    [...trainingFields, ...questionFields].map((field) => ({
+    [...trainingFields, ...questionFields, ...matchFields].map((field) => ({
       字段名: field.key,
       中文名: field.label,
       类型: field.type,
@@ -291,6 +315,7 @@ export function createXlsxBlob(data: DataExport) {
   );
   styleSheet(trainings, trainingFields);
   styleSheet(questions, questionFields);
+  styleSheet(matches, matchFields);
   applyColumnFormats(trainings, trainingFields, {
     accuracy_ratio: "0.0%",
     started_at_ms: "0",
@@ -313,6 +338,7 @@ export function createXlsxBlob(data: DataExport) {
   ];
   XLSX.utils.book_append_sheet(workbook, trainings, "训练记录");
   XLSX.utils.book_append_sheet(workbook, questions, "逐题记录");
+  XLSX.utils.book_append_sheet(workbook, matches, "消消乐历史");
   XLSX.utils.book_append_sheet(workbook, documentation, "字段说明");
   const bytes = XLSX.write(workbook, {
     type: "array",

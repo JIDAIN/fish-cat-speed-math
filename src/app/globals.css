@@ -814,6 +814,141 @@ h2 {
   font-size: 13px;
 }
 
+:root {
+  --match-fraction-bg: #e3f1f2;
+  --match-fraction-border: #9bc9ce;
+  --match-fraction-text: #195866;
+  --match-percent-bg: #e5f3e9;
+  --match-percent-border: #a7d2b7;
+  --match-percent-text: #176348;
+}
+.matchNav {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.matchStatus {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  margin: 18px 0;
+}
+.matchStatus strong {
+  color: var(--green-700);
+  font-size: clamp(30px, 10vw, 44px);
+  font-variant-numeric: tabular-nums;
+}
+.matchStatus span {
+  color: var(--muted);
+  font-size: 14px;
+}
+.matchBoard {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(5px, 2vw, 10px);
+}
+.matchCard {
+  min-width: 0;
+  aspect-ratio: 1 / 0.82;
+  padding: 4px;
+  border-width: 2px;
+  border-style: solid;
+  font-size: clamp(14px, 5vw, 23px);
+  font-weight: 700;
+  transition:
+    opacity 0.25s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+.matchCard.fraction {
+  border-color: var(--match-fraction-border);
+  background: var(--match-fraction-bg);
+  color: var(--match-fraction-text);
+}
+.matchCard.percent {
+  border-color: var(--match-percent-border);
+  background: var(--match-percent-bg);
+  color: var(--match-percent-text);
+}
+.matchCard.selected {
+  box-shadow:
+    0 0 0 3px rgb(34 104 87 / 28%),
+    0 5px 12px rgb(20 78 64 / 16%);
+  transform: translateY(-1px);
+}
+.matchCard.matched {
+  opacity: 0;
+  pointer-events: none;
+}
+.matchCard.wrong {
+  border-color: #c96464;
+  animation: match-shake 0.28s linear;
+}
+.matchFraction {
+  display: grid;
+  justify-items: center;
+  width: 100%;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+}
+.matchFraction span {
+  min-width: 1.5em;
+  padding: 2px 4px;
+  text-align: center;
+}
+.matchFraction span:first-child {
+  border-bottom: 2px solid currentColor;
+}
+.matchPause {
+  display: block;
+  min-width: 120px;
+  margin: 18px auto 0;
+}
+.matchPaused {
+  margin: 9px 0;
+  color: var(--muted);
+  text-align: center;
+}
+.matchBoard.isPaused {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.matchComplete {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  margin: 60px 0;
+}
+.matchComplete strong {
+  color: var(--green-700);
+  font-size: 24px;
+}
+.matchHistoryRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 2px;
+  border-bottom: 1px solid var(--line);
+}
+.matchHistoryRow span {
+  color: var(--muted);
+}
+.matchHistoryRow strong {
+  margin-left: auto;
+  color: var(--green-700);
+}
+.matchHistoryUser {
+  color: var(--muted);
+}
+@keyframes match-shake {
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
 /* Fraction-percent memory page: native text stays crisp and responsive on phones. */
 .memoryPage > h1 {
   margin-bottom: 14px;

@@ -59,7 +59,12 @@ describe("data export files", () => {
       type: "array",
       cellNF: true,
     });
-    expect(book.SheetNames).toEqual(["训练记录", "逐题记录", "字段说明"]);
+    expect(book.SheetNames).toEqual([
+      "训练记录",
+      "逐题记录",
+      "消消乐历史",
+      "字段说明",
+    ]);
     const questionSheet = XLSX.utils.sheet_to_json<unknown[]>(
       book.Sheets["逐题记录"],
       { header: 1 },

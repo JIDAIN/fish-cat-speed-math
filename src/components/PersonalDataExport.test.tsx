@@ -4,6 +4,7 @@ import { cleanup } from "@testing-library/react";
 import { PersonalDataExport } from "./PersonalDataExport";
 
 const read = vi.fn();
+const readMatches = vi.fn();
 const download = vi.fn();
 vi.mock("@/lib/cloud", () => ({
   readOwnCompletedTrainingForExport: (...args: unknown[]) => read(...args),
@@ -16,6 +17,9 @@ vi.mock("@/lib/data-export", () => ({
     warnings: [],
   }),
 }));
+vi.mock("@/lib/fraction-percent-match-cloud", () => ({
+  readOwnMatchRecordsForExport: (...args: unknown[]) => readMatches(...args),
+}));
 vi.mock("@/lib/data-export-files", () => ({
   createXlsxBlob: () => new Blob(),
   createJsonBlob: () => new Blob(),
@@ -26,6 +30,7 @@ vi.mock("@/lib/data-export-files", () => ({
 afterEach(() => {
   cleanup();
   read.mockReset();
+  readMatches.mockReset();
   download.mockReset();
 });
 
@@ -42,6 +47,7 @@ describe("PersonalDataExport", () => {
 
   it("downloads both files only after a complete successful read", async () => {
     read.mockResolvedValue([]);
+    readMatches.mockResolvedValue([]);
     render(
       <PersonalDataExport
         identity={{ id: "owner", role: "fish", email: "a@test" }}
@@ -57,6 +63,7 @@ describe("PersonalDataExport", () => {
 
   it("does not download either file when reading fails", async () => {
     read.mockRejectedValue({ message: "network down" });
+    readMatches.mockResolvedValue([]);
     render(
       <PersonalDataExport
         identity={{ id: "owner", role: "fish", email: "a@test" }}

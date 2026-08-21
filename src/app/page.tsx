@@ -43,6 +43,11 @@ import {
 import { ActiveSessionDialog } from "@/components/ActiveSessionDialog";
 import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
 import { FractionPercentMemory } from "@/components/FractionPercentMemory";
+import { FractionPercentMatchGame } from "@/components/FractionPercentMatchGame";
+import { FractionPercentMatchHistory } from "@/components/FractionPercentMatchHistory";
+import { FractionPercentMatchRecord } from "@/lib/fraction-percent-match";
+import { saveMatchRecord } from "@/lib/fraction-percent-match-storage";
+import { syncMatchRecord } from "@/lib/fraction-percent-match-cloud";
 import {
   QuestionCountDialog,
   QuestionCountSelection,
@@ -119,7 +124,9 @@ type View =
   | "historyDetail"
   | "pk"
   | "pkDetail"
-  | "memory";
+  | "memory"
+  | "fractionMatch"
+  | "fractionMatchHistory";
 
 function locationRoute(): { view: View; id?: string } {
   if (typeof window === "undefined") return { view: "home" };
@@ -137,6 +144,9 @@ function locationRoute(): { view: View; id?: string } {
   if (parts[0] === "pk" && parts[1]) return { view: "pkDetail", id: parts[1] };
   if (parts[0] === "pk") return { view: "pk" };
   if (parts[0] === "memory") return { view: "memory" };
+  if (parts[0] === "fraction-match" && parts[1] === "history")
+    return { view: "fractionMatchHistory" };
+  if (parts[0] === "fraction-match") return { view: "fractionMatch" };
   return { view: "home" };
 }
 
@@ -149,6 +159,8 @@ function locationHash(view: View, id?: string) {
   if (view === "pkDetail" && id) return `#/pk/${id}`;
   if (view === "pk") return "#/pk";
   if (view === "memory") return "#/memory";
+  if (view === "fractionMatchHistory") return "#/fraction-match/history";
+  if (view === "fractionMatch") return "#/fraction-match";
   return "#/";
 }
 
@@ -315,6 +327,20 @@ export default function Home() {
   const historyRefreshInFlight = useRef(new Map<string, Promise<void>>());
   const pkRefreshInFlight = useRef(new Map<string, Promise<void>>());
   const [isRestartingTraining, setIsRestartingTraining] = useState(false);
+  const completeFractionMatch = async (record: FractionPercentMatchRecord) => {
+    await saveMatchRecord(record);
+    if (!identity) return;
+    try {
+      await syncMatchRecord(record);
+      await saveMatchRecord({
+        ...record,
+        syncStatus: "synced",
+        syncedAt: Date.now(),
+      });
+    } catch {
+      await saveMatchRecord({ ...record, syncStatus: "failed" });
+    }
+  };
   const navigate = (next: View, id?: string, replace = false) => {
     if (next === "result" || next === "historyDetail" || next === "pkDetail")
       setRouteLoading(true);
@@ -1476,6 +1502,29 @@ export default function Home() {
       </main>
     );
   }
+  if (view === "fractionMatch") {
+    return (
+      <main className="panel matchPage">
+        <FractionPercentMatchGame
+          userId={(identity?.role ?? user) as "fish" | "cat"}
+          ownerAccountId={identity?.id}
+          onComplete={completeFractionMatch}
+          onHome={() => setView("home")}
+          onHistory={() => setView("fractionMatchHistory")}
+        />
+      </main>
+    );
+  }
+  if (view === "fractionMatchHistory") {
+    return (
+      <FractionPercentMatchHistory
+        identity={identity}
+        userId={(identity?.role ?? user) as "fish" | "cat"}
+        onHome={() => setView("home")}
+        onGame={() => setView("fractionMatch")}
+      />
+    );
+  }
   if (view === "historyDetail" && !selectedHistorySession)
     return (
       <main className="panel">
@@ -1566,6 +1615,14 @@ export default function Home() {
         <span>百分互换速记</span>
         <small>46组固定关系 · 分组记忆</small>
         <b>查看 ›</b>
+      </button>
+      <button
+        className="memoryHomeEntry"
+        onClick={() => setView("fractionMatch")}
+      >
+        <span>百分互换消消乐</span>
+        <small>32组核心关系 · 配对消除</small>
+        <b>开始 ›</b>
       </button>
       {identity && unassignedHistory.length > 0 && (
         <section className="accountPanel">
