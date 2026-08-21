@@ -4,13 +4,14 @@ import { CloudIdentity } from "@/lib/cloud";
 import {
   checkFractionPercentMatchCloudCapability,
   readMatchHistory,
-  syncMatchRecord,
+  syncOwnedMatchRecord,
 } from "@/lib/fraction-percent-match-cloud";
 import { FractionPercentMatchRecord } from "@/lib/fraction-percent-match";
 import {
   readMatchRecords,
   saveMatchRecord,
 } from "@/lib/fraction-percent-match-storage";
+import { submitMatchPKResult } from "@/lib/fraction-percent-match-pk-cloud";
 
 const stamp = (value: number) =>
   new Date(value).toLocaleString("zh-CN", {
@@ -35,8 +36,10 @@ export function FractionPercentMatchHistory({
   const [selectedUser, setSelectedUser] = useState<"fish" | "cat">(
     identity?.role ?? userId,
   );
-  const load = useCallback(async () => {
-    setNotice(undefined);
+  const [syncingRecordIds, setSyncingRecordIds] = useState<Set<string>>(() => new Set());
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const load = useCallback(async (preserveNotice = false) => {
+    if (!preserveNotice) setNotice(undefined);
     let local: FractionPercentMatchRecord[] = [];
     let localFailed = false;
     try {
@@ -68,30 +71,52 @@ export function FractionPercentMatchHistory({
   useEffect(() => {
     void load();
   }, [load]);
+  const persistRetry = useCallback(async (record: FractionPercentMatchRecord) => {
+    const result = await syncOwnedMatchRecord(record, identity?.id);
+    if (!result.ok) {
+      const failed = { ...record, syncStatus: "failed" as const };
+      await saveMatchRecord(failed);
+      return result;
+    }
+    let saved = result.record;
+    if (saved.trainingSource === "pk" && saved.pkChallengeId) {
+      try {
+        await submitMatchPKResult(saved.pkChallengeId, saved.id);
+        saved = { ...saved, pkSyncStatus: "synced" };
+      } catch {
+        saved = { ...saved, pkSyncStatus: "failed" };
+      }
+    }
+    await saveMatchRecord(saved);
+    return saved.pkSyncStatus === "failed"
+      ? { ok: false as const, reason: "server" as const }
+      : { ok: true as const, record: saved };
+  }, [identity?.id]);
   const retry = async (record: FractionPercentMatchRecord) => {
+    setSyncingRecordIds((old) => new Set(old).add(record.id));
     try {
-      if (!identity || record.ownerAccountId !== identity.id) return;
-      const capability = await checkFractionPercentMatchCloudCapability();
-      if (capability === "base_not_deployed") { setNotice("消消乐云端功能尚未完成数据库升级，记录已安全保存在本机。"); return; }
-      if (capability === "not_configured") { setNotice("云端暂未配置，记录已安全保存在本机。"); return; }
-      if (capability === "request_failed") { setNotice("云端暂时连接失败，记录仍保存在本机，可稍后重试。"); return; }
-      const synced = await syncMatchRecord(record);
-      if (!synced) throw new Error("sync unavailable");
-      const saved = {
-        ...record,
-        syncStatus: "synced" as const,
-        syncedAt: Date.now(),
-      };
-      await saveMatchRecord(saved);
-      await load();
-    } catch {
-      setNotice("云端同步失败，记录仍保存在本机。");
+      const result = await persistRetry(record);
+      setNotice(result.ok ? "已同步到云端。" : "云端同步失败，记录仍保存在本机。");
+      await load(true);
+    } finally {
+      setSyncingRecordIds((old) => { const next = new Set(old); next.delete(record.id); return next; });
     }
   };
   const retryAll = async () => {
     const candidates = records.filter((record) => record.ownerAccountId === identity?.id && (record.syncStatus === "failed" || record.syncStatus === "not_synced"));
-    let succeeded = 0; for (const record of candidates) { await retry(record).then(() => { succeeded += 1; }).catch(() => undefined); }
-    setNotice(`成功同步 ${succeeded} 条，失败 ${candidates.length - succeeded} 条`); void load();
+    if (!candidates.length || bulkSyncing) return;
+    setBulkSyncing(true);
+    try {
+      const capability = await checkFractionPercentMatchCloudCapability();
+      if (capability !== "ready") {
+        setNotice(capability === "base_not_deployed" || capability === "base_rpc_not_deployed" ? `消消乐云端功能尚未完成数据库升级，${candidates.length}条记录仍安全保存在本机。` : "云端暂时不可用，记录仍安全保存在本机。");
+        return;
+      }
+      const results = await Promise.all(candidates.map(persistRetry));
+      const succeeded = results.filter((result) => result.ok).length;
+      await load(true);
+      setNotice(`成功同步 ${succeeded} 条，失败 ${candidates.length - succeeded} 条`);
+    } finally { setBulkSyncing(false); }
   };
   return (
     <main className="panel matchHistory">
@@ -117,7 +142,7 @@ export function FractionPercentMatchHistory({
         </div>
       )}
       {notice && <p role="status">{notice}</p>}
-      {identity && selectedUser === identity.role && records.some((record) => record.ownerAccountId === identity.id && (record.syncStatus === "failed" || record.syncStatus === "not_synced")) && <button onClick={() => void retryAll()}>重试全部同步</button>}
+      {identity && selectedUser === identity.role && records.some((record) => record.ownerAccountId === identity.id && (record.syncStatus === "failed" || record.syncStatus === "not_synced")) && <button disabled={bulkSyncing} onClick={() => void retryAll()}>{bulkSyncing ? "正在同步…" : "重试全部同步"}</button>}
       {records.length ? (
         <div>
           {records.map((record) => (
@@ -126,7 +151,7 @@ export function FractionPercentMatchHistory({
               <strong>{(record.totalTimeMs / 1000).toFixed(1)}秒</strong>
               {record.trainingSource === "pk" && <small>PK</small>}
               {record.syncStatus !== "synced" && identity && record.ownerAccountId === identity.id && (
-                <button onClick={() => void retry(record)}>重试同步</button>
+                <button disabled={bulkSyncing || syncingRecordIds.has(record.id)} onClick={() => void retry(record)}>{syncingRecordIds.has(record.id) ? "正在同步…" : "重试同步"}</button>
               )}
             </article>
           ))}

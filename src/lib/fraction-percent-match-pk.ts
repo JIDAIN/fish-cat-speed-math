@@ -12,6 +12,7 @@ export type FractionPercentMatchPKChallenge = {
   blueprint: MatchGameBlueprint;
   relationSetVersion: string;
   gameVersion: string;
+  blueprintFingerprint: string;
   status: FractionPercentMatchPKStatus;
   createdAt: number;
   completedAt?: number;

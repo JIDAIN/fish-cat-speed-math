@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import { FRACTION_PERCENT_LIBRARY } from "./generate";
 import {
   createMatchRounds,
+  createMatchBlueprint,
   FRACTION_PERCENT_MATCH_KEYS,
+  matchBlueprintFingerprint,
   matchRelations,
   relationKey,
+  validateMatchBlueprint,
 } from "./fraction-percent-match";
 
 describe("fraction percent match", () => {
@@ -53,5 +56,11 @@ describe("fraction percent match", () => {
         .map((card) => card.relationKey),
     );
     expect(new Set(keys)).toEqual(new Set(matchRelations.map(relationKey)));
+  });
+  it("validates and fingerprints a frozen board independently of object property order", () => {
+    const blueprint = createMatchBlueprint(() => 0.42);
+    expect(validateMatchBlueprint(blueprint)).toBe(true);
+    expect(matchBlueprintFingerprint(blueprint)).toBe(matchBlueprintFingerprint(JSON.parse(JSON.stringify(blueprint))));
+    expect(validateMatchBlueprint({ rounds: blueprint.rounds.slice(0, 3) })).toBe(false);
   });
 });

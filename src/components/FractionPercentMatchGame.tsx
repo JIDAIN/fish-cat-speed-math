@@ -8,6 +8,7 @@ import {
   FractionPercentMatchRecord,
   MatchGameBlueprint,
   MatchCard,
+  matchBlueprintFingerprint,
 } from "@/lib/fraction-percent-match";
 
 function Fraction({ card }: { card: MatchCard }) {
@@ -42,7 +43,7 @@ export function FractionPercentMatchGame({
   onComplete: (
     record: FractionPercentMatchRecord,
     blueprint: MatchGameBlueprint,
-  ) => Promise<void> | void;
+  ) => Promise<unknown> | void;
   onHome: () => void;
   onHistory: () => void;
   blueprint?: MatchGameBlueprint;
@@ -95,7 +96,19 @@ export function FractionPercentMatchGame({
     return () => window.clearInterval(interval);
   }, []);
   useEffect(() => {
-    const visibility = () => (document.hidden ? pause() : resume());
+    const visibility = () => {
+      if (document.hidden) {
+        if (runningSince.current !== null) {
+          accumulated.current = nowElapsed();
+          runningSince.current = null;
+          setElapsed(accumulated.current);
+        }
+        setPaused(true);
+      } else if (!complete) {
+        runningSince.current = Date.now();
+        setPaused(false);
+      }
+    };
     document.addEventListener("visibilitychange", visibility);
     return () => document.removeEventListener("visibilitychange", visibility);
   }, [complete]);
@@ -133,6 +146,7 @@ export function FractionPercentMatchGame({
       totalTimeMs: accumulated.current,
       trainingSource,
       pkChallengeId,
+      blueprintFingerprint: matchBlueprintFingerprint(gameBlueprint),
     });
     completedRecord.current = record;
     void onComplete(record, gameBlueprint);

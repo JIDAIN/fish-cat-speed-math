@@ -211,6 +211,8 @@ const questionFields: Field[] = [
 const matchFields: Field[] = [
   ["record_id", "记录 ID", "文本", "", "原始", "无"],
   ["owner_role", "用户", "文本", "", "原始", "无"],
+  ["training_source", "训练来源", "文本", "normal / pk", "原始", "无"],
+  ["blueprint_fingerprint", "棋盘指纹", "文本", "", "原始", "无"],
   ["started_at_iso", "开始时间", "文本", "ISO-8601", "原始", "无"],
   ["started_at_ms", "开始时间（毫秒）", "数值", "ms", "原始", "无"],
   ["completed_at_iso", "完成时间", "文本", "ISO-8601", "原始", "无"],

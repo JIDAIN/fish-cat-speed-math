@@ -1,5 +1,5 @@
 import { supabase } from "./cloud";
-import { MatchGameBlueprint } from "./fraction-percent-match";
+import { MatchGameBlueprint, matchBlueprintFingerprint, validateMatchBlueprint } from "./fraction-percent-match";
 import { FractionPercentMatchPKChallenge } from "./fraction-percent-match-pk";
 type Row = {
   id: string;
@@ -12,6 +12,7 @@ type Row = {
   frozen_layout: MatchGameBlueprint;
   relation_set_version: string;
   game_version: string;
+  blueprint_fingerprint: string;
   status: "pending" | "completed";
   created_at: string;
   completed_at: string | null;
@@ -27,6 +28,7 @@ const map = (row: Row): FractionPercentMatchPKChallenge => ({
   blueprint: row.frozen_layout,
   relationSetVersion: row.relation_set_version,
   gameVersion: row.game_version,
+  blueprintFingerprint: row.blueprint_fingerprint,
   status: row.status,
   createdAt: new Date(row.created_at).getTime(),
   completedAt: row.completed_at
@@ -49,9 +51,10 @@ export async function createMatchPKChallenge(
 ) {
   const db = supabase();
   if (!db) throw new Error("Supabase is not configured");
+  if (!validateMatchBlueprint(blueprint)) throw new Error("Invalid frozen match board");
   const { data, error } = await db.rpc(
     "create_fraction_percent_match_pk_challenge",
-    { p_challenger_record_id: recordId, p_frozen_layout: blueprint },
+    { p_challenger_record_id: recordId, p_frozen_layout: blueprint, p_blueprint_fingerprint: matchBlueprintFingerprint(blueprint) },
   );
   if (error) throw error;
   return map(data as Row);

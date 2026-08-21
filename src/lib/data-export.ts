@@ -84,6 +84,8 @@ export type MatchExportRow = {
   relation_count: number;
   relation_set_version: string;
   game_version: string;
+  training_source: "normal" | "pk";
+  blueprint_fingerprint: string | null;
 };
 
 export type DataExport = {
@@ -155,6 +157,8 @@ export function createDataExport(
       relation_count: row.relation_count,
       relation_set_version: row.relation_set_version,
       game_version: row.game_version,
+      training_source: row.training_source === "pk" ? "pk" : "normal",
+      blueprint_fingerprint: row.blueprint_fingerprint ?? null,
     }),
   );
 

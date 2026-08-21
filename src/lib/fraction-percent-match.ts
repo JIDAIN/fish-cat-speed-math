@@ -62,6 +62,41 @@ export type MatchCard = {
 };
 export type MatchGameBlueprint = { rounds: MatchCard[][] };
 
+/** Validates the frozen board independently of any UI state. */
+export function validateMatchBlueprint(blueprint: MatchGameBlueprint): boolean {
+  if (!Array.isArray(blueprint?.rounds) || blueprint.rounds.length !== 4)
+    return false;
+  const all = new Set<string>();
+  for (const round of blueprint.rounds) {
+    if (!Array.isArray(round) || round.length !== 16) return false;
+    const fractions = round.filter((card) => card?.kind === "fraction");
+    const percents = round.filter((card) => card?.kind === "percent");
+    if (fractions.length !== 8 || percents.length !== 8) return false;
+    const keys = new Set(round.map((card) => card?.relationKey));
+    if (keys.size !== 8 || [...keys].some((key) => !FRACTION_PERCENT_MATCH_KEYS.includes(key as never))) return false;
+    for (const key of keys) {
+      if (round.filter((card) => card.relationKey === key && card.kind === "fraction").length !== 1 ||
+          round.filter((card) => card.relationKey === key && card.kind === "percent").length !== 1 || all.has(key)) return false;
+      all.add(key);
+    }
+  }
+  return all.size === FRACTION_PERCENT_MATCH_KEYS.length;
+}
+
+/** Property-order-independent, versioned fingerprint for the frozen card order. */
+export function matchBlueprintFingerprint(blueprint: MatchGameBlueprint): string {
+  if (!validateMatchBlueprint(blueprint)) throw new Error("Invalid match blueprint");
+  const canonical = blueprint.rounds.map((round, roundIndex) =>
+    round.map((card, cardIndex) => `${roundIndex}:${cardIndex}:${card.relationKey}:${card.kind}`).join("|")
+  ).join(";");
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < canonical.length; index += 1) {
+    hash ^= canonical.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fpv1-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 export function shuffle<T>(items: readonly T[], random = Math.random): T[] {
   const shuffled = [...items];
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -124,6 +159,8 @@ export type FractionPercentMatchRecord = {
   syncStatus?: "not_synced" | "syncing" | "synced" | "failed";
   trainingSource?: "normal" | "pk";
   pkChallengeId?: string;
+  blueprintFingerprint?: string;
+  pkSyncStatus?: "not_synced" | "syncing" | "synced" | "failed";
 };
 
 export function createMatchRecord(

@@ -11,11 +11,14 @@ export type CloudMatchRow = {
   relation_count: number;
   relation_set_version: string;
   game_version: string;
+  training_source?: "normal" | "pk";
+  pk_challenge_id?: string | null;
+  blueprint_fingerprint?: string | null;
   created_at: string;
 };
 
 const columns =
-  "id,owner_id,owner_role,started_at,completed_at,total_time_ms,relation_count,relation_set_version,game_version,created_at";
+  "id,owner_id,owner_role,started_at,completed_at,total_time_ms,relation_count,relation_set_version,game_version,training_source,pk_challenge_id,blueprint_fingerprint,created_at";
 
 function map(row: CloudMatchRow): FractionPercentMatchRecord {
   return {
@@ -29,6 +32,9 @@ function map(row: CloudMatchRow): FractionPercentMatchRecord {
     relationSetVersion: row.relation_set_version,
     gameVersion: row.game_version,
     syncStatus: "synced",
+    trainingSource: row.training_source === "pk" ? "pk" : "normal",
+    pkChallengeId: row.pk_challenge_id ?? undefined,
+    blueprintFingerprint: row.blueprint_fingerprint ?? undefined,
   };
 }
 
@@ -43,6 +49,9 @@ export async function syncMatchRecord(record: FractionPercentMatchRecord) {
     p_relation_count: record.relationCount,
     p_relation_set_version: record.relationSetVersion,
     p_game_version: record.gameVersion,
+    p_training_source: record.trainingSource ?? "normal",
+    p_pk_challenge_id: record.pkChallengeId ?? null,
+    p_blueprint_fingerprint: record.blueprintFingerprint ?? null,
   });
   if (error) throw error;
   return true;
@@ -74,11 +83,26 @@ export async function readOwnMatchRecordsForExport(
   if (error) throw error;
   return (data ?? []) as CloudMatchRow[];
 }
-export type MatchCloudCapability = "not_configured" | "ready" | "base_not_deployed" | "request_failed";
+export type MatchCloudCapability = "not_configured" | "ready" | "base_not_deployed" | "base_rpc_not_deployed" | "request_failed";
 export async function checkFractionPercentMatchCloudCapability(): Promise<MatchCloudCapability> {
   const db = supabase(); if (!db) return "not_configured";
-  const { error } = await db.from("fraction_percent_match_records").select("id").limit(1);
-  if (!error) return "ready";
-  if (/relation|fraction_percent_match|does not exist|schema cache|not found/i.test(error.message ?? "")) return "base_not_deployed";
-  return "request_failed";
+  const { data, error } = await db.rpc("fraction_percent_match_capabilities");
+  if (error) {
+    const table = await db.from("fraction_percent_match_records").select("id").limit(1);
+    return table.error ? "base_not_deployed" : "base_rpc_not_deployed";
+  }
+  const capability = data as { history_available?: boolean } | null;
+  return capability?.history_available ? "ready" : "base_not_deployed";
+}
+
+export type MatchSyncResult = { ok: true; record: FractionPercentMatchRecord } | { ok: false; reason: Exclude<MatchCloudCapability, "ready"> | "ownership" | "server" };
+/** Shared no-UI sync primitive. It never changes local storage or component state. */
+export async function syncOwnedMatchRecord(record: FractionPercentMatchRecord, identityId?: string): Promise<MatchSyncResult> {
+  if (!identityId || record.ownerAccountId !== identityId) return { ok: false, reason: "ownership" };
+  const capability = await checkFractionPercentMatchCloudCapability();
+  if (capability !== "ready") return { ok: false, reason: capability };
+  try {
+    if (!(await syncMatchRecord(record))) return { ok: false, reason: "server" };
+    return { ok: true, record: { ...record, syncStatus: "synced", syncedAt: Date.now() } };
+  } catch { return { ok: false, reason: "server" }; }
 }

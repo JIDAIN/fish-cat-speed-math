@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   QuestionType,
   Subtype,
@@ -49,8 +49,7 @@ import { FractionPercentMatchPKPage } from "@/components/FractionPercentMatchPKP
 import { FractionPercentMatchRecord } from "@/lib/fraction-percent-match";
 import { saveMatchRecord } from "@/lib/fraction-percent-match-storage";
 import { readMatchRecords } from "@/lib/fraction-percent-match-storage";
-import { readMatchHistory } from "@/lib/fraction-percent-match-cloud";
-import { syncMatchRecord } from "@/lib/fraction-percent-match-cloud";
+import { readMatchHistory, syncOwnedMatchRecord } from "@/lib/fraction-percent-match-cloud";
 import {
   createMatchPKChallenge,
   readMatchPKChallenges,
@@ -348,35 +347,40 @@ export default function Home() {
     FractionPercentMatchPKChallenge[]
   >([]);
   const [matchRecords, setMatchRecords] = useState<FractionPercentMatchRecord[]>([]);
-  const loadMatchPK = async () => {
+  const refreshMatchPKData = useCallback(async () => {
+    const requestIdentity = identityRef.current;
+    if (!requestIdentity) return;
     try {
-      setMatchPKChallenges(await readMatchPKChallenges());
+      const [challenges, local] = await Promise.all([
+        readMatchPKChallenges(),
+        readMatchRecords(requestIdentity.id),
+      ]);
+      if (identityRef.current?.id !== requestIdentity.id) return;
+      setMatchPKChallenges(challenges);
+      setMatchRecords(local);
+      void readMatchHistory().then((cloud) => {
+        if (identityRef.current?.id !== requestIdentity.id) return;
+        setMatchRecords([...local, ...cloud.filter((item) => !local.some((saved) => saved.id === item.id))]);
+      }).catch(() => undefined);
     } catch {
-      setStorageError("消消乐PK读取失败，请稍后重试。");
+      if (identityRef.current?.id === requestIdentity.id)
+        setStorageError("消消乐PK读取失败，请稍后重试。");
     }
-  };
-  const completeFractionMatch = async (record: FractionPercentMatchRecord) => {
+  }, []);
+  const completeFractionMatch = useCallback(async (record: FractionPercentMatchRecord) => {
     await saveMatchRecord(record);
-    if (!identity) return;
-    try {
-      const synced = await syncMatchRecord(record);
-      await saveMatchRecord(
-        synced
-          ? { ...record, syncStatus: "synced", syncedAt: Date.now() }
-          : { ...record, syncStatus: "failed" },
-      );
-    } catch {
-      await saveMatchRecord({ ...record, syncStatus: "failed" });
-    }
-  };
+    const result = await syncOwnedMatchRecord(record, identityRef.current?.id);
+    if (result.ok) await saveMatchRecord(result.record);
+    else await saveMatchRecord({ ...record, syncStatus: "failed" });
+    return { localSaved: true, cloudSynced: result.ok, record: result.ok ? result.record : { ...record, syncStatus: "failed" as const } };
+  }, []);
   useEffect(() => {
     if (
       (view === "fractionMatchPK" || view === "fractionMatchPKPlay") &&
-      identity
+      identityRef.current
     )
-      void loadMatchPK();
-  }, [view, identity?.id]);
-  useEffect(() => { if (view !== "fractionMatchPK") return; void readMatchRecords(identity?.id).then(async (local) => { setMatchRecords(local); if (!identity) return; try { const cloud = await readMatchHistory(); setMatchRecords([...local, ...cloud.filter((item) => !local.some((saved) => saved.id === item.id))]); } catch { /* local records remain visible */ } }); }, [view, identity?.id]);
+      void refreshMatchPKData();
+  }, [view, identity?.id, refreshMatchPKData]);
   const navigate = (next: View, id?: string, replace = false) => {
     if (next === "result" || next === "historyDetail" || next === "pkDetail")
       setRouteLoading(true);
@@ -1613,9 +1617,20 @@ export default function Home() {
           onHome={() => setView("fractionMatchPK")}
           onHistory={() => setView("fractionMatchHistory")}
           onComplete={async (record) => {
-            await completeFractionMatch(record);
-            await submitMatchPKResult(challenge.id, record.id);
-            void loadMatchPK();
+            const persisted = await completeFractionMatch(record);
+            if (!persisted.cloudSynced) {
+              await saveMatchRecord({ ...persisted.record, pkSyncStatus: "failed" });
+              setStorageError("本次成绩已保存在本机，PK结果尚未提交，可稍后在历史中重试。");
+              return;
+            }
+            try {
+              await submitMatchPKResult(challenge.id, record.id);
+              await saveMatchRecord({ ...persisted.record, pkSyncStatus: "synced" });
+              void refreshMatchPKData();
+            } catch {
+              await saveMatchRecord({ ...persisted.record, pkSyncStatus: "failed" });
+              setStorageError("本次成绩已保存在本机，PK结果尚未提交，可稍后在历史中重试。");
+            }
           }}
         />
       </main>
@@ -1720,7 +1735,7 @@ export default function Home() {
             开始
           </button>
           <button onClick={() => setView("fractionMatchHistory")}>历史</button>
-          <button onClick={() => setView("fractionMatchPK")}>PK</button>
+          <button onClick={() => identity ? setView("fractionMatchPK") : setStorageError("请先登录已绑定的同步账号后使用消消乐PK。")}>PK{identity && matchPKChallenges.filter((challenge) => challenge.opponentId === identity.id && challenge.status === "pending").length > 0 && <span className="pkBadge pkBadgeRed">{matchPKChallenges.filter((challenge) => challenge.opponentId === identity.id && challenge.status === "pending").length > 9 ? "9+" : matchPKChallenges.filter((challenge) => challenge.opponentId === identity.id && challenge.status === "pending").length}</span>}</button>
         </div>
       </section>
       {identity && unassignedHistory.length > 0 && (

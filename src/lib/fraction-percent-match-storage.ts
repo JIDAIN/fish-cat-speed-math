@@ -31,6 +31,8 @@ export function normalizeLegacyMatchRecord(value: unknown): FractionPercentMatch
     gameVersion: typeof item.gameVersion === "string" ? item.gameVersion : "1.0.0",
     trainingSource: item.trainingSource === "pk" ? "pk" : "normal",
     pkChallengeId: typeof item.pkChallengeId === "string" ? item.pkChallengeId : undefined,
+    blueprintFingerprint: typeof item.blueprintFingerprint === "string" ? item.blueprintFingerprint : undefined,
+    pkSyncStatus: item.pkSyncStatus === "synced" || item.pkSyncStatus === "syncing" || item.pkSyncStatus === "failed" || item.pkSyncStatus === "not_synced" ? item.pkSyncStatus : undefined,
     syncStatus: item.syncStatus === "synced" || item.syncStatus === "syncing" || item.syncStatus === "failed" || item.syncStatus === "not_synced" ? item.syncStatus : "not_synced",
     syncedAt: typeof item.syncedAt === "number" ? item.syncedAt : undefined,
   };
