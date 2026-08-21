@@ -331,12 +331,12 @@ export default function Home() {
     await saveMatchRecord(record);
     if (!identity) return;
     try {
-      await syncMatchRecord(record);
-      await saveMatchRecord({
-        ...record,
-        syncStatus: "synced",
-        syncedAt: Date.now(),
-      });
+      const synced = await syncMatchRecord(record);
+      await saveMatchRecord(
+        synced
+          ? { ...record, syncStatus: "synced", syncedAt: Date.now() }
+          : { ...record, syncStatus: "failed" },
+      );
     } catch {
       await saveMatchRecord({ ...record, syncStatus: "failed" });
     }
