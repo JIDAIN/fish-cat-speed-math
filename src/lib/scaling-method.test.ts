@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildScalingOptions,
   calculateScalingTruth,
+  formatScalingOptionValue,
+  leadingSignificantDigit,
   preferredScalingBaseline,
   scalingBaselineCandidates,
-  SCALING_METHOD_STRUCTURE_QUOTAS,
+  SCALING_METHOD_SCENARIO_QUOTAS,
 } from "./scaling-method";
 
 describe("scaling method math core", () => {
@@ -33,11 +35,11 @@ describe("scaling method math core", () => {
     expect(truth.secondResult).toBeGreaterThan(truth.firstResult);
   });
 
-  it("keeps the initial structure ratios at 40/35/25", () => {
-    expect(SCALING_METHOD_STRUCTURE_QUOTAS).toEqual([
-      { primaryStructure: "round_baseline", ratio: 0.4 },
-      { primaryStructure: "special_baseline", ratio: 0.35 },
-      { primaryStructure: "multiple_relation", ratio: 0.25 },
+  it("uses source-scenario quotas of 45 percent base period, 35 percent ratio/share, 20 percent multiple", () => {
+    expect(SCALING_METHOD_SCENARIO_QUOTAS).toEqual([
+      { scenario: "base_period", ratio: 0.45 },
+      { scenario: "ratio_share", ratio: 0.35 },
+      { scenario: "multiple", ratio: 0.2 },
     ]);
   });
 
@@ -56,13 +58,34 @@ describe("scaling method math core", () => {
     expect(candidate?.truth.baseResult).toBe(171);
   });
 
-  it("builds four distinct choices and preserves exactly one correct option", () => {
-    const truth = calculateScalingTruth(68431, 424, 400);
-    const { options, correctOptionId } = buildScalingOptions(truth);
-    expect(options).toHaveLength(4);
-    expect(new Set(options.map((option) => option.value)).size).toBe(4);
-    expect(["A", "B", "C", "D"]).toContain(correctOptionId);
-    expect(options.filter((option) => option.id === correctOptionId)).toHaveLength(1);
+  for (const significantDigits of [3, 4] as const) {
+    it(`builds four ${significantDigits}-significant-digit choices with the same leading digit`, () => {
+      const truth = calculateScalingTruth(68431, 424, 400);
+      const { options, correctOptionId } = buildScalingOptions(
+        truth,
+        significantDigits,
+      );
+      expect(options).toHaveLength(4);
+      expect(new Set(options.map((option) => option.value)).size).toBe(4);
+      expect(["A", "B", "C", "D"]).toContain(correctOptionId);
+      expect(options.filter((option) => option.id === correctOptionId)).toHaveLength(1);
+
+      const leadingDigits = new Set(
+        options.map((option) => leadingSignificantDigit(option.value)),
+      );
+      expect(leadingDigits.size).toBe(1);
+      options.forEach((option) => {
+        expect(option.significantDigits).toBe(significantDigits);
+        expect(option.display).toBe(
+          formatScalingOptionValue(option.value, significantDigits),
+        );
+      });
+    });
+  }
+
+  it("preserves trailing zeroes in option display when precision requires them", () => {
+    expect(formatScalingOptionValue(2.3, 3)).toBe("2.30");
+    expect(formatScalingOptionValue(16, 4)).toBe("16.00");
   });
 
   it("rejects non-positive inputs instead of silently producing invalid math", () => {
