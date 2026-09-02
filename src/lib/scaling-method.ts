@@ -1,13 +1,20 @@
+export type ScalingScenario = "base_period" | "ratio_share" | "multiple";
+
+/**
+ * Primary generation quota follows the source of the calculation in data-analysis
+ * questions. Baseline shape is a secondary tag and must not drive the top-level
+ * question mix.
+ */
+export const SCALING_METHOD_SCENARIO_QUOTAS = [
+  { scenario: "base_period", ratio: 0.45 },
+  { scenario: "ratio_share", ratio: 0.35 },
+  { scenario: "multiple", ratio: 0.2 },
+] as const;
+
 export type ScalingStructure =
   | "round_baseline"
   | "special_baseline"
-  | "multiple_relation";
-
-export const SCALING_METHOD_STRUCTURE_QUOTAS = [
-  { primaryStructure: "round_baseline", ratio: 0.4 },
-  { primaryStructure: "special_baseline", ratio: 0.35 },
-  { primaryStructure: "multiple_relation", ratio: 0.25 },
-] as const;
+  | "relation_baseline";
 
 export const SPECIAL_SCALING_BASELINES = [
   125,
@@ -21,6 +28,8 @@ export const SPECIAL_SCALING_BASELINES = [
 ] as const;
 
 export type ScalingOptionId = "A" | "B" | "C" | "D";
+export type ScalingOptionSignificantDigits = 3 | 4;
+export const SCALING_OPTION_SIGNIFICANT_DIGITS = [3, 4] as const;
 
 export interface ScalingTruth {
   numerator: number;
@@ -51,6 +60,8 @@ export interface ScalingBaselineCandidate {
 export interface ScalingOption {
   id: ScalingOptionId;
   value: number;
+  display: string;
+  significantDigits: ScalingOptionSignificantDigits;
   source:
     | "correct"
     | "base_result"
@@ -130,8 +141,9 @@ export function scalingBaselineCandidates(
 
   for (const baseline of SPECIAL_SCALING_BASELINES) addCandidate(raw, baseline);
 
-  // Multiplicative baselines: if A is near k * B0, B0 = A / k can make Q0
-  // immediately recognizable. Only integer candidates are retained.
+  // Relationship baselines: if A is near k * B0, B0 = A / k can make Q0
+  // immediately recognizable. This is a baseline property, not the same thing
+  // as the top-level "multiple" data-analysis scenario.
   for (let multiple = 2; multiple <= 9; multiple += 1) {
     const candidate = Math.round(numerator / multiple);
     addCandidate(raw, candidate);
@@ -172,7 +184,7 @@ export function scalingBaselineCandidates(
       const nearestMultiple = Math.round(q0);
       if (nearestMultiple >= 2 && nearestMultiple <= 9 && distanceToInteger < 0.03) {
         score -= 1.2;
-        reasons.push("倍数关系明显");
+        reasons.push("数值关系明显");
       }
 
       return { baseline, relativeDeviation, truth, score, reasons };
@@ -193,63 +205,117 @@ export function preferredScalingBaseline(
   )[0];
 }
 
-function roundExamValue(value: number) {
-  const abs = Math.abs(value);
-  if (abs >= 100) return Math.round(value * 10) / 10;
-  if (abs >= 10) return Math.round(value * 10) / 10;
-  return Math.round(value * 100) / 100;
+export function roundToSignificantDigits(
+  value: number,
+  significantDigits: ScalingOptionSignificantDigits,
+) {
+  if (!Number.isFinite(value) || value === 0) return value;
+  const exponent = Math.floor(Math.log10(Math.abs(value)));
+  const scale = 10 ** (significantDigits - 1 - exponent);
+  return Math.round(value * scale) / scale;
 }
 
-function distinctValues(values: number[]) {
-  const result: number[] = [];
-  for (const value of values) {
-    const rounded = roundExamValue(value);
-    if (!result.some((saved) => Math.abs(saved - rounded) < 1e-9)) result.push(rounded);
-  }
-  return result;
+/** UI string that preserves trailing zeroes for 3/4-significant-digit choices. */
+export function formatScalingOptionValue(
+  value: number,
+  significantDigits: ScalingOptionSignificantDigits,
+) {
+  const rounded = roundToSignificantDigits(value, significantDigits);
+  if (!Number.isFinite(rounded) || rounded === 0) return String(rounded);
+  const exponent = Math.floor(Math.log10(Math.abs(rounded)));
+  const decimals = Math.max(0, significantDigits - 1 - exponent);
+  return rounded.toFixed(decimals);
+}
+
+export function leadingSignificantDigit(value: number) {
+  if (!Number.isFinite(value) || value === 0) return 0;
+  const absolute = Math.abs(value);
+  const exponent = Math.floor(Math.log10(absolute));
+  return Math.floor(absolute / 10 ** exponent + 1e-10);
+}
+
+function sameRoundedValue(left: number, right: number) {
+  return Math.abs(left - right) < 1e-10;
 }
 
 /**
- * Generates four exam-style choices from meaningful method states instead of
- * random noise. The correct choice is the rounded exact quotient.
+ * Generates four exam-style choices from meaningful method states.
+ *
+ * Every choice is rendered with the same 3- or 4-significant-digit precision,
+ * and every choice must have the same leading significant digit as the correct
+ * answer. This prevents a single first-digit division step from solving the
+ * question before the scaling correction is actually used.
  */
-export function buildScalingOptions(truth: ScalingTruth): {
+export function buildScalingOptions(
+  truth: ScalingTruth,
+  significantDigits: ScalingOptionSignificantDigits = 4,
+): {
   options: ScalingOption[];
   correctOptionId: ScalingOptionId;
 } {
+  const correctValue = roundToSignificantDigits(
+    truth.exactResult,
+    significantDigits,
+  );
+  const correctLeadingDigit = leadingSignificantDigit(correctValue);
   const wrongDirection =
     truth.baseResult - truth.firstCorrection + truth.secondCorrection;
-  const nearbyStep = Math.max(Math.abs(truth.exactResult) * 0.025, 0.5);
-  const candidates: Array<{ value: number; source: ScalingOption["source"] }> = [
+
+  const candidates: Array<{
+    value: number;
+    source: ScalingOption["source"];
+  }> = [
     { value: truth.exactResult, source: "correct" },
-    { value: truth.baseResult, source: "base_result" },
     { value: truth.firstResult, source: "first_order" },
+    { value: truth.baseResult, source: "base_result" },
     { value: wrongDirection, source: "wrong_direction" },
-    { value: truth.exactResult + nearbyStep, source: "nearby" },
-    { value: truth.exactResult - nearbyStep, source: "nearby" },
   ];
 
-  const unique = distinctValues(candidates.map((candidate) => candidate.value));
-  while (unique.length < 4) {
-    const sign = unique.length % 2 === 0 ? 1 : -1;
-    unique.push(roundExamValue(truth.exactResult + sign * nearbyStep * (unique.length + 1)));
+  const chosen: Array<{
+    value: number;
+    source: ScalingOption["source"];
+  }> = [];
+  const tryAdd = (value: number, source: ScalingOption["source"]) => {
+    const rounded = roundToSignificantDigits(value, significantDigits);
+    if (!Number.isFinite(rounded) || rounded <= 0) return;
+    if (leadingSignificantDigit(rounded) !== correctLeadingDigit) return;
+    if (chosen.some((item) => sameRoundedValue(item.value, rounded))) return;
+    chosen.push({ value: rounded, source });
+  };
+
+  candidates.forEach((candidate) => tryAdd(candidate.value, candidate.source));
+
+  // If method-state distractors collide after rounding or cross the first-digit
+  // boundary, fill from nearby values while preserving the same first digit.
+  const exponent = Math.floor(Math.log10(Math.abs(correctValue)));
+  const precisionUnit = 10 ** (exponent - significantDigits + 1);
+  const nearbyStep = Math.max(
+    precisionUnit,
+    roundToSignificantDigits(Math.abs(correctValue) * 0.025, significantDigits),
+  );
+  for (let ring = 1; chosen.length < 4 && ring <= 40; ring += 1) {
+    tryAdd(correctValue - nearbyStep * ring, "nearby");
+    if (chosen.length < 4)
+      tryAdd(correctValue + nearbyStep * ring, "nearby");
   }
 
-  const selectedValues = unique.slice(0, 4).sort((a, b) => a - b);
-  const options = selectedValues.map((value, index) => {
-    const matching = candidates.find(
-      (candidate) => Math.abs(roundExamValue(candidate.value) - value) < 1e-9,
-    );
-    return {
-      id: OPTION_IDS[index],
-      value,
-      source: matching?.source ?? "nearby",
-    };
-  });
+  if (chosen.length < 4) {
+    throw new Error("无法生成首位相同的四个放缩法选项。");
+  }
 
-  const correctValue = roundExamValue(truth.exactResult);
-  const correctOption = options.find(
-    (option) => Math.abs(option.value - correctValue) < 1e-9,
+  const selected = chosen
+    .slice(0, 4)
+    .sort((left, right) => left.value - right.value);
+  const options = selected.map((item, index) => ({
+    id: OPTION_IDS[index],
+    value: item.value,
+    display: formatScalingOptionValue(item.value, significantDigits),
+    significantDigits,
+    source: item.source,
+  }));
+
+  const correctOption = options.find((option) =>
+    sameRoundedValue(option.value, correctValue),
   );
   if (!correctOption) throw new Error("放缩法选项生成未保留正确答案。");
 
@@ -260,7 +326,11 @@ export function isFirstOrderSufficient(
   truth: ScalingTruth,
   options: readonly ScalingOption[],
 ) {
-  const first = roundExamValue(truth.firstResult);
+  const significantDigits = options[0]?.significantDigits ?? 4;
+  const first = roundToSignificantDigits(
+    truth.firstResult,
+    significantDigits,
+  );
   const ordered = [...options]
     .map((option) => ({ option, distance: Math.abs(option.value - first) }))
     .sort((left, right) => left.distance - right.distance);
