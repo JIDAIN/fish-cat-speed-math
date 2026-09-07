@@ -86,7 +86,7 @@ export async function syncCompleted(session: TrainingSession) {
       session.questions[0]?.generationRuleVersion ?? "legacy_unknown",
     p_grading_version: "1.0.0",
     p_rating_version: session.rating?.version ?? "legacy_dynamic",
-    p_schema_version: 1,
+    p_schema_version: session.schemaVersion ?? 1,
   });
   if (error) throw error;
   return true;
