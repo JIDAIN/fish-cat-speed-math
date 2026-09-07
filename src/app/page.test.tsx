@@ -211,11 +211,11 @@ describe("Home active-session interactions", () => {
       expect(stored?.subtype).toBe("percent_to_fraction");
       return stored;
     });
-    const question = active?.questions[0];
-    const numerator = String(question?.data.numerator);
-    const denominator = String(question?.data.denominator);
+    const activeQuestion = active?.questions[0];
+    const numerator = String(activeQuestion?.data.numerator);
+    const denominator = String(activeQuestion?.data.denominator);
 
-    expect(screen.getByLabelText(question?.prompt ?? "")).toBeTruthy();
+    expect(screen.getByLabelText(activeQuestion?.prompt ?? "")).toBeTruthy();
     expect(screen.queryByText("先输入分子，再点击分母继续输入")).toBeNull();
     expect(container.querySelectorAll(".fractionAnswerLine")).toHaveLength(1);
 
@@ -307,31 +307,23 @@ describe("Home active-session interactions", () => {
     expect(screen.queryByText("6.3% ≈")).toBeNull();
   });
 
-  it("commits a custom seventy-question choice into the active session", async () => {
+  it("commits the ten-question quick choice into a new active session", async () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: /当前题量/ }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: /自定义模式/ }));
-    fireEvent.change(
-      within(dialog).getByRole("slider", { name: "自定义题量" }),
-      {
-        target: { value: "70" },
-      },
-    );
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: /确定（70题）/ }),
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: /快速模式/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /确定（10题）/ }));
 
     expect(
       screen.getByRole("button", { name: /当前题量/ }).textContent,
-    ).toContain("70题");
+    ).toContain("10题");
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
 
     await waitFor(async () => {
       const active = await readActive();
-      expect(active).toMatchObject({ questionCount: 70, currentIndex: 0 });
-      expect(active?.questions).toHaveLength(70);
+      expect(active).toMatchObject({ questionCount: 10, currentIndex: 0 });
+      expect(active?.questions).toHaveLength(10);
     });
   });
 
@@ -339,13 +331,7 @@ describe("Home active-session interactions", () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: /当前题量/ }));
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: /自定义模式/ }));
-    fireEvent.change(
-      within(dialog).getByRole("slider", { name: "自定义题量" }),
-      {
-        target: { value: "100" },
-      },
-    );
+    fireEvent.click(within(dialog).getByRole("button", { name: /快速模式/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
 
     expect(
@@ -353,27 +339,13 @@ describe("Home active-session interactions", () => {
     ).toContain("20题");
   });
 
-  it("creates a one-hundred-question training set when that custom count is confirmed", async () => {
+  it("does not expose a custom 30–100 question option for new sessions", () => {
     render(<Home />);
     fireEvent.click(screen.getByRole("button", { name: /当前题量/ }));
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("button", { name: /自定义模式/ }));
-    fireEvent.change(
-      within(dialog).getByRole("slider", { name: "自定义题量" }),
-      {
-        target: { value: "100" },
-      },
-    );
-    fireEvent.click(
-      within(dialog).getByRole("button", { name: /确定（100题）/ }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
-
-    await waitFor(async () => {
-      const active = await readActive();
-      expect(active?.questionCount).toBe(100);
-      expect(active?.questions).toHaveLength(100);
-    });
+    expect(within(dialog).queryByText(/自定义模式/)).toBeNull();
+    expect(within(dialog).queryByRole("slider")).toBeNull();
+    expect(within(dialog).getByText(/历史30～100题记录仍可正常查看和恢复/)).toBeTruthy();
   });
 
   it("ignores a rapid second start tap while the IndexedDB preflight is pending", async () => {
