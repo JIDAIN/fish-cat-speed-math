@@ -730,9 +730,10 @@ function addExpressionQuestion(
       result += sign * term;
     }
     if (result <= 0) {
-      result += Math.abs(result) + 1000;
-      terms[0] += Math.abs(result) + 1000;
-    }
+    const adjustment = Math.abs(result) + 1000;
+    result += adjustment;
+    terms[0] += adjustment;
+  }
     const expression = terms
       .map((term, index) => (index === 0 ? String(term) : `${signs[index] > 0 ? "+" : "-"}${term}`))
       .join("");
@@ -875,7 +876,7 @@ function estimationQuestion(
         : difficultyBand === "L2"
           ? [choose(context, [1, 2, 3] as const), choose(context, [-1, 1, 2] as const)]
           : [choose(context, [2, 3, 4] as const), choose(context, [-2, 1, 3] as const)];
-    const factor = changes.reduce((value, percent) => value * (1 + percent / 100), 1);
+    const factor = changes.reduce<number>((value, percent) => value * (1 + percent / 100), 1);
     const totalPercent = (factor - 1) * 100;
     const answer = errorBand(totalPercent);
     const options = errorBandOptions.map((value) => ({ value, label: value }));
@@ -1237,7 +1238,7 @@ function xpScaleQuestion(
   });
 }
 
-function compareOptions(answer: "left" | "right" | "equal") {
+function compareOptions() {
   return [
     { value: "left", label: "左边更大" },
     { value: "right", label: "右边更大" },
@@ -1269,7 +1270,7 @@ function compareQuestion(
       difficultyBand,
       prompt: `比较 ${left} 与 ${right}：`,
       answer,
-      data: choiceData({ left, right }, shuffle(context, compareOptions(answer))),
+      data: choiceData({ left, right }, shuffle(context, compareOptions())),
       primaryStructure: "integer_comparison",
       secondarySkillIds: ["A-PLACE-05"],
       inputKind: "choice",
@@ -1288,7 +1289,7 @@ function compareQuestion(
       difficultyBand,
       prompt: `比较小数 ${cleanNumber(decimal, 3)} 与 ${cleanNumber(percent, 1)}%：`,
       answer,
-      data: choiceData({ left: decimal, right: percent / 100, percent }, shuffle(context, compareOptions(answer))),
+      data: choiceData({ left: decimal, right: percent / 100, percent }, shuffle(context, compareOptions())),
       primaryStructure: "decimal_percent_comparison",
       secondarySkillIds: ["A-PLACE-04", "A-FRA-04"],
       inputKind: "choice",
@@ -1312,7 +1313,7 @@ function compareQuestion(
       difficultyBand,
       prompt: `比较 ${template.numerator}/${template.denominator} 与 ${template.percent}%：`,
       answer,
-      data: choiceData({ numerator: template.numerator, denominator: template.denominator, percent: template.percent }, shuffle(context, compareOptions(answer))),
+      data: choiceData({ numerator: template.numerator, denominator: template.denominator, percent: template.percent }, shuffle(context, compareOptions())),
       primaryStructure: "fraction_percent_comparison",
       secondarySkillIds: ["A-FRA-02", "B-FPSPLIT-11"],
       inputKind: "choice",
@@ -1335,7 +1336,7 @@ function compareQuestion(
       difficultyBand,
       prompt: `比较 ${a}/${b} 与 ${c}/${d}：`,
       answer,
-      data: choiceData({ a, b, c, d }, shuffle(context, compareOptions(answer))),
+      data: choiceData({ a, b, c, d }, shuffle(context, compareOptions())),
       primaryStructure: "fraction_fraction_comparison",
       secondarySkillIds: ["A-FRA-04", "B-APP-05"],
       inputKind: "choice",
@@ -1358,7 +1359,7 @@ function compareQuestion(
       difficultyBand,
       prompt: `比较 ${template.leftLabel} 与基准 ${template.baselineLabel}：`,
       answer,
-      data: choiceData({ left: template.left, right: template.baseline }, shuffle(context, compareOptions(answer))),
+      data: choiceData({ left: template.left, right: template.baseline }, shuffle(context, compareOptions())),
       primaryStructure: "baseline_comparison",
       secondarySkillIds: ["A-FRA-01", "A-PLACE-04"],
       inputKind: "choice",
