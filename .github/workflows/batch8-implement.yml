@@ -1,0 +1,195 @@
+name: Batch 8 Implement
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/batch8-implement.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  implement-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - name: Integrate smart training, mastery UI and compatibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(path, old, new):
+              text = path.read_text()
+              assert old in text, f"missing pattern in {path}: {old[:80]!r}"
+              path.write_text(text.replace(old, new, 1))
+
+          # types.ts: smart training subtypes live beside skill drill subtypes.
+          path = Path("src/lib/types.ts")
+          replace_once(
+              path,
+              'export type SkillDrillSubtype = `skill:${SkillId}:${DifficultyBand}`;\nexport type Subtype = LegacySubtype | SkillDrillSubtype;',
+              'export type SkillDrillSubtype = `skill:${SkillId}:${DifficultyBand}`;\nexport type SmartTrainingMode = "mixed" | "path_compare";\nexport type SmartTrainingSubtype = `${SmartTrainingMode}:${DifficultyBand}`;\nexport type Subtype = LegacySubtype | SkillDrillSubtype | SmartTrainingSubtype;',
+          )
+          text = path.read_text()
+          marker = 'export type TrainingMode =\n'
+          assert marker in text
+          smart_helpers = '''export function makeSmartTrainingSubtype(\n  mode: SmartTrainingMode,\n  difficultyBand: DifficultyBand,\n): SmartTrainingSubtype {\n  return `${mode}:${difficultyBand}`;\n}\n\nexport function parseSmartTrainingSubtype(\n  subtype: Subtype | string,\n): { mode: SmartTrainingMode; difficultyBand: DifficultyBand } | undefined {\n  const [mode, difficultyBand, extra] = subtype.split(":");\n  if (\n    extra !== undefined ||\n    (mode !== "mixed" && mode !== "path_compare") ||\n    (difficultyBand !== "L1" &&\n      difficultyBand !== "L2" &&\n      difficultyBand !== "L3")\n  )\n    return undefined;\n  return { mode, difficultyBand };\n}\n\n'''
+          path.write_text(text.replace(marker, smart_helpers + marker, 1))
+          replace_once(
+              path,
+              '  const skill = parseSkillDrillSubtype(subtype);\n  if (skill) return `${skill.skillId} · ${skill.difficultyBand}`;\n  return subtypeLabels[subtype];',
+              '  const skill = parseSkillDrillSubtype(subtype);\n  if (skill) return `${skill.skillId} · ${skill.difficultyBand}`;\n  const smart = parseSmartTrainingSubtype(subtype);\n  if (smart)\n    return `${smart.mode === "mixed" ? "混合训练" : "同题路径对比"} · ${smart.difficultyBand}`;\n  return subtypeLabels[subtype] ?? subtype;',
+          )
+
+          # storage.ts: persist / recover smart subtypes without weakening legacy validation.
+          path = Path("src/lib/storage.ts")
+          replace_once(
+              path,
+              '  parseSkillDrillSubtype,\n',
+              '  parseSkillDrillSubtype,\n  parseSmartTrainingSubtype,\n',
+          )
+          replace_once(
+              path,
+              '  if (legacySubtypes.includes(value as LegacySubtype)) return true;\n  const parsed = parseSkillDrillSubtype(value);',
+              '  if (legacySubtypes.includes(value as LegacySubtype)) return true;\n  if (parseSmartTrainingSubtype(value)) return true;\n  const parsed = parseSkillDrillSubtype(value);',
+          )
+
+          # session.ts: generate mixed/path-compare sessions and keep frozen PK compatibility.
+          path = Path("src/lib/session.ts")
+          text = path.read_text()
+          assert text.startswith('import {\n  generateSet,')
+          text = 'import { generateMixedSkillSet, generatePathComparisonSet } from "./batch8-training";\nimport { learnedImplementedSkillIds } from "./mastery";\n' + text
+          path.write_text(text)
+          replace_once(
+              path,
+              '  parseSkillDrillSubtype,\n',
+              '  parseSkillDrillSubtype,\n  parseSmartTrainingSubtype,\n',
+          )
+          replace_once(
+              path,
+              '  difficultyBand?: DifficultyBand;\n}',
+              '  difficultyBand?: DifficultyBand;\n  history?: TrainingSession[];\n}',
+          )
+          replace_once(
+              path,
+              '  primarySkillId,\n  difficultyBand,\n}: CreateTrainingSessionOptions): TrainingSession {',
+              '  primarySkillId,\n  difficultyBand,\n  history = [],\n}: CreateTrainingSessionOptions): TrainingSession {',
+          )
+          replace_once(
+              path,
+              '  const encodedSkill =\n    questionType === "skill_drill" ? parseSkillDrillSubtype(subtype) : undefined;\n  const requestedSkillId = primarySkillId ?? encodedSkill?.skillId;\n  const requestedSkillDifficulty =\n    difficultyBand ?? encodedSkill?.difficultyBand ?? "L2";',
+              '  const encodedSkill =\n    questionType === "skill_drill" ? parseSkillDrillSubtype(subtype) : undefined;\n  const smartTraining =\n    questionType === "skill_drill" ? parseSmartTrainingSubtype(subtype) : undefined;\n  const requestedSkillId = primarySkillId ?? encodedSkill?.skillId;\n  const requestedSkillDifficulty =\n    difficultyBand ??\n    encodedSkill?.difficultyBand ??\n    smartTraining?.difficultyBand ??\n    "L2";',
+          )
+          replace_once(
+              path,
+              '    questionType === "skill_drill" &&\n    !isImplementedSkillId(requestedSkillId)',
+              '    questionType === "skill_drill" &&\n    !smartTraining &&\n    !isImplementedSkillId(requestedSkillId)',
+          )
+          old = '''  const frozenQuestions =\n    questions ??\n    (questionType === "skill_drill"\n      ? generateSkillDrillSet(\n          requestedSkillId as ImplementedSkillId,\n          requestedSkillDifficulty,\n          questionCount,\n          generationContext,\n        ).map(adaptSkillQuestionToCurrentTrainingUi)\n      : generateSet(questionType, subtype, questionCount, generationContext).map(\n          migrateExistingQuestionToSkillV2,\n        ));'''
+          new = '''  const generatedSkillQuestions =\n    newlyGenerated && questionType === "skill_drill"\n      ? smartTraining?.mode === "mixed"\n        ? generateMixedSkillSet(\n            learnedImplementedSkillIds(history, userId),\n            smartTraining.difficultyBand,\n            questionCount,\n            generationContext,\n          )\n        : smartTraining?.mode === "path_compare"\n          ? generatePathComparisonSet(\n              smartTraining.difficultyBand,\n              questionCount,\n              generationContext,\n            )\n          : generateSkillDrillSet(\n              requestedSkillId as ImplementedSkillId,\n              requestedSkillDifficulty,\n              questionCount,\n              generationContext,\n            )\n      : undefined;\n\n  const frozenQuestions =\n    questions ??\n    (questionType === "skill_drill"\n      ? (generatedSkillQuestions ?? []).map(adaptSkillQuestionToCurrentTrainingUi)\n      : generateSet(questionType, subtype, questionCount, generationContext).map(\n          migrateExistingQuestionToSkillV2,\n        ));'''
+          replace_once(path, old, new)
+          replace_once(
+              path,
+              '  const effectiveDifficultyBand =\n    difficultyBand ?? encodedSkill?.difficultyBand ?? inferredDifficultyBand;',
+              '  const effectiveDifficultyBand =\n    difficultyBand ??\n    smartTraining?.difficultyBand ??\n    encodedSkill?.difficultyBand ??\n    inferredDifficultyBand;',
+          )
+          replace_once(
+              path,
+              '  const effectiveTrainingMode =\n    trainingMode ??\n    (hasStructuredFlow\n      ? "flow"\n      : effectivePrimarySkillId\n        ? "skill"\n        : hasMigratedSkills\n          ? "mixed"\n          : "legacy");',
+              '  const effectiveTrainingMode =\n    trainingMode ??\n    (smartTraining?.mode === "mixed"\n      ? "mixed"\n      : smartTraining?.mode === "path_compare"\n        ? "path_compare"\n        : hasStructuredFlow\n          ? "flow"\n          : effectivePrimarySkillId\n            ? "skill"\n            : hasMigratedSkills\n              ? "mixed"\n              : "legacy");',
+          )
+
+          # TrainingTypeSelector.tsx: expose mixed and same-question comparison.
+          path = Path("src/components/TrainingTypeSelector.tsx")
+          replace_once(
+              path,
+              '  makeSkillDrillSubtype,\n  parseSkillDrillSubtype,\n',
+              '  makeSkillDrillSubtype,\n  makeSmartTrainingSubtype,\n  parseSkillDrillSubtype,\n  parseSmartTrainingSubtype,\n',
+          )
+          replace_once(
+              path,
+              '  const skillDifficulty = encodedSkill?.difficultyBand ?? "L2";\n\n  return (',
+              '  const skillDifficulty = encodedSkill?.difficultyBand ?? "L2";\n  const smartTraining =\n    type === "skill_drill" ? parseSmartTrainingSubtype(subtype) : undefined;\n  const smartDifficulty = smartTraining?.difficultyBand ?? "L2";\n\n  return (',
+          )
+          smart_section = '''      <section aria-label="智能训练入口">\n        <h3>智能训练</h3>\n        <div className="grid trainingTypeGrid">\n          <button\n            aria-pressed={smartTraining?.mode === "mixed"}\n            className={smartTraining?.mode === "mixed" ? "selected" : ""}\n            onClick={() =>\n              onSelect(\n                "skill_drill",\n                makeSmartTrainingSubtype("mixed", smartDifficulty),\n              )\n            }\n            type="button"\n          >\n            混合训练\n          </button>\n          <button\n            aria-pressed={smartTraining?.mode === "path_compare"}\n            className={smartTraining?.mode === "path_compare" ? "selected" : ""}\n            onClick={() =>\n              onSelect(\n                "skill_drill",\n                makeSmartTrainingSubtype("path_compare", smartDifficulty),\n              )\n            }\n            type="button"\n          >\n            同题路径对比\n          </button>\n        </div>\n        {smartTraining && (\n          <section className="divisionRulePanel" aria-label="智能训练难度">\n            <p>难度</p>\n            <div className="divisionRuleOptions">\n              {(["L1", "L2", "L3"] as const).map((difficultyBand) => (\n                <button\n                  aria-pressed={smartDifficulty === difficultyBand}\n                  className={smartDifficulty === difficultyBand ? "selected" : ""}\n                  key={difficultyBand}\n                  onClick={() =>\n                    onSelect(\n                      "skill_drill",\n                      makeSmartTrainingSubtype(\n                        smartTraining.mode,\n                        difficultyBand,\n                      ),\n                    )\n                  }\n                  type="button"\n                >\n                  {difficultyBand}\n                </button>\n              ))}\n            </div>\n          </section>\n        )}\n      </section>\n\n'''
+          text = path.read_text()
+          marker = '      <section aria-label="纯计算能力专项入口">\n'
+          assert marker in text
+          path.write_text(text.replace(marker, smart_section + marker, 1))
+
+          # Selector tests include the two smart-mode buttons and encoded difficulty.
+          path = Path("src/components/TrainingTypeSelector.test.tsx")
+          replace_once(path, ').toHaveLength(34);', ').toHaveLength(36);')
+          replace_once(
+              path,
+              '    expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();',
+              '    expect(screen.getByRole("button", { name: "混合训练" })).toBeTruthy();\n    expect(screen.getByRole("button", { name: "同题路径对比" })).toBeTruthy();\n    expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();',
+          )
+          text = path.read_text()
+          marker = '  it("shows compact division rules only while their parent type is selected", () => {'
+          assert marker in text
+          test = '''  it("selects smart mixed/path modes and preserves their difficulty", () => {\n    render(<StatefulSelector />);\n\n    fireEvent.click(screen.getByRole("button", { name: "混合训练" }));\n    expect(\n      screen.getByRole("button", { name: "混合训练" }).getAttribute("aria-pressed"),\n    ).toBe("true");\n    expect(\n      screen.getByLabelText("智能训练难度").querySelector('[aria-pressed="true"]')?.textContent,\n    ).toBe("L2");\n\n    fireEvent.click(screen.getByLabelText("智能训练难度").querySelectorAll("button")[2]);\n    expect(\n      screen.getByLabelText("智能训练难度").querySelector('[aria-pressed="true"]')?.textContent,\n    ).toBe("L3");\n\n    fireEvent.click(screen.getByRole("button", { name: "同题路径对比" }));\n    expect(\n      screen.getByRole("button", { name: "同题路径对比" }).getAttribute("aria-pressed"),\n    ).toBe("true");\n  });\n\n'''
+          path.write_text(text.replace(marker, test + marker, 1))
+
+          # page.tsx: history-backed mixed generation, restart compatibility and insights UI.
+          path = Path("src/app/page.tsx")
+          replace_once(
+              path,
+              'import { HistoryCharts } from "@/components/HistoryCharts";\n',
+              'import { HistoryCharts } from "@/components/HistoryCharts";\nimport { SkillInsights } from "@/components/SkillInsights";\n',
+          )
+          text = path.read_text()
+          pattern = re.compile(
+              r'  const beginNewSession = \(\) => \{.*?\n  \};\n  const confirmQuestionCount =',
+              re.S,
+          )
+          replacement = '''  const beginNewSession = () => {\n    if (!isValidQuestionCount(count)) {\n      setStorageError("题量无效，请重新选择10或20题。");\n      return;\n    }\n    try {\n      const s = createTrainingSession({\n        userId: user,\n        ownerAccountId: identity?.id,\n        questionType: type,\n        subtype,\n        questionCount: count,\n        history,\n      });\n      sessionRef.current = s;\n      setSession(s);\n      setStorageError(null);\n      setView("training");\n    } catch (error) {\n      setStorageError(\n        error instanceof Error ? error.message : "创建训练失败，请稍后重试。",\n      );\n    }\n  };\n  const confirmQuestionCount ='''
+          text, count = pattern.subn(replacement, text, count=1)
+          assert count == 1
+          path.write_text(text)
+          replace_once(
+              path,
+              '        subtype: session.subtype,\n        questionCount: session.questionCount,\n      });',
+              '        subtype: session.subtype,\n        questionCount: session.questionCount,\n        history,\n      });',
+          )
+          replace_once(
+              path,
+              '        <RefreshNotice message={historyRefreshError} />\n        <HistoryCharts sessions={history} />',
+              '        <RefreshNotice message={historyRefreshError} />\n        <SkillInsights sessions={history} />\n        <HistoryCharts sessions={history} />',
+          )
+
+          # Keep the implementation commit focused and auditable.
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/types.ts src/lib/storage.ts src/lib/session.ts src/components/TrainingTypeSelector.tsx src/components/TrainingTypeSelector.test.tsx src/app/page.tsx
+          git commit -m "Integrate batch 8 smart training and mastery insights"
+          git push origin HEAD:master
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check types
+        run: npm run typecheck
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build application
+        run: npm run build
