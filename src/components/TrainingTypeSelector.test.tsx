@@ -107,10 +107,10 @@ describe("TrainingTypeSelector", () => {
     ).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: /C·除法补偿放缩/ }));
-    fireEvent.click(screen.getByRole("button", { name: "结果端求 r" }));
+    fireEvent.click(screen.getByRole("button", { name: "结果端r" }));
     expect(
       screen
-        .getByRole("button", { name: "结果端求 r" })
+        .getByRole("button", { name: "结果端r" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
   });
