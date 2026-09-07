@@ -3,6 +3,7 @@ import {
   GenerationContext,
   productionGenerationContext,
 } from "./generate";
+import { migrateExistingQuestionToSkillV2 } from "./legacy-skill-migration";
 import {
   isValidNewTrainingQuestionCount,
   isValidStoredQuestionCount,
@@ -57,15 +58,22 @@ export function createTrainingSession({
     throw new RangeError("Invalid question count");
   }
 
+  // Only newly generated questions are decorated with V2 capability metadata.
+  // Frozen legacy/PK question sets are preserved byte-for-byte so historical
+  // challenges and recoverable sessions never change meaning after an update.
+  const frozenQuestions =
+    questions ??
+    generateSet(questionType, subtype, questionCount, generationContext).map(
+      migrateExistingQuestionToSkillV2,
+    );
+
   return {
     id: createSessionId(),
     userId,
     questionType,
     subtype,
     questionCount,
-    questions:
-      questions ??
-      generateSet(questionType, subtype, questionCount, generationContext),
+    questions: frozenQuestions,
     currentIndex: 0,
     records: [],
     currentAnswer: "",
