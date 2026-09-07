@@ -117,13 +117,20 @@ describe("createTrainingSession", () => {
     ).toBe(true);
   });
 
-  it("temporarily encodes semantic choice and percent-block drills for the shared NumberPad", () => {
+  it("temporarily encodes semantic choice, sequence and percent-block drills for the shared NumberPad", () => {
     const choice = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
       subtype: "skill:B-R-05:L2",
       questionCount: 10,
       generationContext: deterministicContext("choice"),
+    });
+    const sequence = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:B-ORDER-01:L2",
+      questionCount: 10,
+      generationContext: deterministicContext("sequence"),
     });
     const split = createTrainingSession({
       userId: "fish",
@@ -140,6 +147,14 @@ describe("createTrainingSession", () => {
     });
     expect(choice.questions[0].prompt).toContain("1=");
 
+    expect(sequence.questions[0]).toMatchObject({ inputKind: "number" });
+    expect(sequence.questions[0].generatorParams).toMatchObject({
+      semanticInputKind: "sequence",
+      uiAdapter: "sequence_numeric_code_v1",
+    });
+    expect(sequence.questions[0].prompt).toContain("1=");
+    expect(sequence.questions[0].answer).toMatch(/^\d+$/);
+
     expect(split.questions[0]).toMatchObject({ inputKind: "number" });
     expect(split.questions[0].generatorParams).toMatchObject({
       semanticInputKind: "percent_blocks",
@@ -147,6 +162,37 @@ describe("createTrainingSession", () => {
     });
     expect(split.questions[0].prompt).toContain("按块依次输入代码");
     expect(split.questions[0].answer).toMatch(/^\d+$/);
+  });
+
+  it("creates batch-7 cross-operation compensation as a structured flow session", () => {
+    const session = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:C-XP-SCALE-01:L2",
+      questionCount: 10,
+      now: 12_000,
+      generationContext: deterministicContext("xp-scale"),
+    });
+
+    expect(session).toMatchObject({
+      schemaVersion: 2,
+      trainingMode: "flow",
+      primarySkillId: "C-XP-SCALE-01",
+      difficultyBand: "L2",
+      currentStepIndex: 0,
+      currentStepAnswer: "",
+      currentStepRecords: [],
+    });
+    expect(session.questions).toHaveLength(10);
+    expect(
+      session.questions.every(
+        (question) =>
+          question.skillId === "C-XP-SCALE-01" &&
+          question.inputKind === "steps" &&
+          question.stepSpecs?.length === 3,
+      ),
+    ).toBe(true);
+    expect(session.currentStepTimer?.runningSince).toBe(12_000);
   });
 
   it("creates an independent replacement instead of retaining old progress", () => {
