@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { generateQuestion } from "./generate";
+import { createTrainingSession } from "./session";
 import { readActive, saveSession } from "./storage";
 import { TrainingSession } from "./types";
 
@@ -62,6 +63,34 @@ describe("schema-v2 storage normalization", () => {
     expect(await readActive()).toMatchObject({
       id: "scale",
       subtype: "hundred_scaling",
+    });
+  });
+
+  it("restores encoded foundation skill subtypes and generated metadata", async () => {
+    const session = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:A-PCT-06:L3",
+      questionCount: 10,
+      now: 100,
+      createSessionId: () => "foundation-storage",
+    });
+    await saveSession(session);
+
+    const restored = await readActive();
+    expect(restored).toMatchObject({
+      id: "foundation-storage",
+      questionType: "skill_drill",
+      subtype: "skill:A-PCT-06:L3",
+      primarySkillId: "A-PCT-06",
+      difficultyBand: "L3",
+      trainingMode: "skill",
+    });
+    expect(restored?.questions[0]).toMatchObject({
+      type: "skill_drill",
+      subtype: "skill_drill",
+      skillId: "A-PCT-06",
+      difficultyBand: "L3",
     });
   });
 
