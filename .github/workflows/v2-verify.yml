@@ -1,0 +1,54 @@
+name: V2 Verify
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Format only V2-touched files in the ephemeral runner
+        run: >-
+          npx prettier --write
+          src/app/page.test.tsx
+          src/components/QuestionCountDialog.tsx
+          src/components/QuestionCountDialog.test.tsx
+          src/components/StructuredAnswerInput.tsx
+          src/components/StructuredAnswerInput.test.tsx
+          src/lib/cloud.ts
+          src/lib/data-export.ts
+          src/lib/data-export-files.ts
+          src/lib/data-export.test.ts
+          src/lib/question-count.ts
+          src/lib/question-count.test.ts
+          src/lib/session.ts
+          src/lib/session.test.ts
+          src/lib/skill-registry.ts
+          src/lib/skill-registry.test.ts
+          src/lib/storage.ts
+          src/lib/storage-v2.test.ts
+          src/lib/timer.ts
+          src/lib/timer.v2.test.ts
+          src/lib/training.ts
+          src/lib/training-v2.test.ts
+          src/lib/types.ts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
