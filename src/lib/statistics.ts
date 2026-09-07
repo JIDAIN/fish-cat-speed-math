@@ -46,7 +46,21 @@ const TARGETS: Partial<Record<`${QuestionType}:${Subtype}`, RatingTarget>> = {
 };
 
 /**
- * Returns the configured reference targets for a question type.
+ * Skill-drill sessions use capability mastery rather than the historical
+ * question-type rating scale. Frozen legacy ratings stay untouched.
+ */
+export function usesLegacyRating(
+  sessionOrType: Pick<TrainingSession, "questionType"> | QuestionType,
+) {
+  const type =
+    typeof sessionOrType === "string"
+      ? sessionOrType
+      : sessionOrType.questionType;
+  return type !== "skill_drill";
+}
+
+/**
+ * Returns the configured reference targets for a legacy question type.
  * The displayed times refer to its standard set size; scoring scales them by count.
  */
 export function ratingTarget(
@@ -55,11 +69,12 @@ export function ratingTarget(
 ): RatingTarget {
   const configured = TARGETS[`${type}:${subtype}` as keyof typeof TARGETS];
   if (!configured)
-    throw new Error(`Missing rating target for ${type}:${subtype}`);
+    throw new Error(`Missing legacy rating target for ${type}:${subtype}`);
   return configured;
 }
 
 export function subtypesForType(type: QuestionType): Subtype[] {
+  if (type === "skill_drill") return [];
   if (type === "three_by_two_division")
     return ["quotient_first", "quotient_two", "quotient_estimate_3_percent"];
   if (type === "multi_digit_division") return ["quotient_two"];
@@ -99,6 +114,8 @@ const requiredCorrect = (
 };
 
 export function ratingStandards(session: TrainingSession): RatingStandard[] {
+  if (!usesLegacyRating(session))
+    throw new Error("Skill drills do not use legacy rating standards");
   const configured = ratingTarget(session.questionType, session.subtype);
   const count = session.questions.length;
   const multiplier = count / configured.questionCount;
@@ -122,6 +139,8 @@ export function ratingStandards(session: TrainingSession): RatingStandard[] {
 }
 
 export function assessRating(session: TrainingSession) {
+  if (!usesLegacyRating(session))
+    throw new Error("Skill drills are assessed by capability mastery, not legacy rating");
   const metrics = sessionMetrics(session);
   const seconds = session.accumulatedMs / 1000;
   const standards = ratingStandards(session);
@@ -159,7 +178,12 @@ export function assessRating(session: TrainingSession) {
   };
 }
 
+/**
+ * Legacy sessions freeze the rating at completion. Skill drills deliberately
+ * leave rating undefined because their status is accumulated by skill_id.
+ */
 export function createRatingSnapshot(session: TrainingSession) {
+  if (!usesLegacyRating(session)) return undefined;
   const assessment = assessRating(session);
   return {
     version: RATING_VERSION,
@@ -170,9 +194,11 @@ export function createRatingSnapshot(session: TrainingSession) {
   };
 }
 
-/** New completions use a frozen snapshot; legacy history keeps its old dynamic display. */
-export function getRating(session: TrainingSession): Rating {
-  return session.rating?.level ?? assessRating(session).level;
+/** New legacy completions use a frozen snapshot; skill drills have no legacy grade. */
+export function getRating(session: TrainingSession): Rating | undefined {
+  if (session.rating?.level) return session.rating.level;
+  if (!usesLegacyRating(session)) return undefined;
+  return assessRating(session).level;
 }
 
 export type HistorySummary = {
@@ -203,7 +229,7 @@ export function summarizeHistory(sessions: TrainingSession[]): HistorySummary {
     (result, session) => {
       const metrics = sessionMetrics(session);
       const rating = getRating(session);
-      ratingCounts[rating] += 1;
+      if (rating) ratingCounts[rating] += 1;
       return {
         questionCount: result.questionCount + metrics.questionCount,
         correctCount: result.correctCount + metrics.correctCount,
@@ -212,7 +238,9 @@ export function summarizeHistory(sessions: TrainingSession[]): HistorySummary {
     },
     { questionCount: 0, correctCount: 0, elapsedMs: 0 },
   );
-  const ratings = completed.map(getRating);
+  const ratings = completed
+    .map(getRating)
+    .filter((rating): rating is Rating => rating !== undefined);
   return {
     sessionCount: completed.length,
     questionCount: totals.questionCount,
