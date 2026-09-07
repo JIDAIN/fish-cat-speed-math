@@ -3,11 +3,12 @@ import {
   GenerationContext,
   productionGenerationContext,
 } from "./generate";
-import { migrateExistingQuestionToSkillV2 } from "./legacy-skill-migration";
 import {
-  generateFoundationSkillSet,
-  isFoundationSkillId,
-} from "./skill-generate";
+  generateSkillDrillSet,
+  ImplementedSkillId,
+  isImplementedSkillId,
+} from "./implemented-skill-drills";
+import { migrateExistingQuestionToSkillV2 } from "./legacy-skill-migration";
 import {
   isValidNewTrainingQuestionCount,
   isValidStoredQuestionCount,
@@ -46,37 +47,120 @@ function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
   return unique.length === 1 ? unique[0] : undefined;
 }
 
+const percentBlockNumericCodes: Readonly<Record<string, string>> = {
+  "25": "1",
+  "20": "2",
+  "12.5": "3",
+  "10": "4",
+  "5": "5",
+  "3": "6",
+  "2.5": "7",
+  "2": "8",
+  "1": "9",
+  "0.1": "0",
+};
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(String);
+}
+
+function encodeSemanticAllowedAnswers(
+  values: readonly (string | number | boolean)[] | undefined,
+  encode: (value: string) => string | undefined,
+): string[] | undefined {
+  if (!values?.length) return undefined;
+  const encoded = values
+    .map((value) => encode(String(value)))
+    .filter((value): value is string => value !== undefined);
+  return encoded.length ? Array.from(new Set(encoded)) : undefined;
+}
+
 /**
- * The V2 generator already models A-PLACE-05 as a category-choice question.
- * The current shared training page still exposes NumberPad for generic skill
- * drills, so encode the five magnitude categories as 0–4 until the common
- * choice renderer is wired into that page. The skill ID and target meaning do
- * not change, and the adapter is recorded in generatorParams for analysis.
+ * The shared training screen still uses NumberPad for generic skill drills.
+ * Until the structured V2 renderer is connected there, semantic choices and
+ * percentage-block paths are encoded as short numeric codes. The semantic
+ * generator output remains frozen in generatorParams so exported data can
+ * distinguish the temporary UI adapter from the underlying trained skill.
  */
-function adaptFoundationQuestionToCurrentTrainingUi(
+function adaptSkillQuestionToCurrentTrainingUi(
   question: GeneratedQuestion,
 ): GeneratedQuestion {
-  if (question.skillId !== "A-PLACE-05") return question;
-  const magnitudeCode: Record<string, string> = {
-    个: "0",
-    十: "1",
-    百: "2",
-    千: "3",
-    万: "4",
-  };
-  const encodedAnswer = magnitudeCode[question.answer];
-  if (encodedAnswer === undefined) return question;
-  return {
-    ...question,
-    prompt: `${question.prompt}（个=0、十=1、百=2、千=3、万=4）`,
-    answer: encodedAnswer,
-    inputKind: "number",
-    allowedAnswerSet: [encodedAnswer],
-    generatorParams: {
-      ...(question.generatorParams ?? {}),
-      uiAdapter: "magnitude_category_numeric_code_v1",
-    },
-  };
+  if (question.inputKind === "choice") {
+    const values = stringArray(question.data.choiceValues);
+    const labels = stringArray(question.data.choiceLabels);
+    if (!values.length || values.length !== labels.length) return question;
+
+    const codeFor = (semanticValue: string) => {
+      const index = values.indexOf(semanticValue);
+      return index < 0 ? undefined : String(index + 1);
+    };
+    const encodedAnswer = codeFor(question.answer);
+    if (!encodedAnswer) return question;
+    const encodedAllowed = encodeSemanticAllowedAnswers(
+      question.allowedAnswerSet,
+      codeFor,
+    );
+    const legend = labels
+      .map((label, index) => `${index + 1}=${label}`)
+      .join("；");
+    return {
+      ...question,
+      prompt: `${question.prompt}（${legend}）`,
+      answer: encodedAnswer,
+      inputKind: "number",
+      allowedAnswerSet: encodedAllowed ?? [encodedAnswer],
+      generatorParams: {
+        ...(question.generatorParams ?? {}),
+        semanticInputKind: "choice",
+        semanticAnswer: question.answer,
+        uiAdapter: "choice_numeric_code_v1",
+      },
+    };
+  }
+
+  if (question.inputKind === "percent_blocks") {
+    const encodePath = (path: string) => {
+      const blocks = path.split(",").filter(Boolean);
+      const codes = blocks.map((block) => percentBlockNumericCodes[block]);
+      return codes.some((code) => code === undefined)
+        ? undefined
+        : codes.join("");
+    };
+    const encodedAnswer = encodePath(question.answer);
+    if (!encodedAnswer) return question;
+    const encodedAllowed = encodeSemanticAllowedAnswers(
+      question.allowedAnswerSet,
+      encodePath,
+    );
+    const legend = [
+      "1=25%",
+      "2=20%",
+      "3=12.5%",
+      "4=10%",
+      "5=5%",
+      "6=3%",
+      "7=2.5%",
+      "8=2%",
+      "9=1%",
+      "0=0.1%",
+    ].join("；");
+    return {
+      ...question,
+      prompt: `${question.prompt}（按块依次输入代码：${legend}）`,
+      answer: encodedAnswer,
+      inputKind: "number",
+      allowedAnswerSet: encodedAllowed ?? [encodedAnswer],
+      generatorParams: {
+        ...(question.generatorParams ?? {}),
+        semanticInputKind: "percent_blocks",
+        semanticAnswer: question.answer,
+        uiAdapter: "percent_blocks_numeric_code_v1",
+      },
+    };
+  }
+
+  return question;
 }
 
 /** Creates one entirely fresh training run from frozen training parameters. */
@@ -116,20 +200,20 @@ export function createTrainingSession({
   if (
     newlyGenerated &&
     questionType === "skill_drill" &&
-    !isFoundationSkillId(requestedSkillId)
+    !isImplementedSkillId(requestedSkillId)
   ) {
-    throw new Error("skill_drill sessions require an implemented foundation skill ID");
+    throw new Error("skill_drill sessions require an implemented skill ID");
   }
 
   const frozenQuestions =
     questions ??
     (questionType === "skill_drill"
-      ? generateFoundationSkillSet(
-          requestedSkillId as Parameters<typeof generateFoundationSkillSet>[0],
+      ? generateSkillDrillSet(
+          requestedSkillId as ImplementedSkillId,
           requestedSkillDifficulty,
           questionCount,
           generationContext,
-        ).map(adaptFoundationQuestionToCurrentTrainingUi)
+        ).map(adaptSkillQuestionToCurrentTrainingUi)
       : generateSet(questionType, subtype, questionCount, generationContext).map(
           migrateExistingQuestionToSkillV2,
         ));
