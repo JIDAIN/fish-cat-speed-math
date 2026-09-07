@@ -21,6 +21,66 @@ export type Subtype =
   | "comparison"
   | "carry_intensive"
   | "hundred_scaling";
+
+/** V2 capability identifiers use the A/B/C pure-computation tree. */
+export type SkillId = `${"A" | "B" | "C"}-${string}`;
+export type DifficultyBand = "L1" | "L2" | "L3";
+export type MasteryProfile = "R" | "C" | "D" | "S" | "F";
+export type TrainingMode =
+  | "legacy"
+  | "skill"
+  | "flow"
+  | "mixed"
+  | "diagnostic"
+  | "path_compare";
+export type TargetPrecision =
+  | "exact"
+  | "1%"
+  | "3%"
+  | "5%"
+  | "range"
+  | "magnitude";
+export type StructuredInputKind =
+  | "number"
+  | "choice"
+  | "percent_blocks"
+  | "sequence"
+  | "steps";
+export type AnswerValue = string | number | boolean;
+export type QuestionDataValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | number[];
+export type GeneratorParams = Record<string, QuestionDataValue>;
+
+export interface QuestionStepSpec {
+  id: string;
+  stepSkillId?: SkillId;
+  stepType: string;
+  prompt: string;
+  inputKind: StructuredInputKind;
+  expectedValue?: AnswerValue;
+  allowedAnswerSet?: AnswerValue[];
+  targetPrecision?: TargetPrecision;
+}
+
+export interface StepRecord {
+  stepId: string;
+  stepSkillId?: SkillId;
+  stepType: string;
+  userValue?: AnswerValue;
+  expectedValue?: AnswerValue;
+  decisionValue?: string;
+  isCorrect: boolean;
+  durationMs: number;
+  submitCount: number;
+  editCount: number;
+  skipped: boolean;
+  timingInterrupted: boolean;
+}
+
 export interface GeneratedQuestion {
   id: string;
   type: QuestionType;
@@ -28,13 +88,24 @@ export interface GeneratedQuestion {
   prompt: string;
   answer: string;
   acceptedRange?: { min: number; max: number };
-  data: Record<string, string | number | boolean | string[]>;
+  data: Record<string, QuestionDataValue>;
   difficulty: { level: 1 | 2 | 3 | 4 | 5; tags: string[] };
-  /** Unique category used for future deterministic question-set quotas. */
+  /** Unique category used for deterministic question-set quotas. */
   primaryStructure: string;
   /** Additional descriptive traits; unlike primaryStructure, these may overlap. */
   secondaryTags: string[];
   generationRuleVersion: string;
+  /** V2 fields are optional so frozen V1 questions remain readable. */
+  skillId?: SkillId;
+  secondarySkillIds?: SkillId[];
+  difficultyBand?: DifficultyBand;
+  structureTags?: string[];
+  targetPrecision?: TargetPrecision;
+  generatorParams?: GeneratorParams;
+  allowedAnswerSet?: AnswerValue[];
+  masteryProfile?: MasteryProfile;
+  inputKind?: StructuredInputKind;
+  stepSpecs?: QuestionStepSpec[];
 }
 export interface QuestionRecord {
   question: GeneratedQuestion;
@@ -45,6 +116,13 @@ export interface QuestionRecord {
   /** Retained so historical records created by the former per-question restart remain readable. */
   restartCount: number;
   usedScratchpad: boolean;
+  /** V2 diagnostics; optional for legacy history. */
+  relativeError?: number;
+  submitCount?: number;
+  editCount?: number;
+  skipped?: boolean;
+  timingInterrupted?: boolean;
+  steps?: StepRecord[];
 }
 export interface RatingSnapshot {
   version: string;
@@ -88,6 +166,11 @@ export interface TrainingSession {
   pkChallengeId?: string;
   /** The PK result still needs its separate, idempotent cloud submission. */
   pkSyncStatus?: "not_synced" | "syncing" | "synced" | "failed";
+  /** V2 session metadata. Missing means a legacy schema-v1 record. */
+  schemaVersion?: 1 | 2;
+  trainingMode?: TrainingMode;
+  primarySkillId?: SkillId;
+  difficultyBand?: DifficultyBand;
 }
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",
