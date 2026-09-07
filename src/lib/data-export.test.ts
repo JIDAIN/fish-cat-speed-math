@@ -14,7 +14,7 @@ const row = (
   generator_version: "2.6.0",
   grading_version: "1.0.0",
   rating_version: "2.0.0",
-  schema_version: 1,
+  schema_version: 2,
   completed_at: "2026-08-01T00:00:00Z",
   real_completed_at: "2026-08-01T00:01:00Z",
   created_at: "2026-08-01T00:02:00Z",
@@ -22,6 +22,10 @@ const row = (
     id: "session-1",
     questionType: "three_by_two_division",
     subtype: "quotient_estimate_3_percent",
+    schemaVersion: 2,
+    trainingMode: "skill",
+    primarySkillId: "C-DIV-01",
+    difficultyBand: "L2",
     startedAt: 1000,
     completedAt: 2000,
     accumulatedMs: 900,
@@ -33,6 +37,15 @@ const row = (
         id: "q1",
         type: "three_by_two_division",
         subtype: "quotient_estimate_3_percent",
+        skillId: "C-DIV-01",
+        secondarySkillIds: ["A-MAG-01"],
+        difficultyBand: "L2",
+        structureTags: ["near_estimate_boundary"],
+        targetPrecision: "3%",
+        masteryProfile: "F",
+        inputKind: "number",
+        generatorParams: { quotientBand: "1_to_10" },
+        allowedAnswerSet: [],
         prompt: "=danger",
         answer: "10",
         data: {
@@ -66,7 +79,26 @@ const row = (
         userAnswer: "0",
         isCorrect: true,
         accuracyLevel: "accepted",
+        relativeError: 0.01,
         timeUsedMs: 900,
+        submitCount: 1,
+        editCount: 2,
+        skipped: false,
+        timingInterrupted: false,
+        steps: [
+          {
+            stepId: "trial",
+            stepSkillId: "C-DIV-06",
+            stepType: "trial_quotient",
+            userValue: 2,
+            isCorrect: true,
+            durationMs: 300,
+            submitCount: 1,
+            editCount: 0,
+            skipped: false,
+            timingInterrupted: false,
+          },
+        ],
         usedScratchpad: true,
         restartCount: 0,
       },
@@ -90,23 +122,81 @@ describe("data export conversion", () => {
       training_source_raw: "pk",
       training_source_normalized: "pk",
       training_source_inferred: false,
+      schema_version: 2,
+      training_mode: "skill",
+      primary_skill_id: "C-DIV-01",
+      difficulty_band: "L2",
       completed_at_ms: 2000,
       median_question_ms: 900,
     });
     expect(result.questions).toHaveLength(2);
     expect(result.questions[0]).toMatchObject({
+      skill_id: "C-DIV-01",
+      difficulty_band: "L2",
+      target_precision: "3%",
+      mastery_profile: "F",
       user_answer: "0",
       accuracy_level: "accepted",
+      relative_error: 0.01,
+      submit_count: 1,
+      edit_count: 2,
+      timing_interrupted: false,
       accepted_range_min: 9.7,
       used_scratchpad: true,
+    });
+    expect(JSON.parse(result.questions[0].steps_json)).toMatchObject([
+      { step_skill_id: undefined },
+    ]);
+    // Raw step JSON preserves the application's camelCase source shape.
+    expect(JSON.parse(result.questions[0].steps_json)[0]).toMatchObject({
+      stepSkillId: "C-DIV-06",
+      durationMs: 300,
     });
     expect(result.questions[1]).toMatchObject({
       answer_record_present: false,
       user_answer: null,
       is_correct: null,
+      skill_id: null,
     });
     expect(result.archive.raw_cloud_rows[0].session_data).toMatchObject({
       unknownFutureField: { retained: true },
+    });
+  });
+
+  it("leaves legacy skill fields empty instead of inventing a mapping", () => {
+    const legacy = row({
+      schema_version: 1,
+      session_data: {
+        ...row().session_data,
+        trainingMode: undefined,
+        primarySkillId: undefined,
+        difficultyBand: undefined,
+        questions: [
+          {
+            id: "legacy-q",
+            type: "three_by_two_division",
+            subtype: "quotient_two",
+            prompt: "10÷3",
+            answer: "3.3",
+            data: {},
+            difficulty: { level: 3, tags: [] },
+            primaryStructure: "legacy",
+            secondaryTags: [],
+            generationRuleVersion: "legacy",
+          },
+        ],
+        records: [],
+      },
+    });
+    const result = createDataExport([legacy]);
+    expect(result.trainings[0]).toMatchObject({
+      schema_version: 1,
+      primary_skill_id: null,
+      difficulty_band: null,
+    });
+    expect(result.questions[0]).toMatchObject({
+      skill_id: null,
+      difficulty_band: null,
     });
   });
 
