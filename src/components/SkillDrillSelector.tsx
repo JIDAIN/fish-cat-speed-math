@@ -184,6 +184,28 @@ const groups: readonly SkillDrillGroup[] = [
       "C-DIVSPLIT-11",
     ],
   },
+  {
+    id: "c_division_scale",
+    label: "C·除法补偿放缩",
+    description: "明显倍数、选基准、修分子/修结果、一阶停止与低频二阶",
+    skillIds: [
+      "C-DIVSCALE-01",
+      "C-DIVSCALE-02",
+      "C-DIVSCALE-03",
+      "C-DIVSCALE-04",
+      "C-DIVSCALE-05",
+      "C-DIVSCALE-06",
+      "C-DIVSCALE-07",
+      "C-DIVSCALE-08",
+      "C-DIVSCALE-09",
+      "C-DIVSCALE-10",
+      "C-DIVSCALE-11",
+      "C-DIVSCALE-12",
+      "C-DIVSCALE-13",
+      "C-DIVSCALE-14",
+      "C-DIVSCALE-15",
+    ],
+  },
 ];
 
 const difficultyOptions: readonly {
