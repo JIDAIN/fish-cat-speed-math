@@ -36,6 +36,10 @@ const trainingFields: Field[] = [
     "无",
   ],
   ["training_source_inferred", "来源是否推断", "布尔", "", "派生", "无"],
+  ["schema_version", "会话 Schema 版本", "数值", "", "原始", "无"],
+  ["training_mode", "训练模式", "文本", "", "原始", "旧记录为空"],
+  ["primary_skill_id", "主能力 ID", "文本", "", "原始", "旧记录为空"],
+  ["difficulty_band", "能力难度档", "文本", "L1/L2/L3", "原始", "旧记录为空"],
   ["question_type", "题型", "文本", "", "原始", "无"],
   ["subtype", "子模式", "文本", "", "原始", "无"],
   [
@@ -119,6 +123,15 @@ const questionFields: Field[] = [
   ["question_index", "题目顺序", "数值", "从 1 开始", "派生", "无"],
   ["question_type", "题型", "文本", "", "原始", "旧记录异常时为空"],
   ["subtype", "子模式", "文本", "", "原始", "旧记录异常时为空"],
+  ["skill_id", "能力 ID", "文本", "", "原始", "旧记录为空，不强行推断"],
+  ["secondary_skill_ids_json", "辅助能力 ID JSON", "文本", "JSON", "原始", "旧记录为空数组"],
+  ["difficulty_band", "能力难度档", "文本", "L1/L2/L3", "原始", "旧记录为空"],
+  ["structure_tags_json", "V2 结构标签 JSON", "文本", "JSON", "原始", "旧记录为空数组"],
+  ["target_precision", "目标精度", "文本", "", "原始", "旧记录为空"],
+  ["mastery_profile", "掌握档类型", "文本", "R/C/D/S/F", "原始", "旧记录为空"],
+  ["input_kind", "结构化输入类型", "文本", "", "原始", "旧记录为空"],
+  ["generator_params_json", "生成参数 JSON", "文本", "JSON", "原始", "旧记录为空对象"],
+  ["allowed_answer_set_json", "允许答案集合 JSON", "文本", "JSON", "原始", "旧记录为空数组"],
   ["prompt", "题面", "文本", "", "原始", "旧记录异常时为空"],
   ["correct_answer", "正确答案", "文本", "", "原始", "旧记录异常时为空"],
   [
@@ -132,7 +145,13 @@ const questionFields: Field[] = [
   ["answer_record_present", "存在作答记录", "布尔", "", "派生", "无"],
   ["is_correct", "是否正确", "布尔", "", "原始", "无作答记录时为空"],
   ["accuracy_level", "判定层级", "文本", "", "原始", "无作答记录时为空"],
+  ["relative_error", "相对误差", "数值", "0–1", "派生/原始", "非数值题或旧记录为空"],
   ["time_used_ms", "单题有效用时", "数值", "ms", "原始", "无作答记录时为空"],
+  ["submit_count", "提交次数", "数值", "次", "原始", "旧记录为空"],
+  ["edit_count", "修改次数", "数值", "次", "原始", "旧记录为空"],
+  ["skipped", "是否跳过", "布尔", "", "原始", "旧记录为空"],
+  ["timing_interrupted", "计时是否中断", "布尔", "", "原始", "旧记录为空"],
+  ["steps_json", "步骤明细 JSON", "文本", "JSON", "原始", "旧记录为空数组"],
   ["used_scratchpad", "使用草稿", "布尔", "", "原始", "无作答记录时为空"],
   [
     "restart_count",
@@ -143,8 +162,8 @@ const questionFields: Field[] = [
     "无作答记录时为空",
     "当前整组重开流程通常为 0。",
   ],
-  ["difficulty_level", "难度等级", "数值", "1–5", "原始", "旧记录缺失时为空"],
-  ["difficulty_tags_json", "难度标签 JSON", "文本", "JSON", "原始", "无"],
+  ["difficulty_level", "旧版难度等级", "数值", "1–5", "原始", "旧记录缺失时为空"],
+  ["difficulty_tags_json", "旧版难度标签 JSON", "文本", "JSON", "原始", "无"],
   [
     "primary_structure",
     "主结构",
@@ -175,11 +194,11 @@ const questionFields: Field[] = [
   ["percent_answer", "百分数答案", "文本", "", "原始", "不适用时为空"],
   [
     "special_baseline",
-    "专项整百基准",
+    "旧整百专项基准",
     "数值",
     "",
     "原始",
-    "非整百放缩专项时为空",
+    "非旧整百放缩专项时为空",
   ],
   [
     "relative_deviation",
@@ -187,7 +206,7 @@ const questionFields: Field[] = [
     "数值",
     "0–1",
     "原始",
-    "非整百放缩专项时为空",
+    "非旧整百放缩专项时为空",
   ],
   [
     "correction_direction",
@@ -195,7 +214,7 @@ const questionFields: Field[] = [
     "文本",
     "",
     "原始",
-    "非整百放缩专项时为空",
+    "非旧整百放缩专项时为空",
   ],
   ["carry_load", "进位负荷", "数值", "", "原始", "非两位数乘法专项时为空"],
   ["question_data_json", "题目原始数据 JSON", "文本", "JSON", "原始", "无"],
@@ -327,6 +346,7 @@ export function createXlsxBlob(data: DataExport) {
     median_question_ms: "0",
   });
   applyColumnFormats(questions, questionFields, {
+    relative_error: "0.000%",
     time_used_ms: "0",
   });
   documentation["!cols"] = [
