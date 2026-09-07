@@ -14,6 +14,7 @@ import {
 } from "./question-count";
 import {
   DifficultyBand,
+  GeneratedQuestion,
   parseSkillDrillSubtype,
   QuestionType,
   SkillId,
@@ -43,6 +44,39 @@ function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
     new Set(values.filter((value): value is T => value !== undefined)),
   );
   return unique.length === 1 ? unique[0] : undefined;
+}
+
+/**
+ * The V2 generator already models A-PLACE-05 as a category-choice question.
+ * The current shared training page still exposes NumberPad for generic skill
+ * drills, so encode the five magnitude categories as 0–4 until the common
+ * choice renderer is wired into that page. The skill ID and target meaning do
+ * not change, and the adapter is recorded in generatorParams for analysis.
+ */
+function adaptFoundationQuestionToCurrentTrainingUi(
+  question: GeneratedQuestion,
+): GeneratedQuestion {
+  if (question.skillId !== "A-PLACE-05") return question;
+  const magnitudeCode: Record<string, string> = {
+    个: "0",
+    十: "1",
+    百: "2",
+    千: "3",
+    万: "4",
+  };
+  const encodedAnswer = magnitudeCode[question.answer];
+  if (encodedAnswer === undefined) return question;
+  return {
+    ...question,
+    prompt: `${question.prompt}（个=0、十=1、百=2、千=3、万=4）`,
+    answer: encodedAnswer,
+    inputKind: "number",
+    allowedAnswerSet: [encodedAnswer],
+    generatorParams: {
+      ...(question.generatorParams ?? {}),
+      uiAdapter: "magnitude_category_numeric_code_v1",
+    },
+  };
 }
 
 /** Creates one entirely fresh training run from frozen training parameters. */
@@ -95,7 +129,7 @@ export function createTrainingSession({
           requestedSkillDifficulty,
           questionCount,
           generationContext,
-        )
+        ).map(adaptFoundationQuestionToCurrentTrainingUi)
       : generateSet(questionType, subtype, questionCount, generationContext).map(
           migrateExistingQuestionToSkillV2,
         ));
