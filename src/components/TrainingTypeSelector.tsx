@@ -1,5 +1,5 @@
-import { FoundationSkillSelector } from "@/components/FoundationSkillSelector";
-import { isFoundationSkillId } from "@/lib/skill-generate";
+import { SkillDrillSelector } from "@/components/SkillDrillSelector";
+import { isImplementedSkillId } from "@/lib/implemented-skill-drills";
 import {
   makeSkillDrillSubtype,
   parseSkillDrillSubtype,
@@ -121,34 +121,31 @@ export function TrainingTypeSelector({
 }: TrainingTypeSelectorProps) {
   const encodedSkill =
     type === "skill_drill" ? parseSkillDrillSubtype(subtype) : undefined;
-  const selectedFoundationSkillId = isFoundationSkillId(encodedSkill?.skillId)
+  const selectedSkillId = isImplementedSkillId(encodedSkill?.skillId)
     ? encodedSkill.skillId
     : undefined;
-  const foundationDifficulty = encodedSkill?.difficultyBand ?? "L2";
+  const skillDifficulty = encodedSkill?.difficultyBand ?? "L2";
 
   return (
     <>
-      <section aria-label="基础自动化专项入口">
-        <h3>基础自动化专项</h3>
-        <FoundationSkillSelector
-          difficultyBand={foundationDifficulty}
+      <section aria-label="纯计算能力专项入口">
+        <h3>纯计算能力专项</h3>
+        <SkillDrillSelector
+          difficultyBand={skillDifficulty}
           onDifficultyChange={(difficultyBand) => {
-            if (!selectedFoundationSkillId) return;
+            if (!selectedSkillId) return;
             onSelect(
               "skill_drill",
-              makeSkillDrillSubtype(
-                selectedFoundationSkillId,
-                difficultyBand,
-              ),
+              makeSkillDrillSubtype(selectedSkillId, difficultyBand),
             );
           }}
           onSelectSkill={(skillId) =>
             onSelect(
               "skill_drill",
-              makeSkillDrillSubtype(skillId, foundationDifficulty),
+              makeSkillDrillSubtype(skillId, skillDifficulty),
             )
           }
-          selectedSkillId={selectedFoundationSkillId}
+          selectedSkillId={selectedSkillId}
         />
       </section>
 
