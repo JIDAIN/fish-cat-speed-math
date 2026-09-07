@@ -1,9 +1,9 @@
 import { CloudCompletedTrainingRow } from "./cloud";
 import { CloudMatchRow } from "./fraction-percent-match-cloud";
 
-export const DATA_EXPORT_SCHEMA_VERSION = "1.0.0";
+export const DATA_EXPORT_SCHEMA_VERSION = "2.0.0";
 
-type Value = string | number | boolean | string[] | undefined;
+type Value = string | number | boolean | string[] | number[] | undefined;
 type UnknownRecord = Record<string, unknown>;
 
 export type TrainingExportRow = {
@@ -11,6 +11,10 @@ export type TrainingExportRow = {
   training_source_raw: string | null;
   training_source_normalized: "normal" | "pk";
   training_source_inferred: boolean;
+  schema_version: number;
+  training_mode: string | null;
+  primary_skill_id: string | null;
+  difficulty_band: string | null;
   question_type: string;
   subtype: string;
   started_at_ms: number | null;
@@ -36,13 +40,28 @@ export type QuestionExportRow = {
   question_index: number;
   question_type: string | null;
   subtype: string | null;
+  skill_id: string | null;
+  secondary_skill_ids_json: string;
+  difficulty_band: string | null;
+  structure_tags_json: string;
+  target_precision: string | null;
+  mastery_profile: string | null;
+  input_kind: string | null;
+  generator_params_json: string;
+  allowed_answer_set_json: string;
   prompt: string | null;
   correct_answer: string | null;
   user_answer: string | null;
   answer_record_present: boolean;
   is_correct: boolean | null;
   accuracy_level: string | null;
+  relative_error: number | null;
   time_used_ms: number | null;
+  submit_count: number | null;
+  edit_count: number | null;
+  skipped: boolean | null;
+  timing_interrupted: boolean | null;
+  steps_json: string;
   used_scratchpad: boolean | null;
   restart_count: number | null;
   difficulty_level: number | null;
@@ -203,6 +222,10 @@ export function createDataExport(
       training_source_raw: rawSource,
       training_source_normalized: normalized,
       training_source_inferred: rawSource === null || !sourceKnown,
+      schema_version: row.schema_version,
+      training_mode: string(session.trainingMode),
+      primary_skill_id: string(session.primarySkillId),
+      difficulty_band: string(session.difficultyBand),
       question_type: string(session.questionType) ?? row.question_type,
       subtype: string(session.subtype) ?? row.subtype,
       started_at_ms: startedAt,
@@ -240,13 +263,28 @@ export function createDataExport(
         question_index: index + 1,
         question_type: string(question.type),
         subtype: string(question.subtype),
+        skill_id: string(question.skillId),
+        secondary_skill_ids_json: json(question.secondarySkillIds ?? []),
+        difficulty_band: string(question.difficultyBand),
+        structure_tags_json: json(question.structureTags ?? []),
+        target_precision: string(question.targetPrecision),
+        mastery_profile: string(question.masteryProfile),
+        input_kind: string(question.inputKind),
+        generator_params_json: json(question.generatorParams ?? {}),
+        allowed_answer_set_json: json(question.allowedAnswerSet ?? []),
         prompt: string(question.prompt),
         correct_answer: string(question.answer),
         user_answer: answer ? string(answer.userAnswer) : null,
         answer_record_present: Boolean(answer),
         is_correct: answer ? boolean(answer.isCorrect) : null,
         accuracy_level: answer ? string(answer.accuracyLevel) : null,
+        relative_error: answer ? number(answer.relativeError) : null,
         time_used_ms: answer ? number(answer.timeUsedMs) : null,
+        submit_count: answer ? number(answer.submitCount) : null,
+        edit_count: answer ? number(answer.editCount) : null,
+        skipped: answer ? boolean(answer.skipped) : null,
+        timing_interrupted: answer ? boolean(answer.timingInterrupted) : null,
+        steps_json: answer ? json(answer.steps ?? []) : json([]),
         used_scratchpad: answer ? boolean(answer.usedScratchpad) : null,
         restart_count: answer ? number(answer.restartCount) : null,
         difficulty_level: number(difficulty.level),
@@ -289,6 +327,8 @@ export function createDataExport(
         note: "This is a machine-readable archive, not a verified restorable backup.",
         legacy_completed_at_note:
           "raw_cloud_rows.completed_at historically stores startedAt, not real completion time.",
+        v2_note:
+          "Skill, difficulty-band and step fields are present only on schema-v2 capable records; legacy values remain empty rather than being guessed.",
         training_count: trainings.length,
         question_count: questions.length,
         fraction_percent_match_record_count:
