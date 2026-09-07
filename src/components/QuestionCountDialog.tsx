@@ -2,8 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  DEFAULT_CUSTOM_QUESTION_COUNT,
-  modeForQuestionCount,
   QuestionCountMode,
   QUICK_QUESTION_COUNT,
   STANDARD_QUESTION_COUNT,
@@ -16,38 +14,28 @@ export type QuestionCountSelection = {
 
 type QuestionCountDialogProps = {
   initialCount: number;
+  /** Retained for call-site compatibility while custom new sessions are retired. */
   lastCustomCount: number;
   onConfirm: (selection: QuestionCountSelection) => void;
   onCancel: () => void;
 };
 
+type NewQuestionCountMode = Exclude<QuestionCountMode, "custom">;
+
 /**
- * Keeps an uncommitted local selection so closing the panel never changes the
- * home-page count by accident.
+ * V2 skill sessions deliberately offer only 10 or 20 questions. The storage
+ * layer still accepts historical 30–100 question sessions separately.
  */
 export function QuestionCountDialog({
   initialCount,
-  lastCustomCount,
   onConfirm,
   onCancel,
 }: QuestionCountDialogProps) {
-  const [mode, setMode] = useState<QuestionCountMode>(
-    modeForQuestionCount(initialCount),
+  const [mode, setMode] = useState<NewQuestionCountMode>(
+    initialCount === QUICK_QUESTION_COUNT ? "quick" : "standard",
   );
-  const [customCount, setCustomCount] = useState(lastCustomCount);
   const selectedCount =
-    mode === "quick"
-      ? QUICK_QUESTION_COUNT
-      : mode === "standard"
-        ? STANDARD_QUESTION_COUNT
-        : customCount;
-
-  const selectMode = (nextMode: QuestionCountMode) => {
-    setMode(nextMode);
-    if (nextMode === "custom" && !Number.isFinite(customCount)) {
-      setCustomCount(DEFAULT_CUSTOM_QUESTION_COUNT);
-    }
-  };
+    mode === "quick" ? QUICK_QUESTION_COUNT : STANDARD_QUESTION_COUNT;
 
   return (
     <div className="modalBackdrop" role="presentation">
@@ -69,49 +57,24 @@ export function QuestionCountDialog({
 
         <button
           className={mode === "quick" ? "countMode selected" : "countMode"}
-          onClick={() => selectMode("quick")}
+          onClick={() => setMode("quick")}
           type="button"
         >
           <span>快速模式</span>
-          <small>10题，适合碎片时间</small>
+          <small>10题，适合专项和碎片时间</small>
         </button>
         <button
           className={mode === "standard" ? "countMode selected" : "countMode"}
-          onClick={() => selectMode("standard")}
+          onClick={() => setMode("standard")}
           type="button"
         >
           <span>标准模式</span>
-          <small>20题，日常训练</small>
-        </button>
-        <button
-          className={mode === "custom" ? "countMode selected" : "countMode"}
-          onClick={() => selectMode("custom")}
-          type="button"
-        >
-          <span>自定义模式</span>
-          <small>10～100题，每次增加10题</small>
+          <small>20题，日常训练上限</small>
         </button>
 
-        {mode === "custom" && (
-          <label className="countRange">
-            <span>
-              题目数量 <strong>{customCount}题</strong>
-            </span>
-            <input
-              aria-label="自定义题量"
-              max="100"
-              min="10"
-              onChange={(event) => setCustomCount(Number(event.target.value))}
-              step="10"
-              type="range"
-              value={customCount}
-            />
-            <small>
-              <span>10题</span>
-              <span>100题</span>
-            </small>
-          </label>
-        )}
+        <p className="questionCountHint">
+          新训练固定为10题或20题；历史30～100题记录仍可正常查看和恢复。
+        </p>
 
         <button
           className="primary"
