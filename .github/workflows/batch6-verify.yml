@@ -1,5 +1,6 @@
 name: Batch 6 Verify
 
+# Temporary workflow for the stage4 batch6 verification gate.
 on:
   push:
     branches: [master]
