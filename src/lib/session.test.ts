@@ -55,6 +55,32 @@ describe("createTrainingSession", () => {
     });
   });
 
+  it("creates a foundation drill from the skill and difficulty encoded in subtype", () => {
+    const session = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:A-MUL-02:L3",
+      questionCount: 10,
+      generationContext: deterministicContext("foundation"),
+    });
+
+    expect(session).toMatchObject({
+      questionType: "skill_drill",
+      subtype: "skill:A-MUL-02:L3",
+      schemaVersion: 2,
+      trainingMode: "skill",
+      primarySkillId: "A-MUL-02",
+      difficultyBand: "L3",
+    });
+    expect(session.questions).toHaveLength(10);
+    expect(
+      session.questions.every(
+        (question) =>
+          question.skillId === "A-MUL-02" && question.difficultyBand === "L3",
+      ),
+    ).toBe(true);
+  });
+
   it("creates an independent replacement instead of retaining old progress", () => {
     const original = createTrainingSession({
       userId: "cat",
@@ -145,8 +171,8 @@ describe("createTrainingSession", () => {
       difficultyBand: "L2",
       questionType: "two_by_one_multiply",
     });
-    expect(session.questions.every((question) => question.skillId === "A-MUL-03")).toBe(
-      true,
-    );
+    expect(
+      session.questions.every((question) => question.skillId === "A-MUL-03"),
+    ).toBe(true);
   });
 });
