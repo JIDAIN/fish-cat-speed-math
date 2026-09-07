@@ -1,4 +1,3 @@
-import { GenerationContext, productionGenerationContext } from "./generate";
 import {
   Batch4SkillId,
   batch4SkillIds,
@@ -14,6 +13,14 @@ import {
   isBatch5SplitSkillId,
 } from "./batch5-split-generate";
 import {
+  Batch6DivisionScaleSkillId,
+  batch6DivisionScaleSkillIds,
+  generateBatch6DivisionScaleSet,
+  gradeBatch6DivisionScaleQuestion,
+  isBatch6DivisionScaleSkillId,
+} from "./batch6-division-scale-generate";
+import { GenerationContext, productionGenerationContext } from "./generate";
+import {
   FoundationSkillId,
   foundationSkillIds,
   generateFoundationSkillSet,
@@ -26,12 +33,14 @@ export const implementedSkillIds = [
   ...foundationSkillIds,
   ...batch4SkillIds,
   ...batch5SplitSkillIds,
+  ...batch6DivisionScaleSkillIds,
 ] as const satisfies readonly SkillId[];
 
 export type ImplementedSkillId =
   | FoundationSkillId
   | Batch4SkillId
-  | Batch5SplitSkillId;
+  | Batch5SplitSkillId
+  | Batch6DivisionScaleSkillId;
 
 const implementedSkillSet = new Set<string>(implementedSkillIds);
 
@@ -51,13 +60,23 @@ export function generateSkillDrillSet(
     return generateFoundationSkillSet(skillId, difficultyBand, count, context);
   if (isBatch4SkillId(skillId))
     return generateBatch4SkillSet(skillId, difficultyBand, count, context);
-  return generateBatch5SplitSet(skillId, difficultyBand, count, context);
+  if (isBatch5SplitSkillId(skillId))
+    return generateBatch5SplitSet(skillId, difficultyBand, count, context);
+  return generateBatch6DivisionScaleSet(
+    skillId,
+    difficultyBand,
+    count,
+    context,
+  );
 }
 
 export function gradeSkillDrillQuestion(
   question: GeneratedQuestion,
   input: string,
 ) {
+  if (isBatch6DivisionScaleSkillId(question.skillId)) {
+    return gradeBatch6DivisionScaleQuestion(question, input);
+  }
   if (isBatch5SplitSkillId(question.skillId)) {
     return gradeBatch5SplitQuestion(question, input);
   }
