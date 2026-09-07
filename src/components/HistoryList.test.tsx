@@ -122,6 +122,32 @@ describe("HistoryList", () => {
     );
   });
 
+  it("labels skill drills explicitly instead of showing a blank legacy rating", () => {
+    const drill = session("drill", "fish", {
+      questionType: "skill_drill",
+      subtype: "skill:A-PCT-02:L2",
+      primarySkillId: "A-PCT-02",
+      difficultyBand: "L2",
+      schemaVersion: 2,
+      trainingMode: "skill",
+    });
+    render(
+      <HistoryList currentUserId="fish" onOpen={vi.fn()} sessions={[drill]} />,
+    );
+
+    expect(screen.getByText("专项训练")).toBeTruthy();
+    expect(screen.getByText("最近等级").parentElement?.textContent).toContain(
+      "—",
+    );
+    expect(screen.getByText("最佳等级").parentElement?.textContent).toContain(
+      "—",
+    );
+    fireEvent.change(screen.getByLabelText("筛选题型"), {
+      target: { value: "skill_drill" },
+    });
+    expect(screen.queryByLabelText("筛选等级")).toBeNull();
+  });
+
   it("keeps unlogged local records local and opens a selected card", () => {
     const onOpen = vi.fn();
     const local = session("local", "fish");
