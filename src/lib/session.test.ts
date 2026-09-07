@@ -11,7 +11,7 @@ function deterministicContext(prefix: string): GenerationContext {
 }
 
 describe("createTrainingSession", () => {
-  it("creates a clean schema-v2 active session with the requested frozen settings", () => {
+  it("creates a clean schema-v2 active session and decorates newly generated questions", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "two_digit_add_subtract",
@@ -41,6 +41,16 @@ describe("createTrainingSession", () => {
       trainingMode: "legacy",
     });
     expect(session.questions).toHaveLength(10);
+    expect(session.questions.every((question) => question.skillId)).toBe(true);
+    expect(session.questions[0]).toMatchObject({
+      difficultyBand: "L2",
+      targetPrecision: "exact",
+      inputKind: "number",
+    });
+    expect(session.questions[0].generatorParams).toMatchObject({
+      migrationSource: "existing_generator_v2",
+      legacyQuestionType: "two_digit_add_subtract",
+    });
   });
 
   it("creates an independent replacement instead of retaining old progress", () => {
@@ -80,7 +90,7 @@ describe("createTrainingSession", () => {
     });
   });
 
-  it("rejects new 30-question sessions but accepts a frozen legacy 30-question PK set", () => {
+  it("rejects new 30-question sessions but preserves a frozen legacy 30-question PK set", () => {
     expect(() =>
       createTrainingSession({
         userId: "fish",
@@ -97,6 +107,8 @@ describe("createTrainingSession", () => {
       30,
       deterministicContext("legacy"),
     );
+    expect(frozen[0].skillId).toBeUndefined();
+
     const pk = createTrainingSession({
       userId: "cat",
       questionType: "two_digit_add_subtract",
@@ -107,11 +119,12 @@ describe("createTrainingSession", () => {
       createSessionId: () => "legacy-pk",
     });
     expect(pk.questions).toHaveLength(30);
+    expect(pk.questions[0].skillId).toBeUndefined();
     expect(pk.questionCount).toBe(30);
     expect(pk.trainingSource).toBe("pk");
   });
 
-  it("stores skill-level session metadata without changing legacy question types", () => {
+  it("stores skill-level session metadata while generated questions also carry skill IDs", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "two_by_one_multiply",
@@ -129,5 +142,8 @@ describe("createTrainingSession", () => {
       difficultyBand: "L2",
       questionType: "two_by_one_multiply",
     });
+    expect(session.questions.every((question) => question.skillId === "A-MUL-03")).toBe(
+      true,
+    );
   });
 });
