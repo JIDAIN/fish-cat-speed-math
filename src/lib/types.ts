@@ -87,6 +87,11 @@ export type QuestionDataValue =
   | number[];
 export type GeneratorParams = Record<string, QuestionDataValue>;
 
+export interface QuestionStepChoice {
+  value: string;
+  label: string;
+}
+
 export interface QuestionStepSpec {
   id: string;
   stepSkillId?: SkillId;
@@ -96,6 +101,8 @@ export interface QuestionStepSpec {
   expectedValue?: AnswerValue;
   allowedAnswerSet?: AnswerValue[];
   targetPrecision?: TargetPrecision;
+  acceptedRange?: { min: number; max: number };
+  choices?: QuestionStepChoice[];
 }
 
 export interface StepRecord {
@@ -111,6 +118,12 @@ export interface StepRecord {
   editCount: number;
   skipped: boolean;
   timingInterrupted: boolean;
+}
+
+export interface StepTimerSnapshot {
+  accumulatedMs: number;
+  runningSince: number | null;
+  interrupted: boolean;
 }
 
 export interface GeneratedQuestion {
@@ -203,6 +216,12 @@ export interface TrainingSession {
   trainingMode?: TrainingMode;
   primarySkillId?: SkillId;
   difficultyBand?: DifficultyBand;
+  /** V2 structured-flow progress. Missing for ordinary one-answer questions. */
+  currentStepIndex?: number;
+  currentStepAnswer?: string;
+  currentStepRecords?: StepRecord[];
+  currentStepTimer?: StepTimerSnapshot;
+  currentStepEditCount?: number;
 }
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",
