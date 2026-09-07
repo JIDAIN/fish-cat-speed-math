@@ -1,0 +1,50 @@
+name: A Foundation Verify
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a-foundation-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Format touched batch-3 files in the ephemeral runner
+        run: >-
+          npx prettier --write
+          src/lib/types.ts
+          src/lib/skill-generate.ts
+          src/lib/skill-generate.test.ts
+          src/lib/session.ts
+          src/lib/session.test.ts
+          src/lib/training.ts
+          src/lib/storage.ts
+          src/lib/storage-v2.test.ts
+          src/lib/statistics.ts
+          src/lib/statistics.test.ts
+          src/components/FoundationSkillSelector.tsx
+          src/components/TrainingTypeSelector.tsx
+          src/components/TrainingTypeSelector.test.tsx
+          src/components/SessionDetails.tsx
+          src/components/HistoryCharts.tsx
+          src/components/HistoryCharts.test.tsx
+          src/components/HistoryList.tsx
+          src/components/HistoryList.test.tsx
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
