@@ -81,14 +81,16 @@ function encodeSemanticAllowedAnswers(
 
 /**
  * The shared training screen still uses NumberPad for ordinary one-answer
- * skill drills. Until all semantic inputs use the V2 renderer, choices and
- * percentage-block paths are encoded as numeric codes. Full step flows are
- * not adapted: they are rendered by StructuredAnswerInput step by step.
+ * skill drills. Until all semantic inputs use the V2 renderer, choice,
+ * sequence and percentage-block paths are encoded as numeric codes. Full step
+ * flows are not adapted: they are rendered by StructuredAnswerInput step by
+ * step.
  */
 function adaptSkillQuestionToCurrentTrainingUi(
   question: GeneratedQuestion,
 ): GeneratedQuestion {
-  if (question.inputKind === "choice") {
+  if (question.inputKind === "choice" || question.inputKind === "sequence") {
+    const semanticInputKind = question.inputKind;
     const values = stringArray(question.data.choiceValues);
     const labels = stringArray(question.data.choiceLabels);
     if (!values.length || values.length !== labels.length) return question;
@@ -114,9 +116,12 @@ function adaptSkillQuestionToCurrentTrainingUi(
       allowedAnswerSet: encodedAllowed ?? [encodedAnswer],
       generatorParams: {
         ...(question.generatorParams ?? {}),
-        semanticInputKind: "choice",
+        semanticInputKind,
         semanticAnswer: question.answer,
-        uiAdapter: "choice_numeric_code_v1",
+        uiAdapter:
+          semanticInputKind === "sequence"
+            ? "sequence_numeric_code_v1"
+            : "choice_numeric_code_v1",
       },
     };
   }
