@@ -7,6 +7,7 @@ import {
   getRating,
   RATING_VERSION,
   sessionMetrics,
+  usesLegacyRating,
 } from "@/lib/statistics";
 import {
   GeneratedQuestion,
@@ -29,6 +30,7 @@ function correctAnswerForReview(question: GeneratedQuestion) {
 
 export function SessionSummary({ session }: { session: TrainingSession }) {
   const metrics = sessionMetrics(session);
+  const legacyRating = usesLegacyRating(session) ? getRating(session) : undefined;
   return (
     <>
       <p className="sessionSubtitle">
@@ -47,12 +49,19 @@ export function SessionSummary({ session }: { session: TrainingSession }) {
           {(metrics.averageMs / 1000).toFixed(1)}s<small>平均每题</small>
         </b>
       </div>
-      <p className="rating">
-        本次评级：<strong>{getRating(session)}</strong>
-        <small>
-          评级版本：{session.rating?.version ?? "历史记录按当前规则展示"}
-        </small>
-      </p>
+      {usesLegacyRating(session) ? (
+        <p className="rating">
+          本次评级：<strong>{legacyRating}</strong>
+          <small>
+            评级版本：{session.rating?.version ?? "历史记录按当前规则展示"}
+          </small>
+        </p>
+      ) : (
+        <p className="rating">
+          本次为<strong>专项能力训练</strong>
+          <small>不套用旧题型等级；后续按 skill_id 分难度累计掌握度。</small>
+        </p>
+      )}
     </>
   );
 }
@@ -61,6 +70,25 @@ const formatSeconds = (seconds: number) => `${seconds.toFixed(1)}秒`;
 
 /** Reusable rating explanation for the result page and future PK presentation. */
 export function RatingBreakdown({ session }: { session: TrainingSession }) {
+  if (!usesLegacyRating(session)) {
+    const metrics = sessionMetrics(session);
+    return (
+      <section className="ratingBreakdown" aria-label="专项训练说明">
+        <p className="rating">
+          本次为<strong>专项能力训练</strong>
+        </p>
+        <p>
+          本次：{metrics.correctCount}/{metrics.questionCount}题正确（
+          {Math.round(metrics.accuracy * 100)}%）· 平均每题
+          {formatSeconds(metrics.averageMs / 1000)}
+        </p>
+        <p className="ratingGap">
+          这类训练按具体能力 ID 与 L1/L2/L3 难度累计正确率和耗时，不使用旧题型的“优秀/良好/合格”评级。
+        </p>
+      </section>
+    );
+  }
+
   const assessment = assessRating(session);
   const level = getRating(session);
   return (
