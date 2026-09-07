@@ -27,7 +27,8 @@ export type LegacySubtype =
   | "fraction_to_percent"
   | "comparison"
   | "carry_intensive"
-  | "hundred_scaling";
+  | "hundred_scaling"
+  | "skill_drill";
 export type SkillDrillSubtype = `skill:${SkillId}:${DifficultyBand}`;
 export type Subtype = LegacySubtype | SkillDrillSubtype;
 
@@ -226,6 +227,7 @@ export const subtypeLabels: Record<LegacySubtype, string> = {
   comparison: "比较大小",
   carry_intensive: "进位强化",
   hundred_scaling: "整百放缩修正",
+  skill_drill: "专项训练",
 };
 
 /** Type-specific presentation names for shared subtypes. */
