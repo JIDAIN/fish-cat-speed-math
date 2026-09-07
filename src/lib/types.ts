@@ -12,7 +12,13 @@ export const questionTypes = [
   "skill_drill",
 ] as const;
 export type QuestionType = (typeof questionTypes)[number];
-export type Subtype =
+
+/** V2 capability identifiers use the A/B/C pure-computation tree. */
+export type SkillId = `${"A" | "B" | "C"}-${string}`;
+export type DifficultyBand = "L1" | "L2" | "L3";
+export type MasteryProfile = "R" | "C" | "D" | "S" | "F";
+
+export type LegacySubtype =
   | "standard"
   | "quotient_first"
   | "quotient_two"
@@ -21,13 +27,36 @@ export type Subtype =
   | "fraction_to_percent"
   | "comparison"
   | "carry_intensive"
-  | "hundred_scaling"
-  | "skill_drill";
+  | "hundred_scaling";
+export type SkillDrillSubtype = `skill:${SkillId}:${DifficultyBand}`;
+export type Subtype = LegacySubtype | SkillDrillSubtype;
 
-/** V2 capability identifiers use the A/B/C pure-computation tree. */
-export type SkillId = `${"A" | "B" | "C"}-${string}`;
-export type DifficultyBand = "L1" | "L2" | "L3";
-export type MasteryProfile = "R" | "C" | "D" | "S" | "F";
+export function makeSkillDrillSubtype(
+  skillId: SkillId,
+  difficultyBand: DifficultyBand,
+): SkillDrillSubtype {
+  return `skill:${skillId}:${difficultyBand}`;
+}
+
+export function parseSkillDrillSubtype(
+  subtype: Subtype | string,
+): { skillId: SkillId; difficultyBand: DifficultyBand } | undefined {
+  if (!subtype.startsWith("skill:")) return undefined;
+  const [, skillId, difficultyBand, extra] = subtype.split(":");
+  if (
+    extra !== undefined ||
+    !/^[ABC]-.+/.test(skillId ?? "") ||
+    (difficultyBand !== "L1" &&
+      difficultyBand !== "L2" &&
+      difficultyBand !== "L3")
+  )
+    return undefined;
+  return {
+    skillId: skillId as SkillId,
+    difficultyBand,
+  };
+}
+
 export type TrainingMode =
   | "legacy"
   | "skill"
@@ -187,7 +216,7 @@ export const typeLabels: Record<QuestionType, string> = {
   special_hundred_scaling_division: "专项：整百放缩修正",
   skill_drill: "基础自动化专项",
 };
-export const subtypeLabels: Record<Subtype, string> = {
+export const subtypeLabels: Record<LegacySubtype, string> = {
   standard: "标准训练",
   quotient_first: "求商首位",
   quotient_two: "求商前两位",
@@ -197,7 +226,6 @@ export const subtypeLabels: Record<Subtype, string> = {
   comparison: "比较大小",
   carry_intensive: "进位强化",
   hundred_scaling: "整百放缩修正",
-  skill_drill: "专项训练",
 };
 
 /** Type-specific presentation names for shared subtypes. */
@@ -208,5 +236,7 @@ export function getSubtypeLabel(
   if (questionType === "two_by_two_multiply" && subtype === "standard") {
     return "综合训练";
   }
-  return subtypeLabels[subtype];
+  const skill = parseSkillDrillSubtype(subtype);
+  if (skill) return `${skill.skillId} · ${skill.difficultyBand}`;
+  return subtypeLabels[subtype as LegacySubtype];
 }
