@@ -30,7 +30,9 @@ export type LegacySubtype =
   | "hundred_scaling"
   | "skill_drill";
 export type SkillDrillSubtype = `skill:${SkillId}:${DifficultyBand}`;
-export type Subtype = LegacySubtype | SkillDrillSubtype;
+export type SmartTrainingMode = "mixed" | "path_compare";
+export type SmartTrainingSubtype = `${SmartTrainingMode}:${DifficultyBand}`;
+export type Subtype = LegacySubtype | SkillDrillSubtype | SmartTrainingSubtype;
 
 export function makeSkillDrillSubtype(
   skillId: SkillId,
@@ -56,6 +58,28 @@ export function parseSkillDrillSubtype(
     skillId: skillId as SkillId,
     difficultyBand,
   };
+}
+
+export function makeSmartTrainingSubtype(
+  mode: SmartTrainingMode,
+  difficultyBand: DifficultyBand,
+): SmartTrainingSubtype {
+  return `${mode}:${difficultyBand}`;
+}
+
+export function parseSmartTrainingSubtype(
+  subtype: Subtype | string,
+): { mode: SmartTrainingMode; difficultyBand: DifficultyBand } | undefined {
+  const [mode, difficultyBand, extra] = subtype.split(":");
+  if (
+    extra !== undefined ||
+    (mode !== "mixed" && mode !== "path_compare") ||
+    (difficultyBand !== "L1" &&
+      difficultyBand !== "L2" &&
+      difficultyBand !== "L3")
+  )
+    return undefined;
+  return { mode, difficultyBand };
 }
 
 export type TrainingMode =
@@ -259,5 +283,8 @@ export function getSubtypeLabel(
   }
   const skill = parseSkillDrillSubtype(subtype);
   if (skill) return `${skill.skillId} · ${skill.difficultyBand}`;
-  return subtypeLabels[subtype];
+  const smart = parseSmartTrainingSubtype(subtype);
+  if (smart)
+    return `${smart.mode === "mixed" ? "混合训练" : "同题路径对比"} · ${smart.difficultyBand}`;
+  return subtypeLabels[subtype] ?? subtype;
 }

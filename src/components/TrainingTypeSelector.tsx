@@ -2,7 +2,9 @@ import { SkillDrillSelector } from "@/components/SkillDrillSelector";
 import { isImplementedSkillId } from "@/lib/implemented-skill-drills";
 import {
   makeSkillDrillSubtype,
+  makeSmartTrainingSubtype,
   parseSkillDrillSubtype,
+  parseSmartTrainingSubtype,
   QuestionType,
   Subtype,
   typeLabels,
@@ -125,9 +127,70 @@ export function TrainingTypeSelector({
     ? encodedSkill.skillId
     : undefined;
   const skillDifficulty = encodedSkill?.difficultyBand ?? "L2";
+  const smartTraining =
+    type === "skill_drill" ? parseSmartTrainingSubtype(subtype) : undefined;
+  const smartDifficulty = smartTraining?.difficultyBand ?? "L2";
 
   return (
     <>
+      <section aria-label="智能训练入口">
+        <h3>智能训练</h3>
+        <div className="grid trainingTypeGrid">
+          <button
+            aria-pressed={smartTraining?.mode === "mixed"}
+            className={smartTraining?.mode === "mixed" ? "selected" : ""}
+            onClick={() =>
+              onSelect(
+                "skill_drill",
+                makeSmartTrainingSubtype("mixed", smartDifficulty),
+              )
+            }
+            type="button"
+          >
+            混合训练
+          </button>
+          <button
+            aria-pressed={smartTraining?.mode === "path_compare"}
+            className={smartTraining?.mode === "path_compare" ? "selected" : ""}
+            onClick={() =>
+              onSelect(
+                "skill_drill",
+                makeSmartTrainingSubtype("path_compare", smartDifficulty),
+              )
+            }
+            type="button"
+          >
+            同题路径对比
+          </button>
+        </div>
+        {smartTraining && (
+          <section className="divisionRulePanel" aria-label="智能训练难度">
+            <p>难度</p>
+            <div className="divisionRuleOptions">
+              {(["L1", "L2", "L3"] as const).map((difficultyBand) => (
+                <button
+                  aria-pressed={smartDifficulty === difficultyBand}
+                  className={smartDifficulty === difficultyBand ? "selected" : ""}
+                  key={difficultyBand}
+                  onClick={() =>
+                    onSelect(
+                      "skill_drill",
+                      makeSmartTrainingSubtype(
+                        smartTraining.mode,
+                        difficultyBand,
+                      ),
+                    )
+                  }
+                  type="button"
+                >
+                  {difficultyBand}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+      </section>
+
       <section aria-label="纯计算能力专项入口">
         <h3>纯计算能力专项</h3>
         <SkillDrillSelector

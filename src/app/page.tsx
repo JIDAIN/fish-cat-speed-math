@@ -33,6 +33,7 @@ import { PKPage } from "@/components/PKPage";
 import { NumberPad } from "@/components/NumberPad";
 import { ScratchCanvas } from "@/components/ScratchCanvas";
 import { HistoryCharts } from "@/components/HistoryCharts";
+import { SkillInsights } from "@/components/SkillInsights";
 import { HistoryList } from "@/components/HistoryList";
 import { PersonalDataExport } from "@/components/PersonalDataExport";
 import {
@@ -555,19 +556,27 @@ export default function Home() {
   }, [session?.id, session?.status, view]);
   const beginNewSession = () => {
     if (!isValidQuestionCount(count)) {
-      setStorageError("题量无效，请重新选择 10～100 题。");
+      setStorageError("题量无效，请重新选择10或20题。");
       return;
     }
-    const s = createTrainingSession({
-      userId: user,
-      ownerAccountId: identity?.id,
-      questionType: type,
-      subtype,
-      questionCount: count,
-    });
-    sessionRef.current = s;
-    setSession(s);
-    setView("training");
+    try {
+      const s = createTrainingSession({
+        userId: user,
+        ownerAccountId: identity?.id,
+        questionType: type,
+        subtype,
+        questionCount: count,
+        history,
+      });
+      sessionRef.current = s;
+      setSession(s);
+      setStorageError(null);
+      setView("training");
+    } catch (error) {
+      setStorageError(
+        error instanceof Error ? error.message : "创建训练失败，请稍后重试。",
+      );
+    }
   };
   const confirmQuestionCount = ({
     count: selectedCount,
@@ -744,6 +753,7 @@ export default function Home() {
         questionType: session.questionType,
         subtype: session.subtype,
         questionCount: session.questionCount,
+        history,
       });
       // saveSession replaces every older active record in one transaction, so
       // there is never a recoverable half-restarted state.
@@ -1546,6 +1556,7 @@ export default function Home() {
         <h1>我的成绩</h1>
         {historyRefreshing && <p className="dataUpdating">正在更新成绩…</p>}
         <RefreshNotice message={historyRefreshError} />
+        <SkillInsights sessions={history} />
         <HistoryCharts sessions={history} />
       </main>
     );

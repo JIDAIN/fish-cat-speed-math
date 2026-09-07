@@ -36,7 +36,9 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(34);
+    ).toHaveLength(36);
+    expect(screen.getByRole("button", { name: "混合训练" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "同题路径对比" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /B·运算顺序/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /B·分数拆百分数/ })).toBeTruthy();
@@ -133,6 +135,28 @@ describe("TrainingTypeSelector", () => {
       screen
         .getByRole("button", { name: "结果端r" })
         .getAttribute("aria-pressed"),
+    ).toBe("true");
+  });
+
+  it("selects smart mixed/path modes and preserves their difficulty", () => {
+    render(<StatefulSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "混合训练" }));
+    expect(
+      screen.getByRole("button", { name: "混合训练" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen.getByLabelText("智能训练难度").querySelector('[aria-pressed="true"]')?.textContent,
+    ).toBe("L2");
+
+    fireEvent.click(screen.getByLabelText("智能训练难度").querySelectorAll("button")[2]);
+    expect(
+      screen.getByLabelText("智能训练难度").querySelector('[aria-pressed="true"]')?.textContent,
+    ).toBe("L3");
+
+    fireEvent.click(screen.getByRole("button", { name: "同题路径对比" }));
+    expect(
+      screen.getByRole("button", { name: "同题路径对比" }).getAttribute("aria-pressed"),
     ).toBe("true");
   });
 

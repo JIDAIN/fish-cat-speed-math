@@ -1,3 +1,5 @@
+import { generateMixedSkillSet, generatePathComparisonSet } from "./batch8-training";
+import { learnedImplementedSkillIds } from "./mastery";
 import {
   generateSet,
   GenerationContext,
@@ -18,6 +20,7 @@ import {
   DifficultyBand,
   GeneratedQuestion,
   parseSkillDrillSubtype,
+  parseSmartTrainingSubtype,
   QuestionType,
   SkillId,
   Subtype,
@@ -39,6 +42,7 @@ interface CreateTrainingSessionOptions {
   trainingMode?: TrainingMode;
   primarySkillId?: SkillId;
   difficultyBand?: DifficultyBand;
+  history?: TrainingSession[];
 }
 
 function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
@@ -187,6 +191,7 @@ export function createTrainingSession({
   trainingMode,
   primarySkillId,
   difficultyBand,
+  history = [],
 }: CreateTrainingSessionOptions): TrainingSession {
   // New sessions use 10/20 only. A frozen legacy PK set may still contain a
   // previously-supported 30–100 question count and must remain playable.
@@ -203,26 +208,50 @@ export function createTrainingSession({
   const newlyGenerated = questions === undefined;
   const encodedSkill =
     questionType === "skill_drill" ? parseSkillDrillSubtype(subtype) : undefined;
+  const smartTraining =
+    questionType === "skill_drill" ? parseSmartTrainingSubtype(subtype) : undefined;
   const requestedSkillId = primarySkillId ?? encodedSkill?.skillId;
   const requestedSkillDifficulty =
-    difficultyBand ?? encodedSkill?.difficultyBand ?? "L2";
+    difficultyBand ??
+    encodedSkill?.difficultyBand ??
+    smartTraining?.difficultyBand ??
+    "L2";
   if (
     newlyGenerated &&
     questionType === "skill_drill" &&
+    !smartTraining &&
     !isImplementedSkillId(requestedSkillId)
   ) {
     throw new Error("skill_drill sessions require an implemented skill ID");
   }
 
+  const generatedSkillQuestions =
+    newlyGenerated && questionType === "skill_drill"
+      ? smartTraining?.mode === "mixed"
+        ? generateMixedSkillSet(
+            learnedImplementedSkillIds(history, userId),
+            smartTraining.difficultyBand,
+            questionCount,
+            generationContext,
+          )
+        : smartTraining?.mode === "path_compare"
+          ? generatePathComparisonSet(
+              smartTraining.difficultyBand,
+              questionCount,
+              generationContext,
+            )
+          : generateSkillDrillSet(
+              requestedSkillId as ImplementedSkillId,
+              requestedSkillDifficulty,
+              questionCount,
+              generationContext,
+            )
+      : undefined;
+
   const frozenQuestions =
     questions ??
     (questionType === "skill_drill"
-      ? generateSkillDrillSet(
-          requestedSkillId as ImplementedSkillId,
-          requestedSkillDifficulty,
-          questionCount,
-          generationContext,
-        ).map(adaptSkillQuestionToCurrentTrainingUi)
+      ? (generatedSkillQuestions ?? []).map(adaptSkillQuestionToCurrentTrainingUi)
       : generateSet(questionType, subtype, questionCount, generationContext).map(
           migrateExistingQuestionToSkillV2,
         ));
@@ -243,16 +272,23 @@ export function createTrainingSession({
   const effectivePrimarySkillId =
     primarySkillId ?? encodedSkill?.skillId ?? inferredPrimarySkillId;
   const effectiveDifficultyBand =
-    difficultyBand ?? encodedSkill?.difficultyBand ?? inferredDifficultyBand;
+    difficultyBand ??
+    smartTraining?.difficultyBand ??
+    encodedSkill?.difficultyBand ??
+    inferredDifficultyBand;
   const effectiveTrainingMode =
     trainingMode ??
-    (hasStructuredFlow
-      ? "flow"
-      : effectivePrimarySkillId
-        ? "skill"
-        : hasMigratedSkills
-          ? "mixed"
-          : "legacy");
+    (smartTraining?.mode === "mixed"
+      ? "mixed"
+      : smartTraining?.mode === "path_compare"
+        ? "path_compare"
+        : hasStructuredFlow
+          ? "flow"
+          : effectivePrimarySkillId
+            ? "skill"
+            : hasMigratedSkills
+              ? "mixed"
+              : "legacy");
 
   return {
     id: createSessionId(),

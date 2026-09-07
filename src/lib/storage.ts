@@ -5,6 +5,7 @@ import {
   LegacySubtype,
   MasteryProfile,
   parseSkillDrillSubtype,
+  parseSmartTrainingSubtype,
   QuestionRecord,
   QuestionStepSpec,
   questionTypes,
@@ -69,6 +70,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isValidSubtype(value: unknown): value is Subtype {
   if (typeof value !== "string") return false;
   if (legacySubtypes.includes(value as LegacySubtype)) return true;
+  if (parseSmartTrainingSubtype(value)) return true;
   const parsed = parseSkillDrillSubtype(value);
   return Boolean(parsed && isRegisteredSkillId(parsed.skillId));
 }
