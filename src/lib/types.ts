@@ -9,6 +9,7 @@ export const questionTypes = [
   "fraction_percent_conversion",
   "fraction_comparison",
   "special_hundred_scaling_division",
+  "skill_drill",
 ] as const;
 export type QuestionType = (typeof questionTypes)[number];
 export type Subtype =
@@ -20,7 +21,8 @@ export type Subtype =
   | "fraction_to_percent"
   | "comparison"
   | "carry_intensive"
-  | "hundred_scaling";
+  | "hundred_scaling"
+  | "skill_drill";
 
 /** V2 capability identifiers use the A/B/C pure-computation tree. */
 export type SkillId = `${"A" | "B" | "C"}-${string}`;
@@ -183,6 +185,7 @@ export const typeLabels: Record<QuestionType, string> = {
   fraction_percent_conversion: "分数—百分数",
   fraction_comparison: "分数比大小",
   special_hundred_scaling_division: "专项：整百放缩修正",
+  skill_drill: "基础自动化专项",
 };
 export const subtypeLabels: Record<Subtype, string> = {
   standard: "标准训练",
@@ -194,6 +197,7 @@ export const subtypeLabels: Record<Subtype, string> = {
   comparison: "比较大小",
   carry_intensive: "进位强化",
   hundred_scaling: "整百放缩修正",
+  skill_drill: "专项训练",
 };
 
 /** Type-specific presentation names for shared subtypes. */
