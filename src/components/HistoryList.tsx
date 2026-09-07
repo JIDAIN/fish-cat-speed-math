@@ -7,7 +7,6 @@ import {
   Subtype,
   TrainingSession,
   getSubtypeLabel,
-  subtypeLabels,
   typeLabels,
 } from "@/lib/types";
 
@@ -33,191 +32,150 @@ type SavedHistoryView = {
 };
 
 function historyViewKey(currentAccountId: string | undefined, userId: UserId) {
-  return `speed-math-history-view:${currentAccountId ?? "local"}:${userId}`;
+  return `speed-math-history-view:${currentAccountId ?? "unassigned"}:${userId}`;
 }
 
-function readSavedHistoryView(key: string): SavedHistoryView {
+function readSavedHistoryView(
+  currentAccountId: string | undefined,
+  userId: UserId,
+): SavedHistoryView {
   if (typeof window === "undefined") return {};
   try {
-    return JSON.parse(
-      window.sessionStorage.getItem(key) ?? "{}",
-    ) as SavedHistoryView;
+    const saved = window.localStorage.getItem(
+      historyViewKey(currentAccountId, userId),
+    );
+    return saved ? (JSON.parse(saved) as SavedHistoryView) : {};
   } catch {
     return {};
   }
 }
 
-function syncLabel(
-  session: TrainingSession,
-  isOwn: boolean,
-  signedIn: boolean,
+function writeSavedHistoryView(
+  currentAccountId: string | undefined,
+  userId: UserId,
+  value: SavedHistoryView,
 ) {
-  if (!signedIn) return "仅本地";
-  if (!isOwn) return "共享只读";
-  return session.syncStatus === "syncing"
-    ? "同步中"
-    : session.syncStatus === "synced" || session.syncedAt
-      ? "已同步"
-      : session.syncStatus === "failed"
-        ? "同步失败"
-        : "未同步";
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      historyViewKey(currentAccountId, userId),
+      JSON.stringify(value),
+    );
+  } catch {
+    // Storage preferences are optional; training history itself is untouched.
+  }
+}
+
+function normalizedSource(session: TrainingSession) {
+  return session.trainingSource === "pk" ? "pk" : "normal";
+}
+
+function sessionOwnerRole(session: TrainingSession): UserId | undefined {
+  return session.userId === "fish" || session.userId === "cat"
+    ? session.userId
+    : undefined;
+}
+
+function sessionDate(session: TrainingSession) {
+  return new Date(session.completedAt ?? session.startedAt);
+}
+
+function inDateRange(
+  session: TrainingSession,
+  range: "all" | "7d" | "30d",
+  now = Date.now(),
+) {
+  if (range === "all") return true;
+  const days = range === "7d" ? 7 : 30;
+  return now - sessionDate(session).getTime() <= days * 24 * 60 * 60 * 1000;
+}
+
+function compareSessions(left: TrainingSession, right: TrainingSession) {
+  return (
+    (right.completedAt ?? right.startedAt) -
+    (left.completedAt ?? left.startedAt)
+  );
+}
+
+function ratingLabel(session: TrainingSession) {
+  return session.rating?.level ?? getRating(session);
+}
+
+function trainingTitle(session: TrainingSession) {
+  return `${typeLabels[session.questionType]} · ${getSubtypeLabel(
+    session.questionType,
+    session.subtype,
+  )}`;
+}
+
+interface HistoryListProps {
+  sessions: TrainingSession[];
+  currentUserId: UserId;
+  currentAccountId?: string;
+  canViewPartner: boolean;
+  onOpen: (session: TrainingSession) => void;
+  onSync?: (session: TrainingSession) => void;
 }
 
 export function HistoryList({
   sessions,
-  onOpen,
-  currentAccountId,
   currentUserId,
-  canViewPartner = false,
+  currentAccountId,
+  canViewPartner,
+  onOpen,
   onSync,
-}: {
-  sessions: TrainingSession[];
-  onOpen: (session: TrainingSession) => void;
-  currentAccountId?: string;
-  currentUserId: UserId;
-  canViewPartner?: boolean;
-  onSync?: (session: TrainingSession) => void;
-}) {
-  const savedView = readSavedHistoryView(
-    historyViewKey(currentAccountId, currentUserId),
-  );
-  const completed = useMemo(
-    () => sessions.filter((session) => session.status === "completed"),
-    [sessions],
+}: HistoryListProps) {
+  const initialView = useMemo(
+    () => readSavedHistoryView(currentAccountId, currentUserId),
+    [currentAccountId, currentUserId],
   );
   const [selectedUserId, setSelectedUserId] = useState<UserId>(
-    savedView.selectedUserId ?? currentUserId,
+    initialView.selectedUserId &&
+      (initialView.selectedUserId === currentUserId || canViewPartner)
+      ? initialView.selectedUserId
+      : currentUserId,
   );
   const [selectedType, setSelectedType] = useState<QuestionType | "all">(
-    savedView.selectedType ?? "all",
+    initialView.selectedType ?? "all",
   );
   const [selectedSubtype, setSelectedSubtype] = useState<Subtype | "all">(
-    savedView.selectedSubtype ?? "all",
+    initialView.selectedSubtype ?? "all",
   );
   const [selectedSource, setSelectedSource] = useState<"all" | "normal" | "pk">(
-    savedView.selectedSource ?? "all",
+    initialView.selectedSource ?? "all",
   );
   const [selectedCount, setSelectedCount] = useState<number | "all">(
-    savedView.selectedCount ?? "all",
+    initialView.selectedCount ?? "all",
   );
   const [selectedRating, setSelectedRating] = useState<
     ReturnType<typeof getRating> | "all"
-  >(savedView.selectedRating ?? "all");
+  >(initialView.selectedRating ?? "all");
   const [selectedRange, setSelectedRange] = useState<"all" | "7d" | "30d">(
-    savedView.selectedRange ?? "all",
+    initialView.selectedRange ?? "all",
   );
-  const [page, setPage] = useState(savedView.page ?? 1);
-  useEffect(() => setSelectedUserId(currentUserId), [currentUserId]);
-
-  const visibleUsers = canViewPartner
-    ? USERS
-    : USERS.filter((user) => user.id === currentUserId);
-  const userSessions = useMemo(
-    () => completed.filter((session) => session.userId === selectedUserId),
-    [completed, selectedUserId],
-  );
-  const availableTypes = useMemo(
-    () => [...new Set(userSessions.map((session) => session.questionType))],
-    [userSessions],
-  );
-  useEffect(() => {
-    if (selectedType !== "all" && !availableTypes.includes(selectedType)) {
-      setSelectedType("all");
-      setSelectedSubtype("all");
-    }
-  }, [availableTypes, selectedType]);
-  const availableSubtypes = useMemo(
-    () => [
-      ...new Set(
-        userSessions
-          .filter(
-            (session) =>
-              selectedType === "all" || session.questionType === selectedType,
-          )
-          .map((session) => session.subtype),
-      ),
-    ],
-    [selectedType, userSessions],
-  );
-  const availableCounts = useMemo(
-    () =>
-      [
-        ...new Set(userSessions.map((session) => session.questions.length)),
-      ].sort((a, b) => a - b),
-    [userSessions],
-  );
-  useEffect(() => {
-    if (
-      selectedSubtype !== "all" &&
-      !availableSubtypes.includes(selectedSubtype)
-    ) {
-      setSelectedSubtype("all");
-    }
-  }, [availableSubtypes, selectedSubtype]);
-
-  const filtered = userSessions
-    .filter(
-      (session) =>
-        selectedType === "all" || session.questionType === selectedType,
-    )
-    .filter(
-      (session) =>
-        selectedSubtype === "all" || session.subtype === selectedSubtype,
-    )
-    .filter(
-      (session) =>
-        selectedSource === "all" ||
-        (session.trainingSource ?? "normal") === selectedSource,
-    )
-    .filter(
-      (session) =>
-        selectedCount === "all" || session.questions.length === selectedCount,
-    )
-    .filter(
-      (session) =>
-        selectedRating === "all" || getRating(session) === selectedRating,
-    )
-    .filter((session) => {
-      if (selectedRange === "all") return true;
-      const days = selectedRange === "7d" ? 7 : 30;
-      return session.startedAt >= Date.now() - days * 24 * 60 * 60 * 1000;
-    })
-    .sort((left, right) => right.startedAt - left.startedAt);
-  const summary = summarizeHistory(filtered);
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const visible = filtered.slice(
-    (safePage - 1) * PAGE_SIZE,
-    safePage * PAGE_SIZE,
-  );
-  useEffect(() => {
-    if (page !== safePage) setPage(safePage);
-  }, [page, safePage]);
-  const resetPage = () => setPage(1);
+  const [page, setPage] = useState(initialView.page ?? 1);
 
   useEffect(() => {
-    try {
-      window.sessionStorage.setItem(
-        historyViewKey(currentAccountId, currentUserId),
-        JSON.stringify({
-          selectedUserId,
-          selectedType,
-          selectedSubtype,
-          selectedSource,
-          selectedCount,
-          selectedRating,
-          selectedRange,
-          page: safePage,
-        } satisfies SavedHistoryView),
-      );
-    } catch {
-      // Page filtering remains usable when browser storage is unavailable.
+    if (!canViewPartner && selectedUserId !== currentUserId) {
+      setSelectedUserId(currentUserId);
     }
+  }, [canViewPartner, currentUserId, selectedUserId]);
+
+  useEffect(() => {
+    writeSavedHistoryView(currentAccountId, currentUserId, {
+      selectedUserId,
+      selectedType,
+      selectedSubtype,
+      selectedSource,
+      selectedCount,
+      selectedRating,
+      selectedRange,
+      page,
+    });
   }, [
     currentAccountId,
     currentUserId,
     page,
-    safePage,
     selectedCount,
     selectedRange,
     selectedRating,
@@ -227,25 +185,104 @@ export function HistoryList({
     selectedUserId,
   ]);
 
+  const visibleUsers = canViewPartner
+    ? USERS
+    : USERS.filter((item) => item.id === currentUserId);
+  const userSessions = useMemo(
+    () =>
+      sessions
+        .filter((session) => sessionOwnerRole(session) === selectedUserId)
+        .sort(compareSessions),
+    [selectedUserId, sessions],
+  );
+  const availableTypes = useMemo(
+    () => Array.from(new Set(userSessions.map((session) => session.questionType))),
+    [userSessions],
+  );
+  const typeScopedSessions = useMemo(
+    () =>
+      selectedType === "all"
+        ? userSessions
+        : userSessions.filter((session) => session.questionType === selectedType),
+    [selectedType, userSessions],
+  );
+  const availableSubtypes = useMemo(
+    () => Array.from(new Set(typeScopedSessions.map((session) => session.subtype))),
+    [typeScopedSessions],
+  );
+  const availableCounts = useMemo(
+    () =>
+      Array.from(new Set(userSessions.map((session) => session.questions.length))).sort(
+        (left, right) => left - right,
+      ),
+    [userSessions],
+  );
+  const filtered = useMemo(
+    () =>
+      userSessions.filter((session) => {
+        if (selectedType !== "all" && session.questionType !== selectedType)
+          return false;
+        if (selectedSubtype !== "all" && session.subtype !== selectedSubtype)
+          return false;
+        if (
+          selectedSource !== "all" &&
+          normalizedSource(session) !== selectedSource
+        )
+          return false;
+        if (
+          selectedCount !== "all" &&
+          session.questions.length !== selectedCount
+        )
+          return false;
+        if (
+          selectedRating !== "all" &&
+          ratingLabel(session) !== selectedRating
+        )
+          return false;
+        return inDateRange(session, selectedRange);
+      }),
+    [
+      selectedCount,
+      selectedRange,
+      selectedRating,
+      selectedSource,
+      selectedSubtype,
+      selectedType,
+      userSessions,
+    ],
+  );
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+  const summary = summarizeHistory(filtered);
+  const resetPage = () => setPage(1);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
   return (
     <section className="historyList">
-      <div className="historyUserTabs" aria-label="查看训练用户">
-        {visibleUsers.map((user) => (
+      <div className="historyUserSwitch" role="group" aria-label="选择训练账号">
+        {visibleUsers.map((item) => (
           <button
-            className={user.id === selectedUserId ? "selected" : ""}
-            key={user.id}
+            aria-pressed={selectedUserId === item.id}
+            className={selectedUserId === item.id ? "selected" : ""}
+            key={item.id}
             onClick={() => {
-              setSelectedUserId(user.id);
-              setSelectedType("all");
-              setSelectedSubtype("all");
+              setSelectedUserId(item.id);
               resetPage();
             }}
+            type="button"
           >
-            {user.label}
-            {user.id !== currentUserId && "（只读）"}
+            {item.label}
           </button>
         ))}
       </div>
+
       <div className="historyFilters">
         <label>
           <span>题型</span>
@@ -281,7 +318,7 @@ export function HistoryList({
               {availableSubtypes.map((subtype) => (
                 <option key={subtype} value={subtype}>
                   {selectedType === "all"
-                    ? subtypeLabels[subtype]
+                    ? getSubtypeLabel("skill_drill", subtype)
                     : getSubtypeLabel(selectedType, subtype)}
                 </option>
               ))}
@@ -318,24 +355,24 @@ export function HistoryList({
             }}
           >
             <option value="all">全部题量</option>
-            {availableCounts.map((value) => (
-              <option key={value} value={value}>
-                {value}题
+            {availableCounts.map((count) => (
+              <option key={count} value={count}>
+                {count}题
               </option>
             ))}
           </select>
         </label>
         <label>
-          <span>等级</span>
+          <span>评级</span>
           <select
-            aria-label="筛选等级"
+            aria-label="筛选评级"
             value={selectedRating}
             onChange={(event) => {
               setSelectedRating(event.target.value as typeof selectedRating);
               resetPage();
             }}
           >
-            <option value="all">全部等级</option>
+            <option value="all">全部评级</option>
             <option value="优秀">优秀</option>
             <option value="良好">良好</option>
             <option value="合格">合格</option>
@@ -353,124 +390,81 @@ export function HistoryList({
             }}
           >
             <option value="all">全部时间</option>
-            <option value="7d">近7日</option>
-            <option value="30d">近30日</option>
+            <option value="7d">最近7天</option>
+            <option value="30d">最近30天</option>
           </select>
         </label>
       </div>
-      {filtered.length ? (
-        <>
-          <section className="historySummary" aria-label="当前筛选汇总">
-            <b>
-              {summary.sessionCount}
-              <small>训练组数</small>
-            </b>
-            <b>
-              {summary.questionCount}
-              <small>总题数</small>
-            </b>
-            <b>
-              {Math.round(summary.accuracy * 100)}%<small>总正确率</small>
-            </b>
-            <b>
-              {(summary.averageMs / 1000).toFixed(1)}秒<small>平均单题</small>
-            </b>
-            <b>
-              {summary.latestRating}
-              <small>最近等级</small>
-            </b>
-            <b>
-              {summary.bestRating}
-              <small>最佳等级</small>
-            </b>
-          </section>
-          <p className="ratingDistribution">
-            等级分布：优秀 {summary.ratingCounts.优秀} · 良好{" "}
-            {summary.ratingCounts.良好} · 合格 {summary.ratingCounts.合格} ·
-            继续加油 {summary.ratingCounts.继续加油}
-          </p>
-          <div className="historyCards">
-            {visible.map((session) => {
-              const metrics = sessionMetrics(session);
-              const isOwn =
-                Boolean(currentAccountId) &&
-                session.ownerAccountId === currentAccountId;
-              const status = syncLabel(
-                session,
-                isOwn,
-                Boolean(currentAccountId),
-              );
-              return (
-                <article className="historySession" key={session.id}>
+
+      <div className="historySummary">
+        <span>{filtered.length}次训练</span>
+        <span>{summary.totalQuestions}题</span>
+        <span>{Math.round(summary.accuracy * 100)}%正确率</span>
+      </div>
+
+      {pageItems.length ? (
+        <div className="historyEntries">
+          {pageItems.map((session) => {
+            const metrics = sessionMetrics(session);
+            const canSync =
+              Boolean(onSync) &&
+              session.ownerAccountId === currentAccountId &&
+              session.syncStatus !== "syncing";
+            return (
+              <article className="historyCard" key={session.id}>
+                <button
+                  className="historyCardOpen"
+                  onClick={() => onOpen(session)}
+                  type="button"
+                >
+                  <strong>{trainingTitle(session)}</strong>
+                  <span>
+                    {sessionDate(session).toLocaleString()} · {metrics.correctCount}/
+                    {session.questions.length} · {formatTime(session.accumulatedMs)}
+                  </span>
+                  <span>
+                    {ratingLabel(session)} · {normalizedSource(session) === "pk" ? "PK" : "普通"}
+                  </span>
+                </button>
+                {canSync && (
                   <button
-                    className="historySessionOpen"
-                    onClick={() => onOpen(session)}
+                    className="historySyncButton"
+                    onClick={() => onSync?.(session)}
+                    type="button"
                   >
-                    <span>
-                      <strong>
-                        {typeLabels[session.questionType]} ·{" "}
-                        {getSubtypeLabel(session.questionType, session.subtype)}
-                      </strong>
-                      <small>
-                        {new Date(session.startedAt).toLocaleString("zh-CN", {
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}{" "}
-                        · {metrics.questionCount}题
-                        {session.trainingSource === "pk" ? " · PK训练" : ""}
-                      </small>
-                    </span>
-                    <span className="historySessionMetrics">
-                      {metrics.correctCount}/{metrics.questionCount} ·{" "}
-                      {formatTime(session.accumulatedMs)}
-                      <br />
-                      <small>
-                        平均 {(metrics.averageMs / 1000).toFixed(1)}秒 ·{" "}
-                        {getRating(session)}
-                      </small>
-                    </span>
+                    {session.syncStatus === "synced" || session.syncedAt
+                      ? "重新同步"
+                      : "同步"}
                   </button>
-                  <div className="historySync">
-                    <span
-                      className={`syncStatus syncStatus-${session.syncStatus ?? "not_synced"}`}
-                    >
-                      {status}
-                    </span>
-                    {isOwn &&
-                      session.syncStatus !== "synced" &&
-                      session.syncStatus !== "syncing" &&
-                      onSync && (
-                        <button onClick={() => onSync(session)}>
-                          重试同步
-                        </button>
-                      )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-          <nav className="pager" aria-label="历史分页">
-            <span>
-              第 {safePage} 页 / 共 {totalPages} 页
-            </span>
-            <button
-              disabled={safePage <= 1}
-              onClick={() => setPage(safePage - 1)}
-            >
-              上一页
-            </button>
-            <button
-              disabled={safePage >= totalPages}
-              onClick={() => setPage(safePage + 1)}
-            >
-              下一页
-            </button>
-          </nav>
-        </>
+                )}
+              </article>
+            );
+          })}
+        </div>
       ) : (
-        <p className="emptyHistory">当前筛选下还没有完成的训练记录。</p>
+        <p>当前筛选条件下没有训练记录。</p>
+      )}
+
+      {pageCount > 1 && (
+        <div className="historyPagination">
+          <button
+            disabled={safePage <= 1}
+            onClick={() => setPage((value) => Math.max(1, value - 1))}
+            type="button"
+          >
+            上一页
+          </button>
+          <span>
+            {safePage}/{pageCount}
+          </span>
+          <button
+            disabled={safePage >= pageCount}
+            onClick={() => setPage((value) => Math.min(pageCount, value + 1))}
+            type="button"
+          >
+            下一页
+          </button>
+        </div>
       )}
     </section>
   );
