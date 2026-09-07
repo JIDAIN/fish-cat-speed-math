@@ -15,17 +15,20 @@ function context(): GenerationContext {
 }
 
 describe("implemented pure-computation skill drills", () => {
-  it("combines batches 3-6 without duplicates", () => {
-    expect(implementedSkillIds).toHaveLength(103);
-    expect(new Set(implementedSkillIds).size).toBe(103);
+  it("combines batches 3-7 without duplicates", () => {
+    expect(implementedSkillIds).toHaveLength(140);
+    expect(new Set(implementedSkillIds).size).toBe(140);
     expect(isImplementedSkillId("A-PCT-02")).toBe(true);
     expect(isImplementedSkillId("B-R-03")).toBe(true);
     expect(isImplementedSkillId("B-FPSPLIT-11")).toBe(true);
+    expect(isImplementedSkillId("B-ORDER-01")).toBe(true);
+    expect(isImplementedSkillId("B-CONV-02")).toBe(true);
     expect(isImplementedSkillId("C-DIV-09")).toBe(true);
     expect(isImplementedSkillId("C-DIVSPLIT-11")).toBe(true);
-    expect(isImplementedSkillId("C-DIVSCALE-01")).toBe(true);
     expect(isImplementedSkillId("C-DIVSCALE-15")).toBe(true);
-    expect(isImplementedSkillId("C-XP-SCALE-01")).toBe(false);
+    expect(isImplementedSkillId("C-EST-11")).toBe(true);
+    expect(isImplementedSkillId("C-XP-SCALE-01")).toBe(true);
+    expect(isImplementedSkillId("C-CMP-06")).toBe(true);
   });
 
   it("routes A, B and C skill sets through one session-facing generator", () => {
@@ -33,9 +36,12 @@ describe("implemented pure-computation skill drills", () => {
       "A-MUL-02",
       "B-R-03",
       "B-FPSPLIT-09",
+      "B-ORDER-06",
       "C-DIV-09",
       "C-DIVSPLIT-11",
       "C-DIVSCALE-09",
+      "C-EST-10",
+      "C-XP-SCALE-01",
     ] as const) {
       const questions = generateSkillDrillSet(skillId, "L2", 10, context());
       expect(questions).toHaveLength(10);
