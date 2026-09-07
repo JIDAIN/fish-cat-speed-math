@@ -32,7 +32,9 @@ const profiles = (
   value: MasteryProfile | readonly MasteryProfile[],
   count: number,
 ): readonly MasteryProfile[] =>
-  Array.isArray(value) ? value : Array.from({ length: count }, () => value);
+  typeof value === "string"
+    ? Array.from({ length: count }, () => value)
+    : value;
 
 const group = ({
   prefix,
