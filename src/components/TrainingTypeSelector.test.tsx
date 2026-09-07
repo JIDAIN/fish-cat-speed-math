@@ -36,11 +36,12 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(25);
+    ).toHaveLength(26);
     expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /B·分数拆百分数/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /C·直除步骤/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /C·除法拆分/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /C·除法补偿放缩/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "两位数×两位数" }),
@@ -102,6 +103,14 @@ describe("TrainingTypeSelector", () => {
     expect(
       screen
         .getByRole("button", { name: "完整拆分流程" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /C·除法补偿放缩/ }));
+    fireEvent.click(screen.getByRole("button", { name: "结果端求 r" }));
+    expect(
+      screen
+        .getByRole("button", { name: "结果端求 r" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
   });
