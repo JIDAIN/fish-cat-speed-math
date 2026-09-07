@@ -89,6 +89,33 @@ const groups: readonly SkillDrillGroup[] = [
     ],
   },
   {
+    id: "b_order",
+    label: "B·运算顺序",
+    description: "凑整重组、乘除顺序、低成本与影响优先级",
+    skillIds: [
+      "B-ORDER-01",
+      "B-ORDER-02",
+      "B-ORDER-03",
+      "B-ORDER-04",
+      "B-ORDER-05",
+      "B-ORDER-06",
+      "B-ORDER-07",
+      "B-ORDER-08",
+    ],
+  },
+  {
+    id: "b_number_split",
+    label: "B·数字拆分",
+    description: "等值凑整拆分与最低成本数字拆法",
+    skillIds: ["B-SPLIT-01", "B-SPLIT-02"],
+  },
+  {
+    id: "b_multiplication_split",
+    label: "B·乘法拆分",
+    description: "邻近整基准与低成本乘数拆分",
+    skillIds: ["B-MSPLIT-01", "B-MSPLIT-02"],
+  },
+  {
     id: "b_percent_split",
     label: "B·百分数拆分",
     description: "把复杂百分比拆成低成本基础块",
@@ -139,6 +166,12 @@ const groups: readonly SkillDrillGroup[] = [
     ],
   },
   {
+    id: "b_conversion",
+    label: "B·计算转换",
+    description: "倒数锚点转换与严格等比例变形",
+    skillIds: ["B-CONV-01", "B-CONV-02"],
+  },
+  {
     id: "b_approximation",
     label: "B·近似取舍",
     description: "四舍五入、主动上下取整、有效数字与低成本近似",
@@ -149,6 +182,12 @@ const groups: readonly SkillDrillGroup[] = [
       "B-APP-04",
       "B-APP-05",
     ],
+  },
+  {
+    id: "c_addition",
+    label: "C·加减综合",
+    description: "多步加减、高位累计与尾数判断",
+    skillIds: ["C-ADD-01", "C-ADD-02", "C-ADD-03"],
   },
   {
     id: "c_direct_division_steps",
@@ -164,6 +203,24 @@ const groups: readonly SkillDrillGroup[] = [
       "C-DIV-11",
       "C-DIV-12",
       "C-DIV-13",
+    ],
+  },
+  {
+    id: "c_estimation",
+    label: "C·误差 / 精度",
+    description: "误差方向、传播、账本、结论影响与停止判断",
+    skillIds: [
+      "C-EST-01",
+      "C-EST-02",
+      "C-EST-03",
+      "C-EST-04",
+      "C-EST-05",
+      "C-EST-06",
+      "C-EST-07",
+      "C-EST-08",
+      "C-EST-09",
+      "C-EST-10",
+      "C-EST-11",
     ],
   },
   {
@@ -185,6 +242,12 @@ const groups: readonly SkillDrillGroup[] = [
     ],
   },
   {
+    id: "c_xp_scale",
+    label: "C·加减乘补偿放缩",
+    description: "加法互补、减法同向与乘法反向补偿",
+    skillIds: ["C-XP-SCALE-01", "C-XP-SCALE-02", "C-XP-SCALE-03"],
+  },
+  {
     id: "c_division_scale",
     label: "C·除法补偿放缩",
     description: "明显倍数、选基准、修分子/修结果、一阶停止与低频二阶",
@@ -204,6 +267,19 @@ const groups: readonly SkillDrillGroup[] = [
       "C-DIVSCALE-13",
       "C-DIVSCALE-14",
       "C-DIVSCALE-15",
+    ],
+  },
+  {
+    id: "c_comparison",
+    label: "C·纯数值比较",
+    description: "整数、小数百分数、分数、基准与阈值比较",
+    skillIds: [
+      "C-CMP-01",
+      "C-CMP-02",
+      "C-CMP-03",
+      "C-CMP-04",
+      "C-CMP-05",
+      "C-CMP-06",
     ],
   },
 ];
