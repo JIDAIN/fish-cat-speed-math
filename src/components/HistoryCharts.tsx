@@ -6,8 +6,10 @@ import {
   Subtype,
   TrainingSession,
   getSubtypeLabel,
+  parseSkillDrillSubtype,
   typeLabels,
 } from "@/lib/types";
+import { getSkillDefinition, isRegisteredSkillId } from "@/lib/skill-registry";
 import { ratingTarget, subtypesForType, trendPoints } from "@/lib/statistics";
 import { TrendChart } from "./TrendChart";
 
@@ -16,6 +18,15 @@ const USERS = [
   { id: "cat", label: "🐱 小猫" },
 ] as const;
 
+function skillTrackMeta(subtype: Subtype) {
+  const parsed = parseSkillDrillSubtype(subtype);
+  if (!parsed || !isRegisteredSkillId(parsed.skillId)) return undefined;
+  return {
+    ...parsed,
+    definition: getSkillDefinition(parsed.skillId),
+  };
+}
+
 function TargetHeader({
   type,
   subtype,
@@ -23,6 +34,17 @@ function TargetHeader({
   type: QuestionType;
   subtype: Subtype;
 }) {
+  if (type === "skill_drill") {
+    const skill = skillTrackMeta(subtype);
+    return (
+      <p className="targetHeader">
+        {skill
+          ? `${skill.definition.displayName} · ${skill.difficultyBand}：按能力 ID 单独累计正确率与耗时，不套用旧题型评级。`
+          : "专项能力训练：按能力 ID 单独累计正确率与耗时，不套用旧题型评级。"}
+      </p>
+    );
+  }
+
   const target = ratingTarget(type, subtype);
   return (
     <p className="targetHeader">
@@ -41,6 +63,8 @@ function TrackCharts({
   type: QuestionType;
   subtype: Subtype;
 }) {
+  const skill = type === "skill_drill" ? skillTrackMeta(subtype) : undefined;
+  const trackTitle = skill?.definition.displayName ?? typeLabels[type];
   const availableQuestionCounts = useMemo(
     () =>
       [
@@ -59,7 +83,9 @@ function TrackCharts({
     [sessions, subtype, type],
   );
   const defaultQuestionCount =
-    type === "fraction_percent_conversion" || type === "fraction_comparison"
+    type === "skill_drill" ||
+    type === "fraction_percent_conversion" ||
+    type === "fraction_comparison"
       ? 10
       : 20;
   const questionCounts = useMemo(
@@ -81,9 +107,17 @@ function TrackCharts({
   return (
     <section className="trackCharts">
       <div className="trackTitle">
-        <h3>{typeLabels[type]}</h3>
-        {(subtype !== "standard" || type === "two_by_two_multiply") && (
-          <span>{getSubtypeLabel(type, subtype)}</span>
+        <h3>{trackTitle}</h3>
+        {type === "skill_drill" ? (
+          <span>
+            {skill
+              ? `${skill.skillId} · ${skill.difficultyBand}`
+              : getSubtypeLabel(type, subtype)}
+          </span>
+        ) : (
+          (subtype !== "standard" || type === "two_by_two_multiply") && (
+            <span>{getSubtypeLabel(type, subtype)}</span>
+          )
         )}
       </div>
       <TargetHeader subtype={subtype} type={type} />
@@ -91,7 +125,7 @@ function TrackCharts({
         <label className="trendCountPicker">
           <span>题量</span>
           <select
-            aria-label={`${typeLabels[type]}题量趋势`}
+            aria-label={`${trackTitle}题量趋势`}
             value={questionCount}
             onChange={(event) =>
               setSelectedQuestionCount(Number(event.target.value))
@@ -130,21 +164,40 @@ function TrackCharts({
   );
 }
 
-/** Renders all isolated type/submode tracks for side-by-side comparison. */
+/** Renders legacy tracks plus only the skill-drill tracks that actually exist. */
 export function HistoryCharts({ sessions }: { sessions: TrainingSession[] }) {
-  const tracks = useMemo(
-    () =>
-      (Object.keys(typeLabels) as QuestionType[]).flatMap((type) =>
+  const tracks = useMemo(() => {
+    const legacyTracks = (Object.keys(typeLabels) as QuestionType[]).flatMap(
+      (type) =>
         subtypesForType(type).map((subtype) => ({ type, subtype })),
+    );
+    const skillSubtypes = Array.from(
+      new Set(
+        sessions
+          .filter(
+            (session) =>
+              session.status === "completed" &&
+              session.questionType === "skill_drill" &&
+              parseSkillDrillSubtype(session.subtype),
+          )
+          .map((session) => session.subtype),
       ),
-    [],
-  );
+    ).sort();
+    return [
+      ...legacyTracks,
+      ...skillSubtypes.map((subtype) => ({
+        type: "skill_drill" as const,
+        subtype,
+      })),
+    ];
+  }, [sessions]);
+
   return (
     <section className="historyCharts" aria-label="各题型成长趋势">
       <h2>成长趋势</h2>
       <p className="historyChartsHint">
         左右分别显示 🐟 和
-        🐱；每条折线只比较同一题型、同一答题规则的训练。完整历史会自动按记录量汇总，方便查看长期变化。
+        🐱；旧题型按同一题型和答题规则比较，专项训练则按同一能力 ID、同一难度独立比较。完整历史会自动按记录量汇总，方便查看长期变化。
       </p>
       {tracks.map(({ type, subtype }) => (
         <TrackCharts
