@@ -23,25 +23,34 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
+
           path = Path("src/lib/batch7-skill-generate.ts")
           text = path.read_text()
+
           old = "const factor = changes.reduce((value, percent) => value * (1 + percent / 100), 1);"
           assert old in text
-          text = text.replace(old, "const factor = changes.reduce<number>((value, percent) => value * (1 + percent / 100), 1);")
-          old = """if (result <= 0) {
-              result += Math.abs(result) + 1000;
-              terms[0] += Math.abs(result) + 1000;
-            }"""
-          assert old in text
-          text = text.replace(old, """if (result <= 0) {
+          text = text.replace(
+              old,
+              "const factor = changes.reduce<number>((value, percent) => value * (1 + percent / 100), 1);",
+          )
+
+          pattern = re.compile(
+              r"if \(result <= 0\) \{\n\s+result \+= Math\.abs\(result\) \+ 1000;\n\s+terms\[0\] \+= Math\.abs\(result\) \+ 1000;\n\s+\}"
+          )
+          replacement = """if (result <= 0) {
               const adjustment = Math.abs(result) + 1000;
               result += adjustment;
               terms[0] += adjustment;
-            }""")
+            }"""
+          text, count = pattern.subn(replacement, text, count=1)
+          assert count == 1
+
           old = 'function compareOptions(answer: "left" | "right" | "equal") {'
           assert old in text
           text = text.replace(old, "function compareOptions() {")
           text = text.replace("compareOptions(answer)", "compareOptions()")
+
           path.write_text(text)
           PY
           git config user.name "github-actions[bot]"
