@@ -2,7 +2,9 @@ import {
   AnswerValue,
   DifficultyBand,
   GeneratedQuestion,
+  LegacySubtype,
   MasteryProfile,
+  parseSkillDrillSubtype,
   QuestionRecord,
   QuestionStepSpec,
   questionTypes,
@@ -21,7 +23,7 @@ import { isRegisteredSkillId } from "./skill-registry";
 const DB = "speed-math-v1",
   STORE = "sessions";
 
-const subtypes: readonly Subtype[] = [
+const legacySubtypes: readonly LegacySubtype[] = [
   "standard",
   "quotient_first",
   "quotient_two",
@@ -31,6 +33,7 @@ const subtypes: readonly Subtype[] = [
   "comparison",
   "carry_intensive",
   "hundred_scaling",
+  "skill_drill",
 ];
 const difficultyBands: readonly DifficultyBand[] = ["L1", "L2", "L3"];
 const masteryProfiles: readonly MasteryProfile[] = ["R", "C", "D", "S", "F"];
@@ -60,6 +63,13 @@ const trainingModes: readonly TrainingMode[] = [
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isValidSubtype(value: unknown): value is Subtype {
+  if (typeof value !== "string") return false;
+  if (legacySubtypes.includes(value as LegacySubtype)) return true;
+  const parsed = parseSkillDrillSubtype(value);
+  return Boolean(parsed && isRegisteredSkillId(parsed.skillId));
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -157,7 +167,7 @@ function normalizeQuestion(value: unknown): GeneratedQuestion | undefined {
   if (
     typeof value.id !== "string" ||
     !questionTypes.includes(value.type as QuestionType) ||
-    !subtypes.includes(value.subtype as Subtype) ||
+    !isValidSubtype(value.subtype) ||
     typeof value.prompt !== "string" ||
     typeof value.answer !== "string"
   )
@@ -200,7 +210,7 @@ function normalizeQuestion(value: unknown): GeneratedQuestion | undefined {
   return {
     id: value.id,
     type: value.type as QuestionType,
-    subtype: value.subtype as Subtype,
+    subtype: value.subtype,
     prompt: value.prompt,
     answer: value.answer,
     data: data as GeneratedQuestion["data"],
@@ -307,7 +317,7 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
     typeof value.id !== "string" ||
     typeof value.userId !== "string" ||
     !questionTypes.includes(value.questionType as QuestionType) ||
-    !subtypes.includes(value.subtype as Subtype) ||
+    !isValidSubtype(value.subtype) ||
     !Array.isArray(value.questions) ||
     typeof value.currentIndex !== "number" ||
     typeof value.currentAnswer !== "string" ||
@@ -365,7 +375,12 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
   )
     return undefined;
 
-  const schemaVersion = value.schemaVersion === 2 ? 2 : value.schemaVersion === 1 ? 1 : undefined;
+  const schemaVersion =
+    value.schemaVersion === 2
+      ? 2
+      : value.schemaVersion === 1
+        ? 1
+        : undefined;
   const trainingMode = trainingModes.includes(value.trainingMode as TrainingMode)
     ? (value.trainingMode as TrainingMode)
     : undefined;
@@ -379,7 +394,7 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
     id: value.id,
     userId: value.userId,
     questionType: value.questionType as QuestionType,
-    subtype: value.subtype as Subtype,
+    subtype: value.subtype,
     questionCount,
     questions,
     currentIndex: value.currentIndex,
