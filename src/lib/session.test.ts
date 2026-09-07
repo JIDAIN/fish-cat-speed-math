@@ -55,7 +55,7 @@ describe("createTrainingSession", () => {
     });
   });
 
-  it("creates a foundation drill from the skill and difficulty encoded in subtype", () => {
+  it("creates an A-layer drill from the skill and difficulty encoded in subtype", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
@@ -79,6 +79,74 @@ describe("createTrainingSession", () => {
           question.skillId === "A-MUL-02" && question.difficultyBand === "L3",
       ),
     ).toBe(true);
+  });
+
+  it("creates B and C batch-4 drills through the same skill session path", () => {
+    const r = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:B-R-03:L2",
+      questionCount: 10,
+      generationContext: deterministicContext("r"),
+    });
+    const remainder = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:C-DIV-09:L3",
+      questionCount: 10,
+      generationContext: deterministicContext("division"),
+    });
+
+    expect(r).toMatchObject({
+      primarySkillId: "B-R-03",
+      difficultyBand: "L2",
+      trainingMode: "skill",
+    });
+    expect(remainder).toMatchObject({
+      primarySkillId: "C-DIV-09",
+      difficultyBand: "L3",
+      trainingMode: "skill",
+    });
+    expect(r.questions.every((question) => question.skillId === "B-R-03")).toBe(
+      true,
+    );
+    expect(
+      remainder.questions.every(
+        (question) => question.skillId === "C-DIV-09",
+      ),
+    ).toBe(true);
+  });
+
+  it("temporarily encodes semantic choice and percent-block drills for the shared NumberPad", () => {
+    const choice = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:B-R-05:L2",
+      questionCount: 10,
+      generationContext: deterministicContext("choice"),
+    });
+    const split = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:B-PSPLIT-01:L2",
+      questionCount: 10,
+      generationContext: deterministicContext("split"),
+    });
+
+    expect(choice.questions[0]).toMatchObject({ inputKind: "number" });
+    expect(choice.questions[0].generatorParams).toMatchObject({
+      semanticInputKind: "choice",
+      uiAdapter: "choice_numeric_code_v1",
+    });
+    expect(choice.questions[0].prompt).toContain("1=");
+
+    expect(split.questions[0]).toMatchObject({ inputKind: "number" });
+    expect(split.questions[0].generatorParams).toMatchObject({
+      semanticInputKind: "percent_blocks",
+      uiAdapter: "percent_blocks_numeric_code_v1",
+    });
+    expect(split.questions[0].prompt).toContain("按块依次输入代码");
+    expect(split.questions[0].answer).toMatch(/^\d+$/);
   });
 
   it("creates an independent replacement instead of retaining old progress", () => {
