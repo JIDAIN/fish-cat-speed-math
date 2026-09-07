@@ -1,4 +1,12 @@
-import { QuestionType, Subtype, typeLabels } from "@/lib/types";
+import { FoundationSkillSelector } from "@/components/FoundationSkillSelector";
+import { isFoundationSkillId } from "@/lib/skill-generate";
+import {
+  makeSkillDrillSubtype,
+  parseSkillDrillSubtype,
+  QuestionType,
+  Subtype,
+  typeLabels,
+} from "@/lib/types";
 
 interface TrainingTypeOption {
   id: string;
@@ -111,8 +119,40 @@ export function TrainingTypeSelector({
   onSelect,
   onDivisionRuleChange,
 }: TrainingTypeSelectorProps) {
+  const encodedSkill =
+    type === "skill_drill" ? parseSkillDrillSubtype(subtype) : undefined;
+  const selectedFoundationSkillId = isFoundationSkillId(encodedSkill?.skillId)
+    ? encodedSkill.skillId
+    : undefined;
+  const foundationDifficulty = encodedSkill?.difficultyBand ?? "L2";
+
   return (
     <>
+      <section aria-label="基础自动化专项入口">
+        <h3>基础自动化专项</h3>
+        <FoundationSkillSelector
+          difficultyBand={foundationDifficulty}
+          onDifficultyChange={(difficultyBand) => {
+            if (!selectedFoundationSkillId) return;
+            onSelect(
+              "skill_drill",
+              makeSkillDrillSubtype(
+                selectedFoundationSkillId,
+                difficultyBand,
+              ),
+            );
+          }}
+          onSelectSkill={(skillId) =>
+            onSelect(
+              "skill_drill",
+              makeSkillDrillSubtype(skillId, foundationDifficulty),
+            )
+          }
+          selectedSkillId={selectedFoundationSkillId}
+        />
+      </section>
+
+      <h3>已有综合训练</h3>
       <div className="grid trainingTypeGrid">
         {trainingTypeOptions.map((option) => {
           const isSelected =
