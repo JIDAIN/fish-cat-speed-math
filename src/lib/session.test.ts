@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GenerationContext } from "./generate";
+import { GenerationContext, generateSet } from "./generate";
 import { createTrainingSession } from "./session";
 
 function deterministicContext(prefix: string): GenerationContext {
@@ -11,7 +11,7 @@ function deterministicContext(prefix: string): GenerationContext {
 }
 
 describe("createTrainingSession", () => {
-  it("creates a clean active session with the requested frozen settings", () => {
+  it("creates a clean schema-v2 active session with the requested frozen settings", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "two_digit_add_subtract",
@@ -37,6 +37,8 @@ describe("createTrainingSession", () => {
       pauseDurationMs: 0,
       status: "active",
       startedAt: 10_000,
+      schemaVersion: 2,
+      trainingMode: "legacy",
     });
     expect(session.questions).toHaveLength(10);
   });
@@ -75,6 +77,57 @@ describe("createTrainingSession", () => {
       currentRestartCount: 0,
       accumulatedMs: 0,
       runningSince: 20_000,
+    });
+  });
+
+  it("rejects new 30-question sessions but accepts a frozen legacy 30-question PK set", () => {
+    expect(() =>
+      createTrainingSession({
+        userId: "fish",
+        questionType: "two_digit_add_subtract",
+        subtype: "standard",
+        questionCount: 30,
+        generationContext: deterministicContext("invalid"),
+      }),
+    ).toThrow(RangeError);
+
+    const frozen = generateSet(
+      "two_digit_add_subtract",
+      "standard",
+      30,
+      deterministicContext("legacy"),
+    );
+    const pk = createTrainingSession({
+      userId: "cat",
+      questionType: "two_digit_add_subtract",
+      subtype: "standard",
+      questionCount: 30,
+      questions: frozen,
+      pkChallengeId: "legacy-challenge",
+      createSessionId: () => "legacy-pk",
+    });
+    expect(pk.questions).toHaveLength(30);
+    expect(pk.questionCount).toBe(30);
+    expect(pk.trainingSource).toBe("pk");
+  });
+
+  it("stores skill-level session metadata without changing legacy question types", () => {
+    const session = createTrainingSession({
+      userId: "fish",
+      questionType: "two_by_one_multiply",
+      subtype: "standard",
+      questionCount: 10,
+      primarySkillId: "A-MUL-03",
+      difficultyBand: "L2",
+      trainingMode: "skill",
+      generationContext: deterministicContext("skill"),
+    });
+    expect(session).toMatchObject({
+      schemaVersion: 2,
+      trainingMode: "skill",
+      primarySkillId: "A-MUL-03",
+      difficultyBand: "L2",
+      questionType: "two_by_one_multiply",
     });
   });
 });
