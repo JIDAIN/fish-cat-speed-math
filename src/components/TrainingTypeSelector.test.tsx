@@ -23,7 +23,7 @@ function StatefulSelector() {
 }
 
 describe("TrainingTypeSelector", () => {
-  it("shows one two-by-two primary entry and maps both fraction directions", () => {
+  it("shows foundation groups plus the existing primary entries and maps both fraction directions", () => {
     const onSelect = vi.fn();
     const { container } = render(
       <TrainingTypeSelector
@@ -36,7 +36,7 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(11);
+    ).toHaveLength(17);
     expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "两位数×两位数" }),
@@ -57,6 +57,25 @@ describe("TrainingTypeSelector", () => {
       "fraction_percent_conversion",
       "percent_to_fraction",
     );
+  });
+
+  it("selects a foundation skill and preserves its difficulty in the encoded subtype", () => {
+    render(<StatefulSelector />);
+
+    fireEvent.click(screen.getByRole("button", { name: "逆向乘法口诀" }));
+    expect(
+      screen
+        .getByRole("button", { name: "逆向乘法口诀" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(
+      screen.getByRole("button", { name: "L2" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "L3" }));
+    expect(
+      screen.getByRole("button", { name: "L3" }).getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 
   it("shows compact division rules only while their parent type is selected", () => {
