@@ -59,7 +59,7 @@ function trackFor(container: HTMLElement, title: string) {
 }
 
 describe("HistoryCharts", () => {
-  it("shows every type/submode track with fish and cat side by side", () => {
+  it("shows every legacy type/submode track with fish and cat side by side", () => {
     const { container } = render(
       <HistoryCharts
         sessions={[makeSession("fish"), makeSession("cat", { userId: "cat" })]}
@@ -78,6 +78,40 @@ describe("HistoryCharts", () => {
     );
     expect(charts[0].dataset.covered).toBe("1");
     expect(charts[1].dataset.covered).toBe("1");
+  });
+
+  it("adds only skill-drill tracks that actually exist and keeps them separate by difficulty", () => {
+    const tenQuestionSkill = withQuestionCount(10);
+    const sessions = [
+      makeSession("skill-l1", {
+        ...tenQuestionSkill,
+        questionType: "skill_drill",
+        subtype: "skill:A-PCT-02:L1",
+        primarySkillId: "A-PCT-02",
+        difficultyBand: "L1",
+      }),
+      makeSession("skill-l2", {
+        ...tenQuestionSkill,
+        questionType: "skill_drill",
+        subtype: "skill:A-PCT-02:L2",
+        primarySkillId: "A-PCT-02",
+        difficultyBand: "L2",
+      }),
+    ];
+    const { container } = render(<HistoryCharts sessions={sessions} />);
+
+    expect(container.querySelectorAll(".trackCharts")).toHaveLength(16);
+    const percentTracks = [...container.querySelectorAll(".trackCharts")].filter(
+      (track) => track.querySelector(".trackTitle h3")?.textContent === "求1%",
+    );
+    expect(percentTracks).toHaveLength(2);
+    expect(percentTracks.map((track) => track.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("A-PCT-02 · L1"),
+        expect.stringContaining("A-PCT-02 · L2"),
+      ]),
+    );
+    expect(percentTracks[0].textContent).toContain("不套用旧题型评级");
   });
 
   it("defaults ordinary tracks to 20 questions and fraction tracks to 10", () => {
