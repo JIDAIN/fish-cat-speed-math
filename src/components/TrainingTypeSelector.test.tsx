@@ -36,12 +36,17 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(26);
+    ).toHaveLength(34);
     expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /B·运算顺序/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /B·分数拆百分数/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /B·计算转换/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /C·直除步骤/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /C·误差 \/ 精度/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /C·除法拆分/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /C·加减乘补偿放缩/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /C·除法补偿放缩/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /C·纯数值比较/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "两位数×两位数" }),
@@ -90,6 +95,14 @@ describe("TrainingTypeSelector", () => {
       screen.getByRole("button", { name: "L3" }).getAttribute("aria-pressed"),
     ).toBe("true");
 
+    fireEvent.click(screen.getByRole("button", { name: /B·运算顺序/ }));
+    fireEvent.click(screen.getByRole("button", { name: "最低操作成本顺序" }));
+    expect(
+      screen
+        .getByRole("button", { name: "最低操作成本顺序" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
     fireEvent.click(screen.getByRole("button", { name: /B·分数拆百分数/ }));
     fireEvent.click(screen.getByRole("button", { name: "最低成本拆分路径" }));
     expect(
@@ -103,6 +116,14 @@ describe("TrainingTypeSelector", () => {
     expect(
       screen
         .getByRole("button", { name: "完整拆分流程" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /C·加减乘补偿放缩/ }));
+    fireEvent.click(screen.getByRole("button", { name: "乘法反向补偿" }));
+    expect(
+      screen
+        .getByRole("button", { name: "乘法反向补偿" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
 
