@@ -215,7 +215,7 @@ export const typeLabels: Record<QuestionType, string> = {
   fraction_percent_conversion: "分数—百分数",
   fraction_comparison: "分数比大小",
   special_hundred_scaling_division: "专项：整百放缩修正",
-  skill_drill: "基础自动化专项",
+  skill_drill: "纯计算能力专项",
 };
 export const subtypeLabels: Record<string, string> = {
   standard: "标准训练",
