@@ -328,7 +328,7 @@ const percentSplitTemplates: Record<DifficultyBand, readonly PercentSplitTemplat
   L3: [
     { target: 38, allowed: ["25,10,3"] },
     { target: 18, allowed: ["10,5,3", "12.5,3,2.5"] },
-    { target: 30.5, allowed: ["20,7.5,3"] },
+    { target: 30.5, allowed: ["25,3,2.5"] },
   ],
 };
 
