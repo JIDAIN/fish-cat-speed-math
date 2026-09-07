@@ -33,6 +33,11 @@ interface CreateTrainingSessionOptions {
   difficultyBand?: DifficultyBand;
 }
 
+function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
+  const unique = Array.from(new Set(values.filter((value): value is T => value !== undefined)));
+  return unique.length === 1 ? unique[0] : undefined;
+}
+
 /** Creates one entirely fresh training run from frozen training parameters. */
 export function createTrainingSession({
   userId,
@@ -61,11 +66,30 @@ export function createTrainingSession({
   // Only newly generated questions are decorated with V2 capability metadata.
   // Frozen legacy/PK question sets are preserved byte-for-byte so historical
   // challenges and recoverable sessions never change meaning after an update.
+  const newlyGenerated = questions === undefined;
   const frozenQuestions =
     questions ??
     generateSet(questionType, subtype, questionCount, generationContext).map(
       migrateExistingQuestionToSkillV2,
     );
+
+  const inferredPrimarySkillId = newlyGenerated
+    ? onlyValue(frozenQuestions.map((question) => question.skillId))
+    : undefined;
+  const inferredDifficultyBand = newlyGenerated
+    ? onlyValue(frozenQuestions.map((question) => question.difficultyBand))
+    : undefined;
+  const hasMigratedSkills =
+    newlyGenerated && frozenQuestions.some((question) => question.skillId !== undefined);
+  const effectivePrimarySkillId = primarySkillId ?? inferredPrimarySkillId;
+  const effectiveDifficultyBand = difficultyBand ?? inferredDifficultyBand;
+  const effectiveTrainingMode =
+    trainingMode ??
+    (effectivePrimarySkillId
+      ? "skill"
+      : hasMigratedSkills
+        ? "mixed"
+        : "legacy");
 
   return {
     id: createSessionId(),
@@ -88,8 +112,8 @@ export function createTrainingSession({
     pkChallengeId,
     pkSyncStatus: pkChallengeId ? "not_synced" : undefined,
     schemaVersion: 2,
-    trainingMode: trainingMode ?? (primarySkillId ? "skill" : "legacy"),
-    primarySkillId,
-    difficultyBand,
+    trainingMode: effectiveTrainingMode,
+    primarySkillId: effectivePrimarySkillId,
+    difficultyBand: effectiveDifficultyBand,
   };
 }
