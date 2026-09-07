@@ -11,6 +11,7 @@ import {
   QuestionType,
   SkillId,
   StepRecord,
+  StepTimerSnapshot,
   StructuredInputKind,
   Subtype,
   TargetPrecision,
@@ -94,6 +95,34 @@ function normalizeAnswerValueArray(value: unknown): AnswerValue[] | undefined {
   return normalized.length === value.length ? normalized : undefined;
 }
 
+function normalizeStepChoices(value: unknown): QuestionStepSpec["choices"] {
+  if (!Array.isArray(value)) return undefined;
+  const choices = value
+    .filter(isRecord)
+    .map((item) =>
+      typeof item.value === "string" && typeof item.label === "string"
+        ? { value: item.value, label: item.label }
+        : undefined,
+    )
+    .filter((item): item is { value: string; label: string } => Boolean(item));
+  return choices.length === value.length ? choices : undefined;
+}
+
+function normalizeStepTimer(value: unknown): StepTimerSnapshot | undefined {
+  if (!isRecord(value)) return undefined;
+  if (
+    typeof value.accumulatedMs !== "number" ||
+    (typeof value.runningSince !== "number" && value.runningSince !== null) ||
+    typeof value.interrupted !== "boolean"
+  )
+    return undefined;
+  return {
+    accumulatedMs: Math.max(0, value.accumulatedMs),
+    runningSince: value.runningSince,
+    interrupted: value.interrupted,
+  };
+}
+
 function normalizeSkillId(value: unknown): SkillId | undefined {
   return isRegisteredSkillId(value) ? value : undefined;
 }
@@ -129,6 +158,13 @@ function normalizeStepSpec(value: unknown): QuestionStepSpec | undefined {
     expectedValue: normalizeAnswerValue(value.expectedValue),
     allowedAnswerSet: normalizeAnswerValueArray(value.allowedAnswerSet),
     targetPrecision,
+    acceptedRange:
+      isRecord(value.acceptedRange) &&
+      typeof value.acceptedRange.min === "number" &&
+      typeof value.acceptedRange.max === "number"
+        ? { min: value.acceptedRange.min, max: value.acceptedRange.max }
+        : undefined,
+    choices: normalizeStepChoices(value.choices),
   };
 }
 
@@ -463,6 +499,24 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
     trainingMode,
     primarySkillId: normalizeSkillId(value.primarySkillId),
     difficultyBand,
+    currentStepIndex:
+      typeof value.currentStepIndex === "number" && value.currentStepIndex >= 0
+        ? Math.floor(value.currentStepIndex)
+        : undefined,
+    currentStepAnswer:
+      typeof value.currentStepAnswer === "string"
+        ? value.currentStepAnswer
+        : undefined,
+    currentStepRecords: Array.isArray(value.currentStepRecords)
+      ? value.currentStepRecords
+          .map(normalizeStepRecord)
+          .filter((step): step is StepRecord => Boolean(step))
+      : undefined,
+    currentStepTimer: normalizeStepTimer(value.currentStepTimer),
+    currentStepEditCount:
+      typeof value.currentStepEditCount === "number"
+        ? Math.max(0, Math.floor(value.currentStepEditCount))
+        : undefined,
   };
 }
 

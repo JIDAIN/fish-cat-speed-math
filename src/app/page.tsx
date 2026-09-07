@@ -42,6 +42,7 @@ import {
 } from "@/components/SessionDetails";
 import { ActiveSessionDialog } from "@/components/ActiveSessionDialog";
 import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
+import { StructuredStepTraining } from "@/components/StructuredStepTraining";
 import { FractionPercentMemory } from "@/components/FractionPercentMemory";
 import { FractionPercentMatchGame } from "@/components/FractionPercentMatchGame";
 import { FractionPercentMatchHistory } from "@/components/FractionPercentMatchHistory";
@@ -73,7 +74,7 @@ import {
   suspendUnverifiedTimer,
 } from "@/lib/timer";
 import { createTrainingSession } from "@/lib/session";
-import { submitCurrentAnswer } from "@/lib/training";
+import { submitCurrentAnswer, submitCurrentStep } from "@/lib/training";
 const defaultSubtype = (t: QuestionType): Subtype =>
   t === "three_by_two_division"
     ? "quotient_two"
@@ -658,7 +659,11 @@ export default function Home() {
   };
   const submit = () => {
     if (!session) return;
-    const next = submitCurrentAnswer(session, elapsed, scratch, Date.now());
+    const submittedAt = Date.now();
+    const next =
+      current?.inputKind === "steps"
+        ? submitCurrentStep(session, elapsed, scratch, submittedAt)
+        : submitCurrentAnswer(session, elapsed, scratch, submittedAt);
     if (next === session) return;
     if (next.status === "completed") {
       const completed = {
@@ -1124,7 +1129,7 @@ export default function Home() {
           <button onClick={() => setScratch(true)}>✎ 草稿</button>
         </header>
         <section className="training trainingMain">
-          {session.subtype !== "percent_to_fraction" ? (
+          {current.inputKind !== "steps" && session.subtype !== "percent_to_fraction" ? (
             <p className="rule">
               {session.subtype === "quotient_first"
                 ? "求商首位，不四舍五入"
@@ -1139,7 +1144,19 @@ export default function Home() {
                         : "请输入答案"}
             </p>
           ) : null}
-          {session.questionType === "fraction_comparison" ? (
+          {current.inputKind === "steps" ? (
+            <StructuredStepTraining
+              isRestarting={isRestartingTraining}
+              now={now}
+              onChange={(nextSession) => {
+                sessionRef.current = nextSession;
+                setSession(nextSession);
+              }}
+              onRestart={restartTraining}
+              onSubmit={submit}
+              session={session}
+            />
+          ) : session.questionType === "fraction_comparison" ? (
             <FractionComparisonDisplay
               data={current.data}
               fallbackPrompt={current.prompt}
@@ -1183,7 +1200,7 @@ export default function Home() {
               </button>
             </>
           )}
-          {session.questionType === "fraction_comparison" ? (
+          {current.inputKind === "steps" ? null : session.questionType === "fraction_comparison" ? (
             <div className="comparisonPad trainingKeypad">
               <div className="comparisonChoices">
                 {[
