@@ -47,3 +47,65 @@ export function currentElapsedMs(session: TrainingSession, now = Date.now()) {
       : Math.max(0, now - session.runningSince))
   );
 }
+
+/** One independent timer for a structured question step. */
+export type StepTimerState = {
+  accumulatedMs: number;
+  runningSince: number | null;
+  interrupted: boolean;
+};
+
+export function startStepTimer(now = Date.now()): StepTimerState {
+  return { accumulatedMs: 0, runningSince: now, interrupted: false };
+}
+
+export function pauseStepTimer(
+  timer: StepTimerState,
+  now = Date.now(),
+): StepTimerState {
+  if (timer.runningSince === null) return timer;
+  return {
+    ...timer,
+    accumulatedMs:
+      timer.accumulatedMs + Math.max(0, now - timer.runningSince),
+    runningSince: null,
+  };
+}
+
+export function resumeStepTimer(
+  timer: StepTimerState,
+  now = Date.now(),
+): StepTimerState {
+  if (timer.runningSince !== null) return timer;
+  return { ...timer, runningSince: now };
+}
+
+export function currentStepElapsedMs(
+  timer: StepTimerState,
+  now = Date.now(),
+): number {
+  return (
+    timer.accumulatedMs +
+    (timer.runningSince === null
+      ? 0
+      : Math.max(0, now - timer.runningSince))
+  );
+}
+
+/**
+ * Marks a step timing sample as unreliable, for example after the page stayed
+ * in the background long enough to invalidate speed statistics.
+ */
+export function interruptStepTimer(timer: StepTimerState): StepTimerState {
+  return { ...timer, runningSince: null, interrupted: true };
+}
+
+export function finishStepTimer(
+  timer: StepTimerState,
+  now = Date.now(),
+): { durationMs: number; timingInterrupted: boolean } {
+  return {
+    durationMs: currentStepElapsedMs(timer, now),
+    timingInterrupted: timer.interrupted,
+  };
+}
