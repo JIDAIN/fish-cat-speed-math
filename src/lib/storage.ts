@@ -1,13 +1,23 @@
 import {
+  AnswerValue,
+  DifficultyBand,
   GeneratedQuestion,
+  MasteryProfile,
   QuestionRecord,
+  QuestionStepSpec,
   questionTypes,
   QuestionType,
+  SkillId,
+  StepRecord,
+  StructuredInputKind,
   Subtype,
+  TargetPrecision,
+  TrainingMode,
   TrainingSession,
 } from "./types";
-import { isValidQuestionCount } from "./question-count";
+import { isValidStoredQuestionCount } from "./question-count";
 import { grade, normalizeFractionComparisonAnswer } from "./generate";
+import { isRegisteredSkillId } from "./skill-registry";
 const DB = "speed-math-v1",
   STORE = "sessions";
 
@@ -19,6 +29,33 @@ const subtypes: readonly Subtype[] = [
   "percent_to_fraction",
   "fraction_to_percent",
   "comparison",
+  "carry_intensive",
+  "hundred_scaling",
+];
+const difficultyBands: readonly DifficultyBand[] = ["L1", "L2", "L3"];
+const masteryProfiles: readonly MasteryProfile[] = ["R", "C", "D", "S", "F"];
+const inputKinds: readonly StructuredInputKind[] = [
+  "number",
+  "choice",
+  "percent_blocks",
+  "sequence",
+  "steps",
+];
+const targetPrecisions: readonly TargetPrecision[] = [
+  "exact",
+  "1%",
+  "3%",
+  "5%",
+  "range",
+  "magnitude",
+];
+const trainingModes: readonly TrainingMode[] = [
+  "legacy",
+  "skill",
+  "flow",
+  "mixed",
+  "diagnostic",
+  "path_compare",
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -29,6 +66,90 @@ function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
+}
+
+function normalizeAnswerValue(value: unknown): AnswerValue | undefined {
+  return typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+    ? value
+    : undefined;
+}
+
+function normalizeAnswerValueArray(value: unknown): AnswerValue[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const normalized = value
+    .map(normalizeAnswerValue)
+    .filter((item): item is AnswerValue => item !== undefined);
+  return normalized.length === value.length ? normalized : undefined;
+}
+
+function normalizeSkillId(value: unknown): SkillId | undefined {
+  return isRegisteredSkillId(value) ? value : undefined;
+}
+
+function normalizeSkillIdArray(value: unknown): SkillId[] {
+  return Array.isArray(value)
+    ? value
+        .map(normalizeSkillId)
+        .filter((item): item is SkillId => item !== undefined)
+    : [];
+}
+
+function normalizeStepSpec(value: unknown): QuestionStepSpec | undefined {
+  if (!isRecord(value)) return undefined;
+  if (
+    typeof value.id !== "string" ||
+    typeof value.stepType !== "string" ||
+    typeof value.prompt !== "string" ||
+    !inputKinds.includes(value.inputKind as StructuredInputKind)
+  )
+    return undefined;
+  const targetPrecision = targetPrecisions.includes(
+    value.targetPrecision as TargetPrecision,
+  )
+    ? (value.targetPrecision as TargetPrecision)
+    : undefined;
+  return {
+    id: value.id,
+    stepSkillId: normalizeSkillId(value.stepSkillId),
+    stepType: value.stepType,
+    prompt: value.prompt,
+    inputKind: value.inputKind as StructuredInputKind,
+    expectedValue: normalizeAnswerValue(value.expectedValue),
+    allowedAnswerSet: normalizeAnswerValueArray(value.allowedAnswerSet),
+    targetPrecision,
+  };
+}
+
+function normalizeStepRecord(value: unknown): StepRecord | undefined {
+  if (!isRecord(value)) return undefined;
+  if (
+    typeof value.stepId !== "string" ||
+    typeof value.stepType !== "string" ||
+    typeof value.isCorrect !== "boolean" ||
+    typeof value.durationMs !== "number"
+  )
+    return undefined;
+  return {
+    stepId: value.stepId,
+    stepSkillId: normalizeSkillId(value.stepSkillId),
+    stepType: value.stepType,
+    userValue: normalizeAnswerValue(value.userValue),
+    expectedValue: normalizeAnswerValue(value.expectedValue),
+    decisionValue:
+      typeof value.decisionValue === "string" ? value.decisionValue : undefined,
+    isCorrect: value.isCorrect,
+    durationMs: Math.max(0, value.durationMs),
+    submitCount:
+      typeof value.submitCount === "number" ? value.submitCount : 1,
+    editCount: typeof value.editCount === "number" ? value.editCount : 0,
+    skipped: typeof value.skipped === "boolean" ? value.skipped : false,
+    timingInterrupted:
+      typeof value.timingInterrupted === "boolean"
+        ? value.timingInterrupted
+        : false,
+  };
 }
 
 function normalizeQuestion(value: unknown): GeneratedQuestion | undefined {
@@ -51,6 +172,29 @@ function normalizeQuestion(value: unknown): GeneratedQuestion | undefined {
   const data = isRecord(value.data) ? value.data : {};
   const acceptedRange = isRecord(value.acceptedRange)
     ? value.acceptedRange
+    : undefined;
+  const difficultyBand = difficultyBands.includes(
+    value.difficultyBand as DifficultyBand,
+  )
+    ? (value.difficultyBand as DifficultyBand)
+    : undefined;
+  const masteryProfile = masteryProfiles.includes(
+    value.masteryProfile as MasteryProfile,
+  )
+    ? (value.masteryProfile as MasteryProfile)
+    : undefined;
+  const targetPrecision = targetPrecisions.includes(
+    value.targetPrecision as TargetPrecision,
+  )
+    ? (value.targetPrecision as TargetPrecision)
+    : undefined;
+  const inputKind = inputKinds.includes(value.inputKind as StructuredInputKind)
+    ? (value.inputKind as StructuredInputKind)
+    : undefined;
+  const stepSpecs = Array.isArray(value.stepSpecs)
+    ? value.stepSpecs
+        .map(normalizeStepSpec)
+        .filter((step): step is QuestionStepSpec => Boolean(step))
     : undefined;
 
   return {
@@ -78,6 +222,18 @@ function normalizeQuestion(value: unknown): GeneratedQuestion | undefined {
       typeof acceptedRange.max === "number"
         ? { min: acceptedRange.min, max: acceptedRange.max }
         : undefined,
+    skillId: normalizeSkillId(value.skillId),
+    secondarySkillIds: normalizeSkillIdArray(value.secondarySkillIds),
+    difficultyBand,
+    structureTags: normalizeStringArray(value.structureTags),
+    targetPrecision,
+    generatorParams: isRecord(value.generatorParams)
+      ? (value.generatorParams as GeneratedQuestion["generatorParams"])
+      : undefined,
+    allowedAnswerSet: normalizeAnswerValueArray(value.allowedAnswerSet),
+    masteryProfile,
+    inputKind,
+    stepSpecs,
   };
 }
 
@@ -111,6 +267,11 @@ function normalizeRecord(value: unknown): QuestionRecord | undefined {
     question.type === "fraction_comparison"
       ? grade(question, userAnswer)
       : undefined;
+  const steps = Array.isArray(value.steps)
+    ? value.steps
+        .map(normalizeStepRecord)
+        .filter((step): step is StepRecord => Boolean(step))
+    : undefined;
 
   return {
     question,
@@ -122,6 +283,17 @@ function normalizeRecord(value: unknown): QuestionRecord | undefined {
       typeof value.restartCount === "number" ? value.restartCount : 0,
     usedScratchpad:
       typeof value.usedScratchpad === "boolean" ? value.usedScratchpad : false,
+    relativeError:
+      typeof value.relativeError === "number" ? value.relativeError : undefined,
+    submitCount:
+      typeof value.submitCount === "number" ? value.submitCount : undefined,
+    editCount: typeof value.editCount === "number" ? value.editCount : undefined,
+    skipped: typeof value.skipped === "boolean" ? value.skipped : undefined,
+    timingInterrupted:
+      typeof value.timingInterrupted === "boolean"
+        ? value.timingInterrupted
+        : undefined,
+    steps,
   };
 }
 
@@ -184,15 +356,24 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
       ? savedQuestionCount
       : questions.length;
 
-  // A newly persisted active session must use the shared 10–100 contract and
-  // agree with its frozen set. Legacy active records without this field still
-  // remain recoverable through the length fallback above.
+  // Stored sessions keep the historical 10–100 compatibility contract. New
+  // session creation applies the stricter 10/20 rule in session.ts.
   if (
     status === "active" &&
     savedQuestionCount !== undefined &&
-    !isValidQuestionCount(questionCount)
+    !isValidStoredQuestionCount(questionCount)
   )
     return undefined;
+
+  const schemaVersion = value.schemaVersion === 2 ? 2 : value.schemaVersion === 1 ? 1 : undefined;
+  const trainingMode = trainingModes.includes(value.trainingMode as TrainingMode)
+    ? (value.trainingMode as TrainingMode)
+    : undefined;
+  const difficultyBand = difficultyBands.includes(
+    value.difficultyBand as DifficultyBand,
+  )
+    ? (value.difficultyBand as DifficultyBand)
+    : undefined;
 
   return {
     id: value.id,
@@ -263,6 +444,10 @@ function normalizeSession(value: unknown): TrainingSession | undefined {
       value.pkSyncStatus === "not_synced"
         ? value.pkSyncStatus
         : undefined,
+    schemaVersion,
+    trainingMode,
+    primarySkillId: normalizeSkillId(value.primarySkillId),
+    difficultyBand,
   };
 }
 
