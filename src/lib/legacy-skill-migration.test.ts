@@ -46,11 +46,14 @@ describe("existing generator to skill-v2 migration", () => {
   });
 
   it("keeps the current two-by-two task as C-MUL-01 and records a carry leaf", () => {
-    const migrated = migrateExistingQuestionToSkillV2(
-      generateQuestion("two_by_two_multiply", "carry_intensive", context()),
-    );
+    const base = generateQuestion("two_by_two_multiply", "standard", context());
+    const migrated = migrateExistingQuestionToSkillV2({
+      ...base,
+      subtype: "carry_intensive",
+      data: { ...base.data, carryLoad: 3 },
+    });
     expect(migrated.skillId).toBe("C-MUL-01");
-    expect(migrated.secondarySkillIds?.[0]).toMatch(/^A-MUL-0[4-7]$/);
+    expect(migrated.secondarySkillIds).toEqual(["A-MUL-07"]);
   });
 
   it("distinguishes fraction-percent directions and unit/non-unit support skills", () => {
