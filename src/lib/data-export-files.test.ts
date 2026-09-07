@@ -52,8 +52,14 @@ const row: CloudCompletedTrainingRow = {
   },
 };
 
+function columnIndex(rows: unknown[][], label: string) {
+  const index = rows[0]?.indexOf(label) ?? -1;
+  expect(index).toBeGreaterThanOrEqual(0);
+  return index;
+}
+
 describe("data export files", () => {
-  it("creates three readable sheets and a raw JSON archive", async () => {
+  it("creates readable sheets and a raw JSON archive", async () => {
     const data = createDataExport([row]);
     const book = XLSX.read(await (await createXlsxBlob(data)).arrayBuffer(), {
       type: "array",
@@ -65,14 +71,25 @@ describe("data export files", () => {
       "消消乐历史",
       "字段说明",
     ]);
-    const questionSheet = XLSX.utils.sheet_to_json<unknown[]>(
-      book.Sheets["逐题记录"],
-      { header: 1 },
-    );
-    expect(questionSheet[1][5]).toBe("'=1+1");
-    expect(questionSheet[1][6]).toBe("'=2");
-    const trainingSheet = book.Sheets["训练记录"];
-    expect(trainingSheet.O2.z).toBe("0.0%");
+
+    const questionWorksheet = book.Sheets["逐题记录"];
+    const questionRows = XLSX.utils.sheet_to_json<unknown[]>(questionWorksheet, {
+      header: 1,
+    });
+    expect(questionRows[1][columnIndex(questionRows, "题面")]).toBe("'=1+1");
+    expect(questionRows[1][columnIndex(questionRows, "正确答案")]).toBe("'=2");
+    expect(questionRows[1][columnIndex(questionRows, "能力 ID")]).toBeUndefined();
+
+    const trainingWorksheet = book.Sheets["训练记录"];
+    const trainingRows = XLSX.utils.sheet_to_json<unknown[]>(trainingWorksheet, {
+      header: 1,
+    });
+    const accuracyColumn = columnIndex(trainingRows, "正确率");
+    const accuracyCell = trainingWorksheet[
+      XLSX.utils.encode_cell({ r: 1, c: accuracyColumn })
+    ];
+    expect(accuracyCell.z).toBe("0.0%");
+
     const archive = JSON.parse(await createJsonBlob(data).text());
     expect(archive.raw_cloud_rows[0].completed_at).toBe("2026-01-01T00:00:00Z");
   });
