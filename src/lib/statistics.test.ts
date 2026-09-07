@@ -154,6 +154,7 @@ describe("training statistics", () => {
       "fraction_to_percent",
       "percent_to_fraction",
     ]);
+    expect(subtypesForType("skill_drill")).toEqual([]);
   });
 
   it("filters trends by user, type and subtype", () => {
@@ -179,8 +180,6 @@ describe("training statistics", () => {
     });
     const twenty = session({ id: "twenty" });
 
-    // questionCount is deliberately stale on the first session: legacy
-    // history is grouped by the frozen set length, never an inferred field.
     expect(
       trendPoints(
         [ten, twenty],
@@ -289,8 +288,34 @@ describe("training statistics", () => {
       { level: "良好", minCorrect: 9 },
       { level: "合格", minCorrect: 9 },
     ]);
-    const frozen = { ...ten, rating: createRatingSnapshot(ten) };
-    expect(getRating(frozen)).toBe(frozen.rating.level);
+    const snapshot = createRatingSnapshot(ten);
+    expect(snapshot).toBeDefined();
+    const frozen = { ...ten, rating: snapshot };
+    expect(getRating(frozen)).toBe(snapshot?.level);
+  });
+
+  it("keeps skill drills outside the legacy rating scale", () => {
+    const drill = session({
+      questionType: "skill_drill",
+      subtype: "skill:A-PCT-02:L2",
+      schemaVersion: 2,
+      trainingMode: "skill",
+      primarySkillId: "A-PCT-02",
+      difficultyBand: "L2",
+    });
+
+    expect(createRatingSnapshot(drill)).toBeUndefined();
+    expect(getRating(drill)).toBeUndefined();
+    expect(summarizeHistory([drill])).toMatchObject({
+      sessionCount: 1,
+      questionCount: 20,
+      ratingCounts: {
+        优秀: 0,
+        良好: 0,
+        合格: 0,
+        继续加油: 0,
+      },
+    });
   });
 
   it("summarizes history with question-weighted accuracy and speed", () => {
@@ -364,9 +389,6 @@ describe("training statistics", () => {
     expect(aggregate.reduce((sum, point) => sum + point.sessionCount, 0)).toBe(
       101,
     );
-    // 101 sessions use 25 proportional buckets, so the first bucket contains
-    // four records. Each point is a per-session mean total time, so all 100s
-    // sessions remain 100 seconds regardless of bucket size.
     expect(aggregate[0]).toMatchObject({
       sessionCount: 4,
       totalSeconds: 100,
