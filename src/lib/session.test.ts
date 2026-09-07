@@ -38,7 +38,9 @@ describe("createTrainingSession", () => {
       status: "active",
       startedAt: 10_000,
       schemaVersion: 2,
-      trainingMode: "legacy",
+      trainingMode: "skill",
+      primarySkillId: "A-ADD-01",
+      difficultyBand: "L2",
     });
     expect(session.questions).toHaveLength(10);
     expect(session.questions.every((question) => question.skillId)).toBe(true);
@@ -122,9 +124,10 @@ describe("createTrainingSession", () => {
     expect(pk.questions[0].skillId).toBeUndefined();
     expect(pk.questionCount).toBe(30);
     expect(pk.trainingSource).toBe("pk");
+    expect(pk.trainingMode).toBe("legacy");
   });
 
-  it("stores skill-level session metadata while generated questions also carry skill IDs", () => {
+  it("stores explicit skill-level session metadata while generated questions also carry skill IDs", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "two_by_one_multiply",
