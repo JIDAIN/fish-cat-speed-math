@@ -217,7 +217,7 @@ export const typeLabels: Record<QuestionType, string> = {
   special_hundred_scaling_division: "专项：整百放缩修正",
   skill_drill: "基础自动化专项",
 };
-export const subtypeLabels: Record<LegacySubtype, string> = {
+export const subtypeLabels: Record<string, string> = {
   standard: "标准训练",
   quotient_first: "求商首位",
   quotient_two: "求商前两位",
@@ -240,5 +240,5 @@ export function getSubtypeLabel(
   }
   const skill = parseSkillDrillSubtype(subtype);
   if (skill) return `${skill.skillId} · ${skill.difficultyBand}`;
-  return subtypeLabels[subtype as LegacySubtype];
+  return subtypeLabels[subtype];
 }
