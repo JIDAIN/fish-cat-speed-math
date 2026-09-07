@@ -23,7 +23,7 @@ function StatefulSelector() {
 }
 
 describe("TrainingTypeSelector", () => {
-  it("shows foundation groups plus the existing primary entries and maps both fraction directions", () => {
+  it("shows A/B/C skill groups plus the existing primary entries and maps both fraction directions", () => {
     const onSelect = vi.fn();
     const { container } = render(
       <TrainingTypeSelector
@@ -36,7 +36,9 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(17);
+    ).toHaveLength(23);
+    expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /C·直除步骤/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "两位数×两位数" }),
@@ -59,7 +61,7 @@ describe("TrainingTypeSelector", () => {
     );
   });
 
-  it("selects a foundation skill and preserves its difficulty in the encoded subtype", () => {
+  it("selects A, B and C skills and preserves difficulty in the encoded subtype", () => {
     render(<StatefulSelector />);
 
     fireEvent.click(screen.getByRole("button", { name: "逆向乘法口诀" }));
@@ -72,9 +74,25 @@ describe("TrainingTypeSelector", () => {
       screen.getByRole("button", { name: "L2" }).getAttribute("aria-pressed"),
     ).toBe("true");
 
+    fireEvent.click(screen.getByRole("button", { name: /B·求 r/ }));
+    fireEvent.click(screen.getByRole("button", { name: "差值÷基准" }));
+    expect(
+      screen
+        .getByRole("button", { name: "差值÷基准" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
     fireEvent.click(screen.getByRole("button", { name: "L3" }));
     expect(
       screen.getByRole("button", { name: "L3" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /C·直除步骤/ }));
+    fireEvent.click(screen.getByRole("button", { name: "求余量" }));
+    expect(
+      screen
+        .getByRole("button", { name: "求余量" })
+        .getAttribute("aria-pressed"),
     ).toBe("true");
   });
 
