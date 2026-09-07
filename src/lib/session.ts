@@ -3,8 +3,18 @@ import {
   GenerationContext,
   productionGenerationContext,
 } from "./generate";
-import { isValidQuestionCount } from "./question-count";
-import { QuestionType, Subtype, TrainingSession } from "./types";
+import {
+  isValidNewTrainingQuestionCount,
+  isValidStoredQuestionCount,
+} from "./question-count";
+import {
+  DifficultyBand,
+  QuestionType,
+  SkillId,
+  Subtype,
+  TrainingMode,
+  TrainingSession,
+} from "./types";
 
 interface CreateTrainingSessionOptions {
   userId: string;
@@ -17,6 +27,9 @@ interface CreateTrainingSessionOptions {
   ownerAccountId?: string;
   questions?: TrainingSession["questions"];
   pkChallengeId?: string;
+  trainingMode?: TrainingMode;
+  primarySkillId?: SkillId;
+  difficultyBand?: DifficultyBand;
 }
 
 /** Creates one entirely fresh training run from frozen training parameters. */
@@ -31,8 +44,16 @@ export function createTrainingSession({
   ownerAccountId,
   questions,
   pkChallengeId,
+  trainingMode,
+  primarySkillId,
+  difficultyBand,
 }: CreateTrainingSessionOptions): TrainingSession {
-  if (!isValidQuestionCount(questionCount)) {
+  // New sessions use 10/20 only. A frozen legacy PK set may still contain a
+  // previously-supported 30–100 question count and must remain playable.
+  const validCount = questions
+    ? isValidStoredQuestionCount(questionCount)
+    : isValidNewTrainingQuestionCount(questionCount);
+  if (!validCount) {
     throw new RangeError("Invalid question count");
   }
 
@@ -58,5 +79,9 @@ export function createTrainingSession({
     trainingSource: pkChallengeId ? "pk" : "normal",
     pkChallengeId,
     pkSyncStatus: pkChallengeId ? "not_synced" : undefined,
+    schemaVersion: 2,
+    trainingMode: trainingMode ?? (primarySkillId ? "skill" : "legacy"),
+    primarySkillId,
+    difficultyBand,
   };
 }
