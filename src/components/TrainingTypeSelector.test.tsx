@@ -36,9 +36,11 @@ describe("TrainingTypeSelector", () => {
 
     expect(
       container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(23);
+    ).toHaveLength(25);
     expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /B·分数拆百分数/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /C·直除步骤/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /C·除法拆分/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
     expect(
       screen.getAllByRole("button", { name: "两位数×两位数" }),
@@ -87,11 +89,19 @@ describe("TrainingTypeSelector", () => {
       screen.getByRole("button", { name: "L3" }).getAttribute("aria-pressed"),
     ).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: /C·直除步骤/ }));
-    fireEvent.click(screen.getByRole("button", { name: "求余量" }));
+    fireEvent.click(screen.getByRole("button", { name: /B·分数拆百分数/ }));
+    fireEvent.click(screen.getByRole("button", { name: "最低成本拆分路径" }));
     expect(
       screen
-        .getByRole("button", { name: "求余量" })
+        .getByRole("button", { name: "最低成本拆分路径" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: /C·除法拆分/ }));
+    fireEvent.click(screen.getByRole("button", { name: "完整拆分流程" }));
+    expect(
+      screen
+        .getByRole("button", { name: "完整拆分流程" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
   });
