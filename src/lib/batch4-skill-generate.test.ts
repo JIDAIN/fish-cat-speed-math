@@ -59,20 +59,22 @@ describe("stage 4 batch 4 skill generators", () => {
     },
   );
 
-  it("keeps B-PSPLIT-01 within three basic blocks", () => {
-    const generated = generateBatch4SkillQuestion(
-      "B-PSPLIT-01",
-      "L3",
-      context(0.42),
-    );
-    const blocks = generated.answer.split(",").map(Number);
-    expect(blocks.length).toBeLessThanOrEqual(3);
-    expect(blocks.reduce((sum, block) => sum + block, 0)).toBe(
-      generated.data.targetPercent,
-    );
-    expect(
-      gradeBatch4SkillQuestion(generated, generated.answer).isCorrect,
-    ).toBe(true);
+  it("keeps every L3 B-PSPLIT-01 template within three basic blocks", () => {
+    for (const random of [0.01, 0.34, 0.67, 0.99]) {
+      const generated = generateBatch4SkillQuestion(
+        "B-PSPLIT-01",
+        "L3",
+        context(random),
+      );
+      const blocks = generated.answer.split(",").map(Number);
+      expect(blocks.length).toBeLessThanOrEqual(3);
+      expect(blocks.reduce((sum, block) => sum + block, 0)).toBe(
+        generated.data.targetPercent,
+      );
+      expect(
+        gradeBatch4SkillQuestion(generated, generated.answer).isCorrect,
+      ).toBe(true);
+    }
   });
 
   it("grades semantic choice and numeric tolerance questions", () => {
