@@ -135,7 +135,9 @@ describe("HistoryList", () => {
       <HistoryList currentUserId="fish" onOpen={vi.fn()} sessions={[drill]} />,
     );
 
-    expect(screen.getByText("专项训练")).toBeTruthy();
+    expect(
+      document.querySelector(".historySessionMetrics")?.textContent,
+    ).toContain("专项训练");
     expect(screen.getByText("最近等级").parentElement?.textContent).toContain(
       "—",
     );
