@@ -1,59 +1,7 @@
-import { TrainingSession } from "./types";
-
-/** Stops the active segment while retaining all elapsed effective time. */
-export function pauseSessionTimer(
-  session: TrainingSession,
-  now = Date.now(),
-): TrainingSession {
-  if (session.runningSince === null) return session;
-
-  return {
-    ...session,
-    accumulatedMs: session.accumulatedMs + now - session.runningSince,
-    runningSince: null,
-  };
-}
-
-/** Starts a new active segment without counting any paused time. */
-export function resumeSessionTimer(
-  session: TrainingSession,
-  now = Date.now(),
-): TrainingSession {
-  if (session.runningSince !== null) return session;
-  return { ...session, runningSince: now };
-}
-
-/**
- * A process that was navigated away from can be restored from BFCache, or its
- * final IndexedDB write can be interrupted. In that case the old running
- * segment is unverified: discarding it is safer than incorrectly charging
- * background time to a training result.
- */
-export function suspendUnverifiedTimer(
-  session: TrainingSession,
-): TrainingSession {
-  if (session.runningSince === null) return session;
-  return { ...session, runningSince: null };
-}
-
-export function currentElapsedMs(session: TrainingSession, now = Date.now()) {
-  return (
-    session.accumulatedMs +
-    // A render can briefly hold a `now` value captured before a recovered
-    // session receives its new runningSince timestamp. Never display or save
-    // a negative duration during that transition.
-    (session.runningSince === null
-      ? 0
-      : Math.max(0, now - session.runningSince))
-  );
-}
+import { StepTimerSnapshot, TrainingSession } from "./types";
 
 /** One independent timer for a structured question step. */
-export type StepTimerState = {
-  accumulatedMs: number;
-  runningSince: number | null;
-  interrupted: boolean;
-};
+export type StepTimerState = StepTimerSnapshot;
 
 export function startStepTimer(now = Date.now()): StepTimerState {
   return { accumulatedMs: 0, runningSince: now, interrupted: false };
@@ -108,4 +56,91 @@ export function finishStepTimer(
     durationMs: currentStepElapsedMs(timer, now),
     timingInterrupted: timer.interrupted,
   };
+}
+
+/** Stops the active segment while retaining all elapsed effective time. */
+export function pauseSessionTimer(
+  session: TrainingSession,
+  now = Date.now(),
+): TrainingSession {
+  const pausedStepTimer = session.currentStepTimer
+    ? pauseStepTimer(session.currentStepTimer, now)
+    : undefined;
+  const sessionAlreadyPaused = session.runningSince === null;
+  const stepAlreadyPaused = pausedStepTimer === session.currentStepTimer;
+  if (sessionAlreadyPaused && stepAlreadyPaused) return session;
+
+  return {
+    ...session,
+    accumulatedMs:
+      session.runningSince === null
+        ? session.accumulatedMs
+        : session.accumulatedMs + Math.max(0, now - session.runningSince),
+    runningSince: null,
+    currentStepTimer: pausedStepTimer,
+  };
+}
+
+/** Starts a new active segment without counting any paused time. */
+export function resumeSessionTimer(
+  session: TrainingSession,
+  now = Date.now(),
+): TrainingSession {
+  const resumedStepTimer = session.currentStepTimer
+    ? resumeStepTimer(session.currentStepTimer, now)
+    : undefined;
+  const sessionAlreadyRunning = session.runningSince !== null;
+  const stepAlreadyRunning = resumedStepTimer === session.currentStepTimer;
+  if (sessionAlreadyRunning && stepAlreadyRunning) return session;
+  return {
+    ...session,
+    runningSince: session.runningSince ?? now,
+    currentStepTimer: resumedStepTimer,
+  };
+}
+
+/**
+ * A process that was navigated away from can be restored from BFCache, or its
+ * final IndexedDB write can be interrupted. In that case the old running
+ * segment is unverified: discarding it is safer than incorrectly charging
+ * background time to a training result. A structured step is also marked as
+ * interrupted so it can be excluded from speed calibration later.
+ */
+export function suspendUnverifiedTimer(
+  session: TrainingSession,
+): TrainingSession {
+  const suspendedStepTimer = session.currentStepTimer
+    ? interruptStepTimer(session.currentStepTimer)
+    : undefined;
+  if (
+    session.runningSince === null &&
+    suspendedStepTimer === session.currentStepTimer
+  )
+    return session;
+  return {
+    ...session,
+    runningSince: null,
+    currentStepTimer: suspendedStepTimer,
+  };
+}
+
+export function currentElapsedMs(session: TrainingSession, now = Date.now()) {
+  return (
+    session.accumulatedMs +
+    // A render can briefly hold a `now` value captured before a recovered
+    // session receives its new runningSince timestamp. Never display or save
+    // a negative duration during that transition.
+    (session.runningSince === null
+      ? 0
+      : Math.max(0, now - session.runningSince))
+  );
+}
+
+export function currentSessionStepElapsedMs(
+  session: TrainingSession,
+  now = Date.now(),
+) {
+  return session.currentStepTimer
+    ? currentStepElapsedMs(session.currentStepTimer, now)
+    : 0;
 }
