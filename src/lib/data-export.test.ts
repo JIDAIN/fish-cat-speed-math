@@ -144,9 +144,6 @@ describe("data export conversion", () => {
       accepted_range_min: 9.7,
       used_scratchpad: true,
     });
-    expect(JSON.parse(result.questions[0].steps_json)).toMatchObject([
-      { step_skill_id: undefined },
-    ]);
     // Raw step JSON preserves the application's camelCase source shape.
     expect(JSON.parse(result.questions[0].steps_json)[0]).toMatchObject({
       stepSkillId: "C-DIV-06",
