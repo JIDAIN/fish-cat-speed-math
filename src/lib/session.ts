@@ -5,6 +5,10 @@ import {
 } from "./generate";
 import { migrateExistingQuestionToSkillV2 } from "./legacy-skill-migration";
 import {
+  generateFoundationSkillSet,
+  isFoundationSkillId,
+} from "./skill-generate";
+import {
   isValidNewTrainingQuestionCount,
   isValidStoredQuestionCount,
 } from "./question-count";
@@ -34,7 +38,9 @@ interface CreateTrainingSessionOptions {
 }
 
 function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
-  const unique = Array.from(new Set(values.filter((value): value is T => value !== undefined)));
+  const unique = Array.from(
+    new Set(values.filter((value): value is T => value !== undefined)),
+  );
   return unique.length === 1 ? unique[0] : undefined;
 }
 
@@ -67,11 +73,27 @@ export function createTrainingSession({
   // Frozen legacy/PK question sets are preserved byte-for-byte so historical
   // challenges and recoverable sessions never change meaning after an update.
   const newlyGenerated = questions === undefined;
+  const requestedSkillDifficulty = difficultyBand ?? "L2";
+  if (
+    newlyGenerated &&
+    questionType === "skill_drill" &&
+    (!isFoundationSkillId(primarySkillId) || subtype !== "skill_drill")
+  ) {
+    throw new Error("skill_drill sessions require an implemented foundation skill ID");
+  }
+
   const frozenQuestions =
     questions ??
-    generateSet(questionType, subtype, questionCount, generationContext).map(
-      migrateExistingQuestionToSkillV2,
-    );
+    (questionType === "skill_drill"
+      ? generateFoundationSkillSet(
+          primarySkillId as Parameters<typeof generateFoundationSkillSet>[0],
+          requestedSkillDifficulty,
+          questionCount,
+          generationContext,
+        )
+      : generateSet(questionType, subtype, questionCount, generationContext).map(
+          migrateExistingQuestionToSkillV2,
+        ));
 
   const inferredPrimarySkillId = newlyGenerated
     ? onlyValue(frozenQuestions.map((question) => question.skillId))
@@ -80,7 +102,8 @@ export function createTrainingSession({
     ? onlyValue(frozenQuestions.map((question) => question.difficultyBand))
     : undefined;
   const hasMigratedSkills =
-    newlyGenerated && frozenQuestions.some((question) => question.skillId !== undefined);
+    newlyGenerated &&
+    frozenQuestions.some((question) => question.skillId !== undefined);
   const effectivePrimarySkillId = primarySkillId ?? inferredPrimarySkillId;
   const effectiveDifficultyBand = difficultyBand ?? inferredDifficultyBand;
   const effectiveTrainingMode =
