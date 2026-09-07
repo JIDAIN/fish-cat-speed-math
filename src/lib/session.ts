@@ -13,6 +13,7 @@ import {
   isValidNewTrainingQuestionCount,
   isValidStoredQuestionCount,
 } from "./question-count";
+import { startStepTimer } from "./timer";
 import {
   DifficultyBand,
   GeneratedQuestion,
@@ -48,6 +49,8 @@ function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
 }
 
 const percentBlockNumericCodes: Readonly<Record<string, string>> = {
+  "100": "11",
+  "50": "12",
   "25": "1",
   "20": "2",
   "12.5": "3",
@@ -77,11 +80,10 @@ function encodeSemanticAllowedAnswers(
 }
 
 /**
- * The shared training screen still uses NumberPad for generic skill drills.
- * Until the structured V2 renderer is connected there, semantic choices and
- * percentage-block paths are encoded as short numeric codes. The semantic
- * generator output remains frozen in generatorParams so exported data can
- * distinguish the temporary UI adapter from the underlying trained skill.
+ * The shared training screen still uses NumberPad for ordinary one-answer
+ * skill drills. Until all semantic inputs use the V2 renderer, choices and
+ * percentage-block paths are encoded as numeric codes. Full step flows are
+ * not adapted: they are rendered by StructuredAnswerInput step by step.
  */
 function adaptSkillQuestionToCurrentTrainingUi(
   question: GeneratedQuestion,
@@ -134,6 +136,8 @@ function adaptSkillQuestionToCurrentTrainingUi(
       encodePath,
     );
     const legend = [
+      "11=100%",
+      "12=50%",
       "1=25%",
       "2=20%",
       "3=12.5%",
@@ -227,17 +231,23 @@ export function createTrainingSession({
   const hasMigratedSkills =
     newlyGenerated &&
     frozenQuestions.some((question) => question.skillId !== undefined);
+  const hasStructuredFlow = frozenQuestions.every(
+    (question) =>
+      question.inputKind === "steps" && Boolean(question.stepSpecs?.length),
+  );
   const effectivePrimarySkillId =
     primarySkillId ?? encodedSkill?.skillId ?? inferredPrimarySkillId;
   const effectiveDifficultyBand =
     difficultyBand ?? encodedSkill?.difficultyBand ?? inferredDifficultyBand;
   const effectiveTrainingMode =
     trainingMode ??
-    (effectivePrimarySkillId
-      ? "skill"
-      : hasMigratedSkills
-        ? "mixed"
-        : "legacy");
+    (hasStructuredFlow
+      ? "flow"
+      : effectivePrimarySkillId
+        ? "skill"
+        : hasMigratedSkills
+          ? "mixed"
+          : "legacy");
 
   return {
     id: createSessionId(),
@@ -263,5 +273,10 @@ export function createTrainingSession({
     trainingMode: effectiveTrainingMode,
     primarySkillId: effectivePrimarySkillId,
     difficultyBand: effectiveDifficultyBand,
+    currentStepIndex: hasStructuredFlow ? 0 : undefined,
+    currentStepAnswer: hasStructuredFlow ? "" : undefined,
+    currentStepRecords: hasStructuredFlow ? [] : undefined,
+    currentStepTimer: hasStructuredFlow ? startStepTimer(now) : undefined,
+    currentStepEditCount: hasStructuredFlow ? 0 : undefined,
   };
 }
