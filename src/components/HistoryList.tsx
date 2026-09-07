@@ -108,6 +108,10 @@ export function HistoryList({
   );
   const [page, setPage] = useState(savedView.page ?? 1);
   useEffect(() => setSelectedUserId(currentUserId), [currentUserId]);
+  useEffect(() => {
+    if (selectedType === "skill_drill" && selectedRating !== "all")
+      setSelectedRating("all");
+  }, [selectedRating, selectedType]);
 
   const visibleUsers = canViewPartner
     ? USERS
@@ -325,23 +329,25 @@ export function HistoryList({
             ))}
           </select>
         </label>
-        <label>
-          <span>等级</span>
-          <select
-            aria-label="筛选等级"
-            value={selectedRating}
-            onChange={(event) => {
-              setSelectedRating(event.target.value as typeof selectedRating);
-              resetPage();
-            }}
-          >
-            <option value="all">全部等级</option>
-            <option value="优秀">优秀</option>
-            <option value="良好">良好</option>
-            <option value="合格">合格</option>
-            <option value="继续加油">继续加油</option>
-          </select>
-        </label>
+        {selectedType !== "skill_drill" && (
+          <label>
+            <span>等级</span>
+            <select
+              aria-label="筛选等级"
+              value={selectedRating}
+              onChange={(event) => {
+                setSelectedRating(event.target.value as typeof selectedRating);
+                resetPage();
+              }}
+            >
+              <option value="all">全部等级</option>
+              <option value="优秀">优秀</option>
+              <option value="良好">良好</option>
+              <option value="合格">合格</option>
+              <option value="继续加油">继续加油</option>
+            </select>
+          </label>
+        )}
         <label>
           <span>时间</span>
           <select
@@ -376,22 +382,23 @@ export function HistoryList({
               {(summary.averageMs / 1000).toFixed(1)}秒<small>平均单题</small>
             </b>
             <b>
-              {summary.latestRating}
+              {summary.latestRating ?? "—"}
               <small>最近等级</small>
             </b>
             <b>
-              {summary.bestRating}
+              {summary.bestRating ?? "—"}
               <small>最佳等级</small>
             </b>
           </section>
           <p className="ratingDistribution">
-            等级分布：优秀 {summary.ratingCounts.优秀} · 良好{" "}
+            旧题型等级分布：优秀 {summary.ratingCounts.优秀} · 良好{" "}
             {summary.ratingCounts.良好} · 合格 {summary.ratingCounts.合格} ·
             继续加油 {summary.ratingCounts.继续加油}
           </p>
           <div className="historyCards">
             {visible.map((session) => {
               const metrics = sessionMetrics(session);
+              const rating = getRating(session);
               const isOwn =
                 Boolean(currentAccountId) &&
                 session.ownerAccountId === currentAccountId;
@@ -428,7 +435,7 @@ export function HistoryList({
                       <br />
                       <small>
                         平均 {(metrics.averageMs / 1000).toFixed(1)}秒 ·{" "}
-                        {getRating(session)}
+                        {rating ?? "专项训练"}
                       </small>
                     </span>
                   </button>
