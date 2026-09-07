@@ -14,6 +14,7 @@ import {
 } from "./question-count";
 import {
   DifficultyBand,
+  parseSkillDrillSubtype,
   QuestionType,
   SkillId,
   Subtype,
@@ -73,11 +74,15 @@ export function createTrainingSession({
   // Frozen legacy/PK question sets are preserved byte-for-byte so historical
   // challenges and recoverable sessions never change meaning after an update.
   const newlyGenerated = questions === undefined;
-  const requestedSkillDifficulty = difficultyBand ?? "L2";
+  const encodedSkill =
+    questionType === "skill_drill" ? parseSkillDrillSubtype(subtype) : undefined;
+  const requestedSkillId = primarySkillId ?? encodedSkill?.skillId;
+  const requestedSkillDifficulty =
+    difficultyBand ?? encodedSkill?.difficultyBand ?? "L2";
   if (
     newlyGenerated &&
     questionType === "skill_drill" &&
-    (!isFoundationSkillId(primarySkillId) || subtype !== "skill_drill")
+    !isFoundationSkillId(requestedSkillId)
   ) {
     throw new Error("skill_drill sessions require an implemented foundation skill ID");
   }
@@ -86,7 +91,7 @@ export function createTrainingSession({
     questions ??
     (questionType === "skill_drill"
       ? generateFoundationSkillSet(
-          primarySkillId as Parameters<typeof generateFoundationSkillSet>[0],
+          requestedSkillId as Parameters<typeof generateFoundationSkillSet>[0],
           requestedSkillDifficulty,
           questionCount,
           generationContext,
@@ -104,8 +109,10 @@ export function createTrainingSession({
   const hasMigratedSkills =
     newlyGenerated &&
     frozenQuestions.some((question) => question.skillId !== undefined);
-  const effectivePrimarySkillId = primarySkillId ?? inferredPrimarySkillId;
-  const effectiveDifficultyBand = difficultyBand ?? inferredDifficultyBand;
+  const effectivePrimarySkillId =
+    primarySkillId ?? encodedSkill?.skillId ?? inferredPrimarySkillId;
+  const effectiveDifficultyBand =
+    difficultyBand ?? encodedSkill?.difficultyBand ?? inferredDifficultyBand;
   const effectiveTrainingMode =
     trainingMode ??
     (effectivePrimarySkillId
