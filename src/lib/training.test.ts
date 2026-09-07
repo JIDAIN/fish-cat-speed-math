@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { GenerationContext } from "./generate";
+import { createTrainingSession } from "./session";
 import { submitCurrentAnswer } from "./training";
 import { GeneratedQuestion, TrainingSession } from "./types";
 
@@ -36,6 +38,14 @@ function session(overrides: Partial<TrainingSession> = {}): TrainingSession {
   };
 }
 
+function deterministicContext(): GenerationContext {
+  let id = 0;
+  return {
+    random: () => 0.42,
+    createId: () => `batch4-submit-${id++}`,
+  };
+}
+
 describe("submitCurrentAnswer", () => {
   it("records the answer once and carries the restart count into history", () => {
     const completed = submitCurrentAnswer(session(), 3_000, true, 7_000);
@@ -48,6 +58,35 @@ describe("submitCurrentAnswer", () => {
       usedScratchpad: true,
     });
     expect(completed.completedAt).toBe(7_000);
+  });
+
+  it("grades a batch-4 semantic choice after its temporary numeric UI encoding", () => {
+    const drill = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:B-R-05:L2",
+      questionCount: 10,
+      generationContext: deterministicContext(),
+    });
+    const current = drill.questions[0];
+    const answered = {
+      ...drill,
+      questions: [current],
+      questionCount: 1,
+      currentAnswer: current.answer,
+    };
+
+    const completed = submitCurrentAnswer(answered, 1_500, false, 2_000);
+    expect(completed.status).toBe("completed");
+    expect(completed.records[0]).toMatchObject({
+      isCorrect: true,
+      accuracyLevel: "exact",
+      userAnswer: current.answer,
+    });
+    expect(completed.records[0].question.generatorParams).toMatchObject({
+      semanticInputKind: "choice",
+      uiAdapter: "choice_numeric_code_v1",
+    });
   });
 
   it("does not add a duplicate record when submit is invoked again", () => {
