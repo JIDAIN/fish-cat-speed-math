@@ -1,4 +1,5 @@
 import { grade } from "./generate";
+import { gradeFoundationSkillQuestion } from "./skill-generate";
 import {
   AnswerValue,
   QuestionRecord,
@@ -62,7 +63,10 @@ export function submitCurrentAnswer(
     return session;
   }
 
-  const grading = grade(question, session.currentAnswer);
+  const grading =
+    question.type === "skill_drill"
+      ? gradeFoundationSkillQuestion(question, session.currentAnswer)
+      : grade(question, session.currentAnswer);
   const previousDurationMs = session.records.reduce(
     (total, record) => total + record.timeUsedMs,
     0,
