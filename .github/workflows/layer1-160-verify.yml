@@ -1,0 +1,55 @@
+name: Layer 1 160 Skill Verify
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/layer1-160-verify.yml"
+      - ".github/scripts/layer1_160_patch.py"
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply acceptance inventory patch
+        run: python .github/scripts/layer1_160_patch.py
+
+      - name: Install
+        run: npm ci
+
+      - name: Production audit
+        run: npm audit --omit=dev
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Full test suite
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified acceptance update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/lib/stage4-acceptance.test.ts
+          git diff --cached --stat
+          git commit -m "Close direct-drill coverage at 160 skills"
+          git push origin master
