@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
 
+# Acceptance rerun after durable test cleanup.
 jobs:
   acceptance:
     runs-on: ubuntu-latest
