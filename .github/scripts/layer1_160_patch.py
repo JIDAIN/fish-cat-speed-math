@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 
+# Acceptance inventory moved from 140 direct drills to complete 160-skill coverage.
 path = Path("src/lib/stage4-acceptance.test.ts")
 text = path.read_text()
 text = re.sub(
