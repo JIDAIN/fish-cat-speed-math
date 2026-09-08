@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrainingTypeSelector } from "./TrainingTypeSelector";
+import { skillDrillSelectorSkillIds } from "./SkillDrillSelector";
+import { implementedSkillIds } from "@/lib/implemented-skill-drills";
 import { QuestionType, Subtype } from "@/lib/types";
 
 afterEach(cleanup);
@@ -22,10 +24,48 @@ function StatefulSelector() {
   );
 }
 
-describe("TrainingTypeSelector", () => {
-  it("shows A/B/C skill groups plus the existing primary entries and maps both fraction directions", () => {
+describe("TrainingTypeSelector mobile information architecture", () => {
+  it("shows only four top-level training choices before details are expanded", () => {
+    render(<StatefulSelector />);
+
+    expect(screen.getByRole("button", { name: /日常训练/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /专项训练/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /智能训练/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /经典训练/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "两位数加减" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /误差 \/ 精度/ })).toBeNull();
+  });
+
+  it("keeps all 160 leaf skills reachable behind the specialty hierarchy", () => {
+    expect(skillDrillSelectorSkillIds).toHaveLength(160);
+    expect(new Set(skillDrillSelectorSkillIds).size).toBe(160);
+    expect([...skillDrillSelectorSkillIds].sort()).toEqual(
+      [...implementedSkillIds].sort(),
+    );
+
+    render(<StatefulSelector />);
+    fireEvent.click(screen.getByRole("button", { name: /专项训练/ }));
+    expect(screen.getByRole("button", { name: /基础口算/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /百分比 \/ 分数/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^直除/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^包子法/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^补偿放缩/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /误差 \/ 比较/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /误差 \/ 比较/ }));
+    fireEvent.click(screen.getByRole("button", { name: /误差 \/ 精度/ }));
+    fireEvent.click(screen.getByRole("button", { name: "精度停止" }));
+    expect(
+      screen.getByRole("button", { name: /难度：L2/ }).getAttribute("aria-expanded"),
+    ).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: /难度：L2/ }));
+    fireEvent.click(screen.getByLabelText("专项难度选项").querySelectorAll("button")[2]);
+    expect(screen.getByRole("button", { name: /难度：L3/ })).toBeTruthy();
+  });
+
+  it("makes daily training a one-tap L2 mixed-training shortcut", () => {
     const onSelect = vi.fn();
-    const { container } = render(
+    render(
       <TrainingTypeSelector
         onDivisionRuleChange={vi.fn()}
         onSelect={onSelect}
@@ -33,173 +73,33 @@ describe("TrainingTypeSelector", () => {
         type="two_digit_add_subtract"
       />,
     );
-
-    expect(
-      container.querySelectorAll(".trainingTypeGrid > button"),
-    ).toHaveLength(36);
-    expect(screen.getByRole("button", { name: "混合训练" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "同题路径对比" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /B·求 r/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /B·运算顺序/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /B·分数拆百分数/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /B·计算转换/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /C·直除步骤/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /C·误差 \/ 精度/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /C·除法拆分/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /C·加减乘补偿放缩/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /C·除法补偿放缩/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /C·纯数值比较/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "分数—百分数" })).toBeNull();
-    expect(
-      screen.getAllByRole("button", { name: "两位数×两位数" }),
-    ).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "两位数×两位数" }));
-    expect(onSelect).toHaveBeenLastCalledWith(
-      "two_by_two_multiply",
-      "standard",
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "分数转百分数" }));
-    expect(onSelect).toHaveBeenLastCalledWith(
-      "fraction_percent_conversion",
-      "fraction_to_percent",
-    );
-    fireEvent.click(screen.getByRole("button", { name: "百分数转分数" }));
-    expect(onSelect).toHaveBeenLastCalledWith(
-      "fraction_percent_conversion",
-      "percent_to_fraction",
-    );
+    fireEvent.click(screen.getByRole("button", { name: /日常训练/ }));
+    expect(onSelect).toHaveBeenLastCalledWith("skill_drill", "mixed:L2");
   });
 
-  it("selects A, B and C skills and preserves difficulty in the encoded subtype", () => {
+  it("keeps smart modes compact and only expands difficulty on demand", () => {
     render(<StatefulSelector />);
-
-    fireEvent.click(screen.getByRole("button", { name: "逆向乘法口诀" }));
-    expect(
-      screen
-        .getByRole("button", { name: "逆向乘法口诀" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(
-      screen.getByRole("button", { name: "L2" }).getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: /B·求 r/ }));
-    fireEvent.click(screen.getByRole("button", { name: "差值÷基准" }));
-    expect(
-      screen
-        .getByRole("button", { name: "差值÷基准" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: "L3" }));
-    expect(
-      screen.getByRole("button", { name: "L3" }).getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: /B·运算顺序/ }));
-    fireEvent.click(screen.getByRole("button", { name: "最低操作成本顺序" }));
-    expect(
-      screen
-        .getByRole("button", { name: "最低操作成本顺序" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: /B·分数拆百分数/ }));
-    fireEvent.click(screen.getByRole("button", { name: "最低成本拆分路径" }));
-    expect(
-      screen
-        .getByRole("button", { name: "最低成本拆分路径" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: /C·除法拆分/ }));
-    fireEvent.click(screen.getByRole("button", { name: "完整拆分流程" }));
-    expect(
-      screen
-        .getByRole("button", { name: "完整拆分流程" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: /C·加减乘补偿放缩/ }));
-    fireEvent.click(screen.getByRole("button", { name: "乘法反向补偿" }));
-    expect(
-      screen
-        .getByRole("button", { name: "乘法反向补偿" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-
-    fireEvent.click(screen.getByRole("button", { name: /C·除法补偿放缩/ }));
-    fireEvent.click(screen.getByRole("button", { name: "结果端r" }));
-    expect(
-      screen
-        .getByRole("button", { name: "结果端r" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: /智能训练/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^同题路径对比/ }));
+    expect(screen.getByRole("button", { name: /难度：L2/ })).toBeTruthy();
+    expect(screen.queryByLabelText("智能训练难度选项")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /难度：L2/ }));
+    const options = screen.getByLabelText("智能训练难度选项");
+    fireEvent.click(options.querySelectorAll("button")[2]);
+    expect(screen.getByRole("button", { name: /难度：L3/ })).toBeTruthy();
   });
 
-  it("selects smart mixed/path modes and preserves their difficulty", () => {
+  it("keeps legacy comprehensive training behind the classic entry", () => {
     render(<StatefulSelector />);
-
-    fireEvent.click(screen.getByRole("button", { name: "混合训练" }));
-    expect(
-      screen.getByRole("button", { name: "混合训练" }).getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(
-      screen.getByLabelText("智能训练难度").querySelector('[aria-pressed="true"]')?.textContent,
-    ).toBe("L2");
-
-    fireEvent.click(screen.getByLabelText("智能训练难度").querySelectorAll("button")[2]);
-    expect(
-      screen.getByLabelText("智能训练难度").querySelector('[aria-pressed="true"]')?.textContent,
-    ).toBe("L3");
-
-    fireEvent.click(screen.getByRole("button", { name: "同题路径对比" }));
-    expect(
-      screen.getByRole("button", { name: "同题路径对比" }).getAttribute("aria-pressed"),
-    ).toBe("true");
-  });
-
-  it("shows compact division rules only while their parent type is selected", () => {
-    render(<StatefulSelector />);
-
-    expect(screen.queryByLabelText("三位数除两位数答题要求")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /经典训练/ }));
     fireEvent.click(screen.getByRole("button", { name: "三位数÷两位数" }));
-
-    const rulePanel = screen.getByLabelText("三位数除两位数答题要求");
-    expect(rulePanel.className).toContain("divisionRulePanel");
-    expect(screen.getByRole("button", { name: "商首位" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "商前两位" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "3%估算" })).toBeTruthy();
-
+    expect(screen.getByLabelText("三位数除两位数答题要求")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "3%估算" }));
     expect(
-      screen
-        .getByRole("button", { name: "3%估算" })
-        .getAttribute("aria-pressed"),
+      screen.getByRole("button", { name: "3%估算" }).getAttribute("aria-pressed"),
     ).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: "两位数加减" }));
-    expect(screen.queryByLabelText("三位数除两位数答题要求")).toBeNull();
-  });
-
-  it("shows the two two-digit multiplication modes under one primary entry", () => {
-    render(<StatefulSelector />);
-
-    expect(screen.queryByLabelText("两位数乘两位数训练模式")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "两位数×两位数" }));
-
     expect(screen.getByLabelText("两位数乘两位数训练模式")).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: "综合训练" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "进位强化" }));
-    expect(
-      screen
-        .getByRole("button", { name: "进位强化" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
   });
 });

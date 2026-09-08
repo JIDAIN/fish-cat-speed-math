@@ -174,6 +174,7 @@ describe("Home active-session interactions", () => {
 
   it("freezes the selected three-percent division rule in a new session", async () => {
     render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: /经典训练/ }));
     fireEvent.click(screen.getByRole("button", { name: "三位数÷两位数" }));
     fireEvent.click(screen.getByRole("button", { name: "3%估算" }));
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
@@ -191,6 +192,7 @@ describe("Home active-session interactions", () => {
 
   it("freezes percent-to-fraction from its independent primary entry", async () => {
     render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: /经典训练/ }));
     fireEvent.click(screen.getByRole("button", { name: "百分数转分数" }));
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
 
@@ -204,6 +206,7 @@ describe("Home active-session interactions", () => {
 
   it("auto-advances percent-to-fraction entry once and keeps manual numerator edits focused", async () => {
     const { container } = render(<Home />);
+    fireEvent.click(screen.getByRole("button", { name: /经典训练/ }));
     fireEvent.click(screen.getByRole("button", { name: "百分数转分数" }));
     fireEvent.click(screen.getByRole("button", { name: "开始练习" }));
 

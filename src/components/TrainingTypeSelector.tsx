@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { SkillDrillSelector } from "@/components/SkillDrillSelector";
 import { isImplementedSkillId } from "@/lib/implemented-skill-drills";
 import {
@@ -22,6 +25,7 @@ type DivisionSubtype = Extract<
   "quotient_first" | "quotient_two" | "quotient_estimate_3_percent"
 >;
 type TwoByTwoSubtype = Extract<Subtype, "standard" | "carry_intensive">;
+type SelectorPanel = "special" | "smart" | "classic" | null;
 
 const divisionRuleOptions: readonly {
   label: string;
@@ -130,151 +134,243 @@ export function TrainingTypeSelector({
   const smartTraining =
     type === "skill_drill" ? parseSmartTrainingSubtype(subtype) : undefined;
   const smartDifficulty = smartTraining?.difficultyBand ?? "L2";
+  const [panel, setPanel] = useState<SelectorPanel>(null);
+  const [dailySelected, setDailySelected] = useState(false);
+  const [showSmartDifficulty, setShowSmartDifficulty] = useState(false);
+
+  const togglePanel = (nextPanel: Exclude<SelectorPanel, null>) => {
+    setDailySelected(false);
+    setShowSmartDifficulty(false);
+    setPanel((current) => (current === nextPanel ? null : nextPanel));
+  };
+
+  const chooseDaily = () => {
+    setPanel(null);
+    setDailySelected(true);
+    setShowSmartDifficulty(false);
+    onSelect("skill_drill", makeSmartTrainingSubtype("mixed", "L2"));
+  };
+
+  const chooseSmart = (mode: "mixed" | "path_compare") => {
+    setDailySelected(false);
+    onSelect("skill_drill", makeSmartTrainingSubtype(mode, smartDifficulty));
+  };
+
+  const chooseClassic = (option: TrainingTypeOption) => {
+    setDailySelected(false);
+    onSelect(option.questionType, option.subtype);
+  };
 
   return (
-    <>
-      <section aria-label="智能训练入口">
-        <h3>智能训练</h3>
-        <div className="grid trainingTypeGrid">
-          <button
-            aria-pressed={smartTraining?.mode === "mixed"}
-            className={smartTraining?.mode === "mixed" ? "selected" : ""}
-            onClick={() =>
-              onSelect(
-                "skill_drill",
-                makeSmartTrainingSubtype("mixed", smartDifficulty),
-              )
-            }
-            type="button"
-          >
-            混合训练
-          </button>
-          <button
-            aria-pressed={smartTraining?.mode === "path_compare"}
-            className={smartTraining?.mode === "path_compare" ? "selected" : ""}
-            onClick={() =>
-              onSelect(
-                "skill_drill",
-                makeSmartTrainingSubtype("path_compare", smartDifficulty),
-              )
-            }
-            type="button"
-          >
-            同题路径对比
-          </button>
-        </div>
-        {smartTraining && (
-          <section className="divisionRulePanel" aria-label="智能训练难度">
-            <p>难度</p>
-            <div className="divisionRuleOptions">
-              {(["L1", "L2", "L3"] as const).map((difficultyBand) => (
-                <button
-                  aria-pressed={smartDifficulty === difficultyBand}
-                  className={smartDifficulty === difficultyBand ? "selected" : ""}
-                  key={difficultyBand}
-                  onClick={() =>
-                    onSelect(
-                      "skill_drill",
-                      makeSmartTrainingSubtype(
-                        smartTraining.mode,
-                        difficultyBand,
-                      ),
-                    )
-                  }
-                  type="button"
-                >
-                  {difficultyBand}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-      </section>
-
-      <section aria-label="纯计算能力专项入口">
-        <h3>纯计算能力专项</h3>
-        <SkillDrillSelector
-          difficultyBand={skillDifficulty}
-          onDifficultyChange={(difficultyBand) => {
-            if (!selectedSkillId) return;
-            onSelect(
-              "skill_drill",
-              makeSkillDrillSubtype(selectedSkillId, difficultyBand),
-            );
-          }}
-          onSelectSkill={(skillId) =>
-            onSelect(
-              "skill_drill",
-              makeSkillDrillSubtype(skillId, skillDifficulty),
-            )
-          }
-          selectedSkillId={selectedSkillId}
-        />
-      </section>
-
-      <h3>已有综合训练</h3>
-      <div className="grid trainingTypeGrid">
-        {trainingTypeOptions.map((option) => {
-          const isSelected =
-            option.questionType === type &&
-            (option.questionType !== "fraction_percent_conversion" ||
-              option.subtype === subtype);
-
-          return (
-            <button
-              className={isSelected ? "selected" : ""}
-              key={option.id}
-              onClick={() => onSelect(option.questionType, option.subtype)}
-              type="button"
-            >
-              {option.label}
-            </button>
-          );
-        })}
+    <section className="mobileTrainingSelector" aria-label="训练方式">
+      <div className="trainingModeGrid">
+        <button
+          aria-pressed={dailySelected}
+          className={`trainingModeCard ${dailySelected ? "selected" : ""}`}
+          onClick={chooseDaily}
+          type="button"
+        >
+          <strong>日常训练</strong>
+          <small>从已练专项中自动混合 · 默认L2</small>
+          <span>至少先完成2个专项</span>
+        </button>
+        <button
+          aria-expanded={panel === "special"}
+          className={`trainingModeCard ${panel === "special" ? "selected" : ""}`}
+          onClick={() => togglePanel("special")}
+          type="button"
+        >
+          <strong>专项训练</strong>
+          <small>明确想练某一块时再展开</small>
+          <span>{panel === "special" ? "收起 ↑" : "选择能力 ›"}</span>
+        </button>
+        <button
+          aria-expanded={panel === "smart"}
+          className={`trainingModeCard ${panel === "smart" ? "selected" : ""}`}
+          onClick={() => togglePanel("smart")}
+          type="button"
+        >
+          <strong>智能训练</strong>
+          <small>混合训练与同题路径对比</small>
+          <span>{panel === "smart" ? "收起 ↑" : "展开 ›"}</span>
+        </button>
+        <button
+          aria-expanded={panel === "classic"}
+          className={`trainingModeCard ${panel === "classic" ? "selected" : ""}`}
+          onClick={() => togglePanel("classic")}
+          type="button"
+        >
+          <strong>经典训练</strong>
+          <small>保留原来的综合训练入口</small>
+          <span>{panel === "classic" ? "收起 ↑" : "展开 ›"}</span>
+        </button>
       </div>
 
-      {type === "three_by_two_division" && (
-        <section
-          className="divisionRulePanel"
-          aria-label="三位数除两位数答题要求"
-        >
-          <p>答题要求</p>
-          <div className="divisionRuleOptions">
-            {divisionRuleOptions.map((option) => (
-              <button
-                aria-pressed={subtype === option.value}
-                className={subtype === option.value ? "selected" : ""}
-                key={option.value}
-                onClick={() => onDivisionRuleChange(option.value)}
-                type="button"
-              >
-                {option.label}
-              </button>
-            ))}
+      {panel === "special" && (
+        <section className="trainingSelectorPanel" aria-label="专项训练选择">
+          <div className="selectorPanelHeading">
+            <strong>专项训练</strong>
+            <small>先选大类，只有需要时才继续展开具体能力</small>
           </div>
+          <SkillDrillSelector
+            difficultyBand={skillDifficulty}
+            onDifficultyChange={(difficultyBand) => {
+              if (!selectedSkillId) return;
+              onSelect(
+                "skill_drill",
+                makeSkillDrillSubtype(selectedSkillId, difficultyBand),
+              );
+            }}
+            onSelectSkill={(skillId) => {
+              setDailySelected(false);
+              onSelect(
+                "skill_drill",
+                makeSkillDrillSubtype(skillId, skillDifficulty),
+              );
+            }}
+            selectedSkillId={selectedSkillId}
+          />
         </section>
       )}
-      {type === "two_by_two_multiply" && (
-        <section
-          className="divisionRulePanel"
-          aria-label="两位数乘两位数训练模式"
-        >
-          <p>训练模式</p>
-          <div className="divisionRuleOptions">
-            {twoByTwoModeOptions.map((option) => (
+
+      {panel === "smart" && (
+        <section className="trainingSelectorPanel" aria-label="智能训练选择">
+          <div className="selectorPanelHeading">
+            <strong>智能训练</strong>
+            <small>默认L2；只有想主动调整时才展开难度</small>
+          </div>
+          <div className="smartOptionGrid">
+            <button
+              aria-pressed={smartTraining?.mode === "mixed"}
+              className={smartTraining?.mode === "mixed" ? "selected" : ""}
+              onClick={() => chooseSmart("mixed")}
+              type="button"
+            >
+              <strong>混合训练</strong>
+              <small>从你已经练过的能力里混合出题</small>
+            </button>
+            <button
+              aria-pressed={smartTraining?.mode === "path_compare"}
+              className={smartTraining?.mode === "path_compare" ? "selected" : ""}
+              onClick={() => chooseSmart("path_compare")}
+              type="button"
+            >
+              <strong>同题路径对比</strong>
+              <small>直除 / 包子法 / 放缩做同一道题</small>
+            </button>
+          </div>
+          {smartTraining && (
+            <div className="compactDifficulty">
               <button
-                aria-pressed={subtype === option.value}
-                className={subtype === option.value ? "selected" : ""}
-                key={option.value}
-                onClick={() => onDivisionRuleChange(option.value)}
+                aria-expanded={showSmartDifficulty}
+                className="compactDifficultyToggle"
+                onClick={() => setShowSmartDifficulty((value) => !value)}
                 type="button"
               >
-                {option.label}
+                难度：{smartDifficulty}
+                {smartDifficulty === "L2" ? "（默认）" : ""}
+                <span>{showSmartDifficulty ? "收起 ↑" : "调整 ›"}</span>
               </button>
-            ))}
-          </div>
+              {showSmartDifficulty && (
+                <div
+                  aria-label="智能训练难度选项"
+                  className="divisionRuleOptions compactDifficultyOptions"
+                >
+                  {(["L1", "L2", "L3"] as const).map((difficultyBand) => (
+                    <button
+                      aria-pressed={smartDifficulty === difficultyBand}
+                      className={smartDifficulty === difficultyBand ? "selected" : ""}
+                      key={difficultyBand}
+                      onClick={() =>
+                        onSelect(
+                          "skill_drill",
+                          makeSmartTrainingSubtype(
+                            smartTraining.mode,
+                            difficultyBand,
+                          ),
+                        )
+                      }
+                      type="button"
+                    >
+                      {difficultyBand}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
-    </>
+
+      {panel === "classic" && (
+        <section className="trainingSelectorPanel" aria-label="经典训练选择">
+          <div className="selectorPanelHeading">
+            <strong>经典训练</strong>
+            <small>旧入口完整保留，但不再占据首页</small>
+          </div>
+          <div className="grid trainingTypeGrid classicTrainingGrid">
+            {trainingTypeOptions.map((option) => {
+              const isSelected =
+                option.questionType === type &&
+                (option.questionType !== "fraction_percent_conversion" ||
+                  option.subtype === subtype);
+              return (
+                <button
+                  className={isSelected ? "selected" : ""}
+                  key={option.id}
+                  onClick={() => chooseClassic(option)}
+                  type="button"
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {type === "three_by_two_division" && (
+            <section
+              className="divisionRulePanel"
+              aria-label="三位数除两位数答题要求"
+            >
+              <p>答题要求</p>
+              <div className="divisionRuleOptions">
+                {divisionRuleOptions.map((option) => (
+                  <button
+                    aria-pressed={subtype === option.value}
+                    className={subtype === option.value ? "selected" : ""}
+                    key={option.value}
+                    onClick={() => onDivisionRuleChange(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          {type === "two_by_two_multiply" && (
+            <section
+              className="divisionRulePanel"
+              aria-label="两位数乘两位数训练模式"
+            >
+              <p>训练模式</p>
+              <div className="divisionRuleOptions">
+                {twoByTwoModeOptions.map((option) => (
+                  <button
+                    aria-pressed={subtype === option.value}
+                    className={subtype === option.value ? "selected" : ""}
+                    key={option.value}
+                    onClick={() => onDivisionRuleChange(option.value)}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </section>
+      )}
+    </section>
   );
 }

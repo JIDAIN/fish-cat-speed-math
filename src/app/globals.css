@@ -141,6 +141,195 @@ h2 {
   border-color: #8fc9aa;
   outline: 0;
 }
+
+
+/* Mobile-first training entry hierarchy: keep the 160-skill tree out of the home scroll. */
+.mobileTrainingSelector {
+  display: grid;
+  gap: 12px;
+}
+.trainingModeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.trainingModeCard {
+  display: flex;
+  min-height: 106px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: rgb(228 244 236 / 76%);
+  text-align: left;
+}
+.trainingModeCard strong {
+  font-size: 18px;
+}
+.trainingModeCard small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.trainingModeCard span {
+  margin-top: auto;
+  color: var(--green-700);
+  font-size: 12px;
+  font-weight: 700;
+}
+.trainingSelectorPanel {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 68%);
+}
+.selectorPanelHeading,
+.skillLeafHeading {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 11px;
+}
+.selectorPanelHeading strong,
+.skillLeafHeading strong {
+  font-size: 16px;
+}
+.selectorPanelHeading small,
+.skillLeafHeading small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.skillSectionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.skillSectionCard {
+  display: grid;
+  min-height: 78px;
+  align-content: center;
+  gap: 4px;
+  padding: 10px 11px;
+  border: 1px solid transparent;
+  text-align: left;
+}
+.skillSectionCard strong {
+  font-size: 15px;
+}
+.skillSectionCard small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.skillSubgroupGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.skillSubgroupGrid button {
+  display: grid;
+  min-height: 64px;
+  gap: 3px;
+  padding: 9px 10px;
+  text-align: left;
+}
+.skillSubgroupGrid strong {
+  font-size: 14px;
+}
+.skillSubgroupGrid small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.skillLeafPanel {
+  margin-top: 10px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.skillLeafGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.skillLeafGrid button {
+  min-height: 52px;
+  padding: 8px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.smartOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.smartOptionGrid button {
+  display: grid;
+  min-height: 78px;
+  gap: 4px;
+  padding: 11px;
+  text-align: left;
+}
+.smartOptionGrid button strong {
+  font-size: 15px;
+}
+.smartOptionGrid button small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.compactDifficulty {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.compactDifficultyToggle {
+  display: flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: rgb(255 255 255 / 82%);
+  font-size: 13px;
+  text-align: left;
+}
+.compactDifficultyToggle span {
+  color: var(--green-700);
+  font-size: 12px;
+}
+.compactDifficultyOptions {
+  padding: 0 2px 2px;
+}
+.classicTrainingGrid button {
+  min-height: 58px;
+}
+
+@media (max-width: 390px) {
+  .trainingModeCard {
+    min-height: 98px;
+    padding: 12px;
+  }
+  .trainingModeCard strong {
+    font-size: 17px;
+  }
+  .skillSectionGrid,
+  .skillSubgroupGrid,
+  .skillLeafGrid,
+  .smartOptionGrid {
+    gap: 7px;
+  }
+}
 .wide {
   width: 100%;
   min-height: 54px;
