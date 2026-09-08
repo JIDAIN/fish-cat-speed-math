@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/structured-semantic-ui-verify.yml"
       - ".github/scripts/structured_semantic_ui_patch.py"
+      - ".github/scripts/structured_semantic_ui_fix.py"
 
 permissions:
   contents: write
@@ -25,7 +26,9 @@ jobs:
           cache: npm
 
       - name: Apply structured semantic UI patch
-        run: python .github/scripts/structured_semantic_ui_patch.py
+        run: |
+          python .github/scripts/structured_semantic_ui_patch.py
+          python .github/scripts/structured_semantic_ui_fix.py
 
       - name: Install
         run: npm ci
