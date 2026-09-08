@@ -34,6 +34,13 @@ import {
   gradeFoundationSkillQuestion,
   isFoundationSkillId,
 } from "./skill-generate";
+import {
+  generateStabilizationSkillSet,
+  gradeStabilizationSkillQuestion,
+  isStabilizationSkillId,
+  StabilizationSkillId,
+  stabilizationSkillIds,
+} from "./stabilization-skill-generate";
 import { DifficultyBand, GeneratedQuestion, SkillId } from "./types";
 
 export const implementedSkillIds = [
@@ -42,6 +49,7 @@ export const implementedSkillIds = [
   ...batch5SplitSkillIds,
   ...batch6DivisionScaleSkillIds,
   ...batch7SkillIds,
+  ...stabilizationSkillIds,
 ] as const satisfies readonly SkillId[];
 
 export type ImplementedSkillId =
@@ -49,7 +57,8 @@ export type ImplementedSkillId =
   | Batch4SkillId
   | Batch5SplitSkillId
   | Batch6DivisionScaleSkillId
-  | Batch7SkillId;
+  | Batch7SkillId
+  | StabilizationSkillId;
 
 const implementedSkillSet = new Set<string>(implementedSkillIds);
 
@@ -78,13 +87,23 @@ export function generateSkillDrillSet(
       count,
       context,
     );
-  return generateBatch7SkillSet(skillId, difficultyBand, count, context);
+  if (isBatch7SkillId(skillId))
+    return generateBatch7SkillSet(skillId, difficultyBand, count, context);
+  return generateStabilizationSkillSet(
+    skillId,
+    difficultyBand,
+    count,
+    context,
+  );
 }
 
 export function gradeSkillDrillQuestion(
   question: GeneratedQuestion,
   input: string,
 ) {
+  if (isStabilizationSkillId(question.skillId)) {
+    return gradeStabilizationSkillQuestion(question, input);
+  }
   if (isBatch7SkillId(question.skillId)) {
     return gradeBatch7SkillQuestion(question, input);
   }
