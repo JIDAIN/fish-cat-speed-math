@@ -1,10 +1,12 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { generatePathComparisonSet } from "@/lib/batch8-training";
 import { GenerationContext } from "@/lib/generate";
 import { QuestionRecord, TrainingSession } from "@/lib/types";
 import { SkillInsights } from "./SkillInsights";
+
+afterEach(cleanup);
 
 function context(): GenerationContext {
   let id = 0;
