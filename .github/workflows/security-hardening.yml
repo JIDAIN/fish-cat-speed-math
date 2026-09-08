@@ -32,6 +32,8 @@ jobs:
           npm uninstall xlsx
           npm install --save-exact next@15.5.25 write-excel-file@4.1.1
           npm install --save-dev --save-exact eslint-config-next@15.5.25 read-excel-file@9.3.4
+          npm pkg set overrides.postcss=8.5.28 overrides.nanoid=3.3.18 overrides.sharp=0.35.3
+          npm install
 
       - name: Verify production dependency tree
         run: |
@@ -44,7 +46,7 @@ jobs:
           vulns = data.get('metadata', {}).get('vulnerabilities', {})
           print('production dependency audit:', vulns)
           for name, item in sorted(data.get('vulnerabilities', {}).items()):
-              print(f"- {name}: severity={item.get('severity')} direct={item.get('isDirect')} range={item.get('range')} fix={item.get('fixAvailable')}")
+              print(f"- {name}: severity={item.get('severity')} direct={item.get('isDirect')} range={item.get('range')} fix={item.get('fixAvailable')} via={item.get('via')}")
           if vulns.get('critical', 0) or vulns.get('high', 0):
               raise SystemExit('production high/critical vulnerabilities remain')
           PY
