@@ -133,40 +133,18 @@ function pathComparisonCompletedSession(userId = "fish"): TrainingSession {
   };
 }
 
-const expectedNonDirectSkillDrills = [
-  "A-MUL-03",
-  "A-MUL-04",
-  "A-MUL-05",
-  "A-MUL-06",
-  "A-MUL-07",
-  "A-ADD-01",
-  "A-SUB-01",
-  "A-SUB-02",
-  "A-SUB-03",
-  "A-SUB-04",
-  "A-SUB-05",
-  "A-FRA-01",
-  "A-FRA-02",
-  "A-FRA-03",
-  "A-FRA-04",
-  "C-MUL-01",
-  "C-DIV-01",
-  "C-DIV-02",
-  "C-DIV-03",
-  "C-DIV-04",
-] as const;
 
 describe("stage4 whole-program acceptance", () => {
-  it("keeps the 160-skill tree intact and explicitly inventories the 140 direct drills", () => {
+  it("keeps the 160-skill tree intact and exposes every leaf as a direct drill", () => {
     expect(skillDefinitions).toHaveLength(160);
-    expect(implementedSkillIds).toHaveLength(140);
-    expect(new Set(implementedSkillIds).size).toBe(140);
+    expect(implementedSkillIds).toHaveLength(160);
+    expect(new Set(implementedSkillIds).size).toBe(160);
 
     const direct = new Set<SkillId>(implementedSkillIds);
     const nonDirect = skillDefinitions
       .map((definition) => definition.id)
       .filter((skillId) => !direct.has(skillId));
-    expect(nonDirect).toEqual(expectedNonDirectSkillDrills);
+    expect(nonDirect).toEqual([]);
   });
 
   it("can generate every directly implemented skill in all three difficulty bands", () => {
