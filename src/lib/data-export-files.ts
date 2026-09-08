@@ -1,11 +1,5 @@
 import writeXlsxFile, { Cell, SheetData } from "write-excel-file/universal";
-import {
-  DataExport,
-  formatShanghaiIso,
-  QuestionExportRow,
-  MatchExportRow,
-  TrainingExportRow,
-} from "./data-export";
+import { DataExport, formatShanghaiIso } from "./data-export";
 
 type Field = {
   key: string;
