@@ -7,6 +7,7 @@ on:
       - ".github/workflows/structured-semantic-ui-verify.yml"
       - ".github/scripts/structured_semantic_ui_patch.py"
       - ".github/scripts/structured_semantic_ui_fix.py"
+      - ".github/scripts/structured_semantic_ui_final_fix.py"
 
 permissions:
   contents: write
@@ -29,6 +30,7 @@ jobs:
         run: |
           python .github/scripts/structured_semantic_ui_patch.py
           python .github/scripts/structured_semantic_ui_fix.py
+          python .github/scripts/structured_semantic_ui_final_fix.py
 
       - name: Install
         run: npm ci
@@ -58,6 +60,7 @@ jobs:
                   src/components/StructuredSingleAnswerTraining.test.tsx \
                   src/lib/session.ts \
                   src/lib/session.test.ts \
+                  src/lib/training.test.ts \
                   src/lib/batch7-skill-generate.test.ts \
                   src/app/page.tsx \
                   src/app/page.test.tsx \
