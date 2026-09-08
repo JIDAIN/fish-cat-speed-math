@@ -6,8 +6,9 @@ text = path.read_text()
 text = text.replace("  GeneratedQuestion,\n", "")
 path.write_text(text)
 
-# Keep the legacy no-argument submit callback for NumberPad/old controls, while
-# exposing an explicit session submitter only to the semantic structured UI.
+# Keep the legacy no-argument submit callback for NumberPad and existing step
+# flows, while exposing an explicit session submitter only to the new semantic
+# single-answer component.
 path = Path("src/app/page.tsx")
 text = path.read_text()
 old = '''  const submit = (sessionOverride?: TrainingSession) => {\n    const activeSession = sessionOverride ?? session;\n    if (!activeSession) return;\n    const activeQuestion = activeSession.questions[activeSession.currentIndex];'''
@@ -18,9 +19,9 @@ old = '''    setScratch(false);\n  };\n  const restartTraining = async () => {''
 new = '''    setScratch(false);\n  };\n  const submit = () => {\n    if (!session) return;\n    submitSession(session);\n  };\n  const restartTraining = async () => {'''
 assert old in text, "submit wrapper insertion point not found"
 text = text.replace(old, new, 1)
-old = '''              onRestart={restartTraining}\n              onSubmit={submit}\n              session={session}'''
-new = '''              onRestart={restartTraining}\n              onSubmit={submitSession}\n              session={session}'''
-assert old in text, "structured semantic submit prop not found"
+old = '''            <StructuredSingleAnswerTraining\n              isRestarting={isRestartingTraining}\n              onChange={(nextSession) => {\n                sessionRef.current = nextSession;\n                setSession(nextSession);\n              }}\n              onRestart={restartTraining}\n              onSubmit={submit}\n              session={session}\n            />'''
+new = '''            <StructuredSingleAnswerTraining\n              isRestarting={isRestartingTraining}\n              onChange={(nextSession) => {\n                sessionRef.current = nextSession;\n                setSession(nextSession);\n              }}\n              onRestart={restartTraining}\n              onSubmit={submitSession}\n              session={session}\n            />'''
+assert old in text, "structured semantic submit component block not found"
 text = text.replace(old, new, 1)
 path.write_text(text)
 
