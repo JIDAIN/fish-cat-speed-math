@@ -1,5 +1,7 @@
 # 专项训练与分数比较规则
 
+> **2026-09-08 产品边界更新：** 本文件保留历史题型/专项规则，但“把内部结构或微能力直接做成学生专项入口”的思路已被 [ADR-001](./docs/adr/ADR-001-student-facing-training-units.md) 取代。新的前台方案见 [TRAINING_PRODUCT_ARCHITECTURE_PLAN.md](./TRAINING_PRODUCT_ARCHITECTURE_PLAN.md)。后续学生前台按“训练任务 / 完整方法”组织，微能力继续留在后台用于生成、计时、Mastery 与 Diagnostic；本轮只更新文档，不修改业务代码。
+
 “两位数×两位数”不再是独立专项入口，而是首页的一个主题型；选中后在同一训练选择区显示两个模式。训练记录沿用同一做题、计时、判题、历史、同步与导出链路，并通过统一的 `questionType` 与 `subtype` 区分模式。整百放缩修正仍为独立专项，默认 20 题。
 
 ## 两位数 × 两位数
