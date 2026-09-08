@@ -1,0 +1,71 @@
+name: Production Dependency Hardening
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/security-hardening.yml"
+      - ".github/scripts/security_hardening_patch.py"
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply source migration
+        run: python .github/scripts/security_hardening_patch.py
+
+      - name: Replace vulnerable dependencies
+        run: |
+          npm uninstall xlsx
+          npm install --save-exact next@15.5.25 write-excel-file@4.1.1
+          npm install --save-dev --save-exact eslint-config-next@15.5.25 read-excel-file@9.3.4
+
+      - name: Verify production dependency tree
+        run: |
+          npm ls next postcss nanoid sharp write-excel-file || true
+          npm audit --omit=dev --json >/tmp/audit.json || true
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('/tmp/audit.json').read_text())
+          vulns = data.get('metadata', {}).get('vulnerabilities', {})
+          print('production dependency audit:', vulns)
+          for name, item in sorted(data.get('vulnerabilities', {}).items()):
+              print(f"- {name}: severity={item.get('severity')} direct={item.get('isDirect')} range={item.get('range')} fix={item.get('fixAvailable')}")
+          if vulns.get('critical', 0) or vulns.get('high', 0):
+              raise SystemExit('production high/critical vulnerabilities remain')
+          PY
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Full test suite
+        run: npm run test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit verified hardening
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/lib/data-export-files.ts src/lib/data-export-files.test.ts src/lib/data-export.performance.test.ts src/components/PersonalDataExport.tsx
+          git diff --cached --stat
+          git commit -m "Harden production dependencies and replace vulnerable xlsx writer"
+          git push origin master
