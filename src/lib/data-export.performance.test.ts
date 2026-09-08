@@ -56,7 +56,7 @@ describe("data export performance (manual verification)", () => {
     const started = performance.now();
     const data = createDataExport(sessions);
     const transformed = performance.now();
-    const [xlsx, json] = [createXlsxBlob(data), createJsonBlob(data)];
+    const [xlsx, json] = [await createXlsxBlob(data), createJsonBlob(data)];
     const completed = performance.now();
     console.info(
       `[data-export-performance] 1000 trainings, ${data.questions.length} questions; transform=${Math.round(transformed - started)}ms; file=${Math.round(completed - transformed)}ms; xlsx=${xlsx.size}; json=${json.size}`,

@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import writeXlsxFile, { Cell, SheetData } from "write-excel-file/universal";
 import {
   DataExport,
   formatShanghaiIso,
@@ -252,48 +252,49 @@ const matchFields: Field[] = [
 const formulaSafe = (value: unknown) =>
   typeof value === "string" && /^[=+\-@]/.test(value) ? `'${value}` : value;
 
+function spreadsheetValue(value: unknown): Cell {
+  const safe = formulaSafe(value);
+  if (safe === null || safe === undefined) return null;
+  if (
+    typeof safe === "string" ||
+    typeof safe === "number" ||
+    typeof safe === "boolean" ||
+    safe instanceof Date
+  )
+    return safe;
+  return String(safe);
+}
+
+function headerCell(value: string): Cell {
+  return {
+    value,
+    fontWeight: "bold",
+    textColor: "#FFFFFF",
+    backgroundColor: "#0F766E",
+  };
+}
+
 function worksheet<T extends Record<string, unknown>>(
   rows: T[],
   fields: Field[],
-) {
-  const header = fields.map((field) => field.label);
+  formats: Record<string, string> = {},
+): SheetData {
+  const header = fields.map((field) => headerCell(field.label));
   const body = rows.map((row) =>
-    fields.map((field) => formulaSafe(row[field.key])),
+    fields.map((field) => {
+      const value = spreadsheetValue(row[field.key]);
+      const format = formats[field.key];
+      if (format && typeof value === "number") return { value, format };
+      return value;
+    }),
   );
-  return XLSX.utils.aoa_to_sheet([header, ...body]);
+  return [header, ...body];
 }
 
-function styleSheet(sheet: XLSX.WorkSheet, fields: Field[]) {
-  const range = XLSX.utils.decode_range(sheet["!ref"] ?? "A1:A1");
-  sheet["!freeze"] = { xSplit: 0, ySplit: 1 };
-  sheet["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
-  sheet["!cols"] = fields.map((field) => ({
-    wch: Math.min(Math.max(field.label.length + 4, 14), 28),
+function sheetColumns(fields: Field[]) {
+  return fields.map((field) => ({
+    width: Math.min(Math.max(field.label.length + 4, 14), 28),
   }));
-  for (let column = 0; column <= range.e.c; column += 1) {
-    const cell = sheet[XLSX.utils.encode_cell({ r: 0, c: column })];
-    if (cell)
-      cell.s = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "0F766E" } },
-      };
-  }
-}
-
-function applyColumnFormats(
-  sheet: XLSX.WorkSheet,
-  fields: Field[],
-  formats: Record<string, string>,
-) {
-  const range = XLSX.utils.decode_range(sheet["!ref"] ?? "A1:A1");
-  fields.forEach((field, column) => {
-    const format = formats[field.key];
-    if (!format) return;
-    for (let row = 1; row <= range.e.r; row += 1) {
-      const cell = sheet[XLSX.utils.encode_cell({ r: row, c: column })];
-      if (cell) cell.z = format;
-    }
-  });
 }
 
 export function exportFileBaseName(now = new Date()) {
@@ -309,67 +310,82 @@ export function createJsonBlob(data: DataExport) {
   });
 }
 
-export function createXlsxBlob(data: DataExport) {
-  const workbook = XLSX.utils.book_new();
-  const trainings = worksheet<TrainingExportRow>(
-    data.trainings,
-    trainingFields,
-  );
-  const questions = worksheet<QuestionExportRow>(
-    data.questions,
-    questionFields,
-  );
-  const matches = worksheet<MatchExportRow>(
-    data.fraction_percent_match_history,
-    matchFields,
-  );
-  const documentation = XLSX.utils.json_to_sheet(
-    [...trainingFields, ...questionFields, ...matchFields].map((field) => ({
-      字段名: field.key,
-      中文名: field.label,
-      类型: field.type,
-      单位: field.unit,
-      来源: field.source,
-      空值含义: field.emptyMeaning,
-      已知局限: field.limitation ?? "",
-    })),
-  );
-  styleSheet(trainings, trainingFields);
-  styleSheet(questions, questionFields);
-  styleSheet(matches, matchFields);
-  applyColumnFormats(trainings, trainingFields, {
-    accuracy_ratio: "0.0%",
-    started_at_ms: "0",
-    completed_at_ms: "0",
-    total_effective_ms: "0",
-    average_question_ms: "0",
-    median_question_ms: "0",
-  });
-  applyColumnFormats(questions, questionFields, {
-    relative_error: "0.000%",
-    time_used_ms: "0",
-  });
-  documentation["!cols"] = [
-    { wch: 30 },
-    { wch: 26 },
-    { wch: 14 },
-    { wch: 18 },
-    { wch: 12 },
-    { wch: 45 },
-    { wch: 45 },
-  ];
-  XLSX.utils.book_append_sheet(workbook, trainings, "训练记录");
-  XLSX.utils.book_append_sheet(workbook, questions, "逐题记录");
-  XLSX.utils.book_append_sheet(workbook, matches, "消消乐历史");
-  XLSX.utils.book_append_sheet(workbook, documentation, "字段说明");
-  const bytes = XLSX.write(workbook, {
-    type: "array",
-    bookType: "xlsx",
-    cellStyles: true,
-  });
-  return new Blob([bytes], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+export async function createXlsxBlob(data: DataExport) {
+  const documentationFields: Field[] = [
+    ["key", "字段名", "文本", "", "原始", "无"],
+    ["label", "中文名", "文本", "", "原始", "无"],
+    ["type", "类型", "文本", "", "原始", "无"],
+    ["unit", "单位", "文本", "", "原始", "无"],
+    ["source", "来源", "文本", "", "原始", "无"],
+    ["emptyMeaning", "空值含义", "文本", "", "原始", "无"],
+    ["limitation", "已知局限", "文本", "", "原始", "无"],
+  ].map(([key, label, type, unit, source, emptyMeaning]) => ({
+    key,
+    label,
+    type,
+    unit,
+    source: source as Field["source"],
+    emptyMeaning,
+  }));
+  const documentationRows = [
+    ...trainingFields,
+    ...questionFields,
+    ...matchFields,
+  ].map((field) => ({
+    key: field.key,
+    label: field.label,
+    type: field.type,
+    unit: field.unit,
+    source: field.source,
+    emptyMeaning: field.emptyMeaning,
+    limitation: field.limitation ?? "",
+  }));
+
+  const result = writeXlsxFile([
+    {
+      data: worksheet(data.trainings, trainingFields, {
+        accuracy_ratio: "0.0%",
+        started_at_ms: "0",
+        completed_at_ms: "0",
+        total_effective_ms: "0",
+        average_question_ms: "0",
+        median_question_ms: "0",
+      }),
+      sheet: "训练记录",
+      columns: sheetColumns(trainingFields),
+      stickyRowsCount: 1,
+    },
+    {
+      data: worksheet(data.questions, questionFields, {
+        relative_error: "0.000%",
+        time_used_ms: "0",
+      }),
+      sheet: "逐题记录",
+      columns: sheetColumns(questionFields),
+      stickyRowsCount: 1,
+    },
+    {
+      data: worksheet(data.fraction_percent_match_history, matchFields),
+      sheet: "消消乐历史",
+      columns: sheetColumns(matchFields),
+      stickyRowsCount: 1,
+    },
+    {
+      data: worksheet(documentationRows, documentationFields),
+      sheet: "字段说明",
+      columns: [
+        { width: 30 },
+        { width: 26 },
+        { width: 14 },
+        { width: 18 },
+        { width: 12 },
+        { width: 45 },
+        { width: 45 },
+      ],
+      stickyRowsCount: 1,
+    },
+  ]);
+  return result.toBlob();
 }
 
 export function downloadBlob(blob: Blob, name: string) {

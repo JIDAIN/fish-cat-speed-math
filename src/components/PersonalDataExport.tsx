@@ -41,7 +41,7 @@ export function PersonalDataExport({ identity }: { identity?: CloudIdentity }) {
       const matchRows = await readOwnMatchRecordsForExport(identity.id);
       setStatus("正在整理并生成 XLSX 和 JSON 文件…");
       const data = createDataExport(rows, Date.now(), matchRows);
-      const xlsx = createXlsxBlob(data);
+      const xlsx = await createXlsxBlob(data);
       const json = createJsonBlob(data);
       const base = exportFileBaseName();
       downloadBlob(xlsx, `${base}.xlsx`);

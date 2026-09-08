@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import readXlsxFile from "read-excel-file/universal";
 import { describe, expect, it } from "vitest";
 import { createDataExport } from "./data-export";
 import { createJsonBlob, createXlsxBlob } from "./data-export-files";
@@ -61,34 +61,26 @@ function columnIndex(rows: unknown[][], label: string) {
 describe("data export files", () => {
   it("creates readable sheets and a raw JSON archive", async () => {
     const data = createDataExport([row]);
-    const book = XLSX.read(await (await createXlsxBlob(data)).arrayBuffer(), {
-      type: "array",
-      cellNF: true,
-    });
-    expect(book.SheetNames).toEqual([
+    const blob = await createXlsxBlob(data);
+    const book = await readXlsxFile(blob);
+    expect(book.map((sheet) => sheet.sheet)).toEqual([
       "训练记录",
       "逐题记录",
       "消消乐历史",
       "字段说明",
     ]);
 
-    const questionWorksheet = book.Sheets["逐题记录"];
-    const questionRows = XLSX.utils.sheet_to_json<unknown[]>(questionWorksheet, {
-      header: 1,
-    });
+    const questionRows = book.find((sheet) => sheet.sheet === "逐题记录")!.data;
     expect(questionRows[1][columnIndex(questionRows, "题面")]).toBe("'=1+1");
     expect(questionRows[1][columnIndex(questionRows, "正确答案")]).toBe("'=2");
-    expect(questionRows[1][columnIndex(questionRows, "能力 ID")]).toBeUndefined();
+    expect(questionRows[1][columnIndex(questionRows, "能力 ID")]).toBeNull();
 
-    const trainingWorksheet = book.Sheets["训练记录"];
-    const trainingRows = XLSX.utils.sheet_to_json<unknown[]>(trainingWorksheet, {
-      header: 1,
-    });
+    const trainingRows = book.find((sheet) => sheet.sheet === "训练记录")!.data;
     const accuracyColumn = columnIndex(trainingRows, "正确率");
-    const accuracyCell = trainingWorksheet[
-      XLSX.utils.encode_cell({ r: 1, c: accuracyColumn })
-    ];
-    expect(accuracyCell.z).toBe("0.0%");
+    expect(trainingRows[1][accuracyColumn]).toBe(1);
+    expect(blob.type).toBe(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
 
     const archive = JSON.parse(await createJsonBlob(data).text());
     expect(archive.raw_cloud_rows[0].completed_at).toBe("2026-01-01T00:00:00Z");
