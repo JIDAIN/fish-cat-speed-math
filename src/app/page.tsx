@@ -44,6 +44,7 @@ import {
 import { ActiveSessionDialog } from "@/components/ActiveSessionDialog";
 import { TrainingTypeSelector } from "@/components/TrainingTypeSelector";
 import { StructuredStepTraining } from "@/components/StructuredStepTraining";
+import { StructuredSingleAnswerTraining } from "@/components/StructuredSingleAnswerTraining";
 import { FractionPercentMemory } from "@/components/FractionPercentMemory";
 import { FractionPercentMatchGame } from "@/components/FractionPercentMatchGame";
 import { FractionPercentMatchHistory } from "@/components/FractionPercentMatchHistory";
@@ -666,14 +667,14 @@ export default function Home() {
       setStorageError("结束原训练失败，请稍后重试。");
     }
   };
-  const submit = () => {
-    if (!session) return;
+  const submitSession = (activeSession: TrainingSession) => {
+    const activeQuestion = activeSession.questions[activeSession.currentIndex];
     const submittedAt = Date.now();
     const next =
-      current?.inputKind === "steps"
-        ? submitCurrentStep(session, elapsed, scratch, submittedAt)
-        : submitCurrentAnswer(session, elapsed, scratch, submittedAt);
-    if (next === session) return;
+      activeQuestion?.inputKind === "steps"
+        ? submitCurrentStep(activeSession, elapsed, scratch, submittedAt)
+        : submitCurrentAnswer(activeSession, elapsed, scratch, submittedAt);
+    if (next === activeSession) return;
     if (next.status === "completed") {
       const completed = {
         ...next,
@@ -738,6 +739,10 @@ export default function Home() {
       navigate("result", completed.id);
     } else setSession(next);
     setScratch(false);
+  };
+  const submit = () => {
+    if (!session) return;
+    submitSession(session);
   };
   const restartTraining = async () => {
     if (!session || restartInFlight.current) return;
@@ -1139,7 +1144,14 @@ export default function Home() {
           <button onClick={() => setScratch(true)}>✎ 草稿</button>
         </header>
         <section className="training trainingMain">
-          {current.inputKind !== "steps" && session.subtype !== "percent_to_fraction" ? (
+          {current.inputKind !== "steps" &&
+          session.subtype !== "percent_to_fraction" &&
+          !(
+            current.type === "skill_drill" &&
+            (current.inputKind === "choice" ||
+              current.inputKind === "sequence" ||
+              current.inputKind === "percent_blocks")
+          ) ? (
             <p className="rule">
               {session.subtype === "quotient_first"
                 ? "求商首位，不四舍五入"
@@ -1164,6 +1176,20 @@ export default function Home() {
               }}
               onRestart={restartTraining}
               onSubmit={submit}
+              session={session}
+            />
+          ) : current.type === "skill_drill" &&
+            (current.inputKind === "choice" ||
+              current.inputKind === "sequence" ||
+              current.inputKind === "percent_blocks") ? (
+            <StructuredSingleAnswerTraining
+              isRestarting={isRestartingTraining}
+              onChange={(nextSession) => {
+                sessionRef.current = nextSession;
+                setSession(nextSession);
+              }}
+              onRestart={restartTraining}
+              onSubmit={submitSession}
               session={session}
             />
           ) : session.questionType === "fraction_comparison" ? (
@@ -1210,7 +1236,11 @@ export default function Home() {
               </button>
             </>
           )}
-          {current.inputKind === "steps" ? null : session.questionType === "fraction_comparison" ? (
+          {current.inputKind === "steps" ||
+          (current.type === "skill_drill" &&
+            (current.inputKind === "choice" ||
+              current.inputKind === "sequence" ||
+              current.inputKind === "percent_blocks")) ? null : session.questionType === "fraction_comparison" ? (
             <div className="comparisonPad trainingKeypad">
               <div className="comparisonChoices">
                 {[
@@ -1241,7 +1271,7 @@ export default function Home() {
                 <button
                   className="primary"
                   disabled={!session.currentAnswer}
-                  onClick={submit}
+                  onClick={() => submit()}
                 >
                   确定
                 </button>

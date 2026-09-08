@@ -428,6 +428,117 @@ h2 {
   opacity: 0.5;
 }
 
+.structuredSingleTraining,
+.structuredStepTraining {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+.structuredSingleTraining h1,
+.structuredStepTraining h1 {
+  font-size: clamp(24px, min(7.8vw, 5dvh), 40px);
+  line-height: 1.18;
+}
+.structuredStepTraining h2 {
+  margin: clamp(8px, 1.4dvh, 14px) 0;
+  font-size: clamp(18px, 5vw, 24px);
+  line-height: 1.3;
+}
+.structuredOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin: clamp(10px, 2dvh, 18px) auto 0;
+}
+.structuredSequenceGrid {
+  grid-template-columns: 1fr;
+}
+.structuredOptionGrid button {
+  min-height: clamp(58px, 9dvh, 78px);
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  font-size: clamp(16px, 4.4vw, 19px);
+  line-height: 1.35;
+  text-align: left;
+  touch-action: manipulation;
+}
+.structuredOptionGrid button.selected {
+  border-color: var(--green-700);
+  outline: 0;
+  background: var(--green-100) !important;
+}
+.structuredPercentBuilder {
+  display: grid;
+  gap: 10px;
+  margin-top: clamp(8px, 1.6dvh, 16px);
+}
+.structuredSelectionPreview {
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  font-size: clamp(17px, 4.8vw, 21px);
+  font-weight: 700;
+  line-height: 1.35;
+}
+.structuredPercentGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.structuredPercentGrid button {
+  min-height: clamp(48px, 7dvh, 62px);
+  padding: 8px 5px;
+  font-size: clamp(15px, 4.2vw, 18px);
+  touch-action: manipulation;
+}
+.structuredEditActions,
+.structuredSingleActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.structuredEditActions button {
+  min-height: 44px;
+  background: transparent;
+  color: var(--muted);
+}
+.structuredSingleActions {
+  margin-top: auto;
+  padding: 10px 0 max(8px, env(safe-area-inset-bottom));
+}
+.structuredSingleActions button {
+  min-height: clamp(48px, 7dvh, 62px);
+  font-size: 16px;
+}
+.structuredSingleActions .restartTrainingButton:only-child {
+  grid-column: 1 / -1;
+}
+.structuredNumberInput {
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 22px;
+  text-align: center;
+}
+@media (max-width: 420px) {
+  .structuredOptionGrid {
+    grid-template-columns: 1fr;
+  }
+  .structuredPercentGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /*
  * Scratch canvas: a 10% green veil makes the writing area obvious while
  * keeping the exercise, answer field, and number pad readable underneath.

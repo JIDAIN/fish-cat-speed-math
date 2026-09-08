@@ -18,7 +18,6 @@ import {
 import { startStepTimer } from "./timer";
 import {
   DifficultyBand,
-  GeneratedQuestion,
   parseSkillDrillSubtype,
   parseSmartTrainingSubtype,
   QuestionType,
@@ -52,129 +51,6 @@ function onlyValue<T>(values: readonly (T | undefined)[]): T | undefined {
   return unique.length === 1 ? unique[0] : undefined;
 }
 
-const percentBlockNumericCodes: Readonly<Record<string, string>> = {
-  "100": "11",
-  "50": "12",
-  "25": "1",
-  "20": "2",
-  "12.5": "3",
-  "10": "4",
-  "5": "5",
-  "3": "6",
-  "2.5": "7",
-  "2": "8",
-  "1": "9",
-  "0.1": "0",
-};
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map(String);
-}
-
-function encodeSemanticAllowedAnswers(
-  values: readonly (string | number | boolean)[] | undefined,
-  encode: (value: string) => string | undefined,
-): string[] | undefined {
-  if (!values?.length) return undefined;
-  const encoded = values
-    .map((value) => encode(String(value)))
-    .filter((value): value is string => value !== undefined);
-  return encoded.length ? Array.from(new Set(encoded)) : undefined;
-}
-
-/**
- * The shared training screen still uses NumberPad for ordinary one-answer
- * skill drills. Until all semantic inputs use the V2 renderer, choice,
- * sequence and percentage-block paths are encoded as numeric codes. Full step
- * flows are not adapted: they are rendered by StructuredAnswerInput step by
- * step.
- */
-function adaptSkillQuestionToCurrentTrainingUi(
-  question: GeneratedQuestion,
-): GeneratedQuestion {
-  if (question.inputKind === "choice" || question.inputKind === "sequence") {
-    const semanticInputKind = question.inputKind;
-    const values = stringArray(question.data.choiceValues);
-    const labels = stringArray(question.data.choiceLabels);
-    if (!values.length || values.length !== labels.length) return question;
-
-    const codeFor = (semanticValue: string) => {
-      const index = values.indexOf(semanticValue);
-      return index < 0 ? undefined : String(index + 1);
-    };
-    const encodedAnswer = codeFor(question.answer);
-    if (!encodedAnswer) return question;
-    const encodedAllowed = encodeSemanticAllowedAnswers(
-      question.allowedAnswerSet,
-      codeFor,
-    );
-    const legend = labels
-      .map((label, index) => `${index + 1}=${label}`)
-      .join("；");
-    return {
-      ...question,
-      prompt: `${question.prompt}（${legend}）`,
-      answer: encodedAnswer,
-      inputKind: "number",
-      allowedAnswerSet: encodedAllowed ?? [encodedAnswer],
-      generatorParams: {
-        ...(question.generatorParams ?? {}),
-        semanticInputKind,
-        semanticAnswer: question.answer,
-        uiAdapter:
-          semanticInputKind === "sequence"
-            ? "sequence_numeric_code_v1"
-            : "choice_numeric_code_v1",
-      },
-    };
-  }
-
-  if (question.inputKind === "percent_blocks") {
-    const encodePath = (path: string) => {
-      const blocks = path.split(",").filter(Boolean);
-      const codes = blocks.map((block) => percentBlockNumericCodes[block]);
-      return codes.some((code) => code === undefined)
-        ? undefined
-        : codes.join("");
-    };
-    const encodedAnswer = encodePath(question.answer);
-    if (!encodedAnswer) return question;
-    const encodedAllowed = encodeSemanticAllowedAnswers(
-      question.allowedAnswerSet,
-      encodePath,
-    );
-    const legend = [
-      "11=100%",
-      "12=50%",
-      "1=25%",
-      "2=20%",
-      "3=12.5%",
-      "4=10%",
-      "5=5%",
-      "6=3%",
-      "7=2.5%",
-      "8=2%",
-      "9=1%",
-      "0=0.1%",
-    ].join("；");
-    return {
-      ...question,
-      prompt: `${question.prompt}（按块依次输入代码：${legend}）`,
-      answer: encodedAnswer,
-      inputKind: "number",
-      allowedAnswerSet: encodedAllowed ?? [encodedAnswer],
-      generatorParams: {
-        ...(question.generatorParams ?? {}),
-        semanticInputKind: "percent_blocks",
-        semanticAnswer: question.answer,
-        uiAdapter: "percent_blocks_numeric_code_v1",
-      },
-    };
-  }
-
-  return question;
-}
 
 /** Creates one entirely fresh training run from frozen training parameters. */
 export function createTrainingSession({
@@ -251,7 +127,7 @@ export function createTrainingSession({
   const frozenQuestions =
     questions ??
     (questionType === "skill_drill"
-      ? (generatedSkillQuestions ?? []).map(adaptSkillQuestionToCurrentTrainingUi)
+      ? (generatedSkillQuestions ?? [])
       : generateSet(questionType, subtype, questionCount, generationContext).map(
           migrateExistingQuestionToSkillV2,
         ));

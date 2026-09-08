@@ -57,7 +57,7 @@ describe("stage 4 batch 7 remaining B/C generators", () => {
     }
   });
 
-  it("keeps B-ORDER as semantic sequence tasks before the session UI adapter", () => {
+  it("keeps B-ORDER as semantic sequence tasks for the structured UI", () => {
     for (const skillId of [
       "B-ORDER-01",
       "B-ORDER-02",

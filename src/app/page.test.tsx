@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Home from "./page";
 import { readActive, readCompleted, saveSession } from "@/lib/storage";
 import { GeneratedQuestion, TrainingSession } from "@/lib/types";
+import { createTrainingSession } from "@/lib/session";
 
 const DB_NAME = "speed-math-v1";
 
@@ -305,6 +306,40 @@ describe("Home active-session interactions", () => {
 
     expect(await screen.findByText("6.25% ≈")).toBeTruthy();
     expect(screen.queryByText("6.3% ≈")).toBeNull();
+  });
+
+  it("renders a new semantic choice drill as buttons and submits the semantic value on tap", async () => {
+    const semanticSession = createTrainingSession({
+      userId: "fish",
+      questionType: "skill_drill",
+      subtype: "skill:B-R-05:L2",
+      questionCount: 10,
+      createSessionId: () => "semantic-ui-session",
+    });
+    await saveSession(semanticSession);
+    const semanticQuestion = semanticSession.questions[0];
+    expect(semanticQuestion.inputKind).toBe("choice");
+    const values = semanticQuestion.data.choiceValues as string[];
+    const labels = semanticQuestion.data.choiceLabels as string[];
+    const answerIndex = values.indexOf(semanticQuestion.answer);
+    expect(answerIndex).toBeGreaterThanOrEqual(0);
+
+    render(<Home />);
+    await screen.findByRole("dialog");
+    fireEvent.click(screen.getByRole("button", { name: "继续原训练" }));
+
+    expect(await screen.findByRole("button", { name: labels[answerIndex] })).toBeTruthy();
+    expect(screen.queryByText(/按块依次输入代码/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: labels[answerIndex] }));
+
+    await waitFor(async () => {
+      const stored = await readActive();
+      expect(stored?.records[0]).toMatchObject({
+        userAnswer: semanticQuestion.answer,
+        isCorrect: true,
+      });
+      expect(stored?.currentIndex).toBe(1);
+    });
   });
 
   it("commits the ten-question quick choice into a new active session", async () => {

@@ -117,7 +117,7 @@ describe("createTrainingSession", () => {
     ).toBe(true);
   });
 
-  it("temporarily encodes semantic choice, sequence and percent-block drills for the shared NumberPad", () => {
+  it("keeps choice, sequence and percent-block drills semantic in new sessions", () => {
     const choice = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
@@ -140,28 +140,20 @@ describe("createTrainingSession", () => {
       generationContext: deterministicContext("split"),
     });
 
-    expect(choice.questions[0]).toMatchObject({ inputKind: "number" });
-    expect(choice.questions[0].generatorParams).toMatchObject({
-      semanticInputKind: "choice",
-      uiAdapter: "choice_numeric_code_v1",
-    });
-    expect(choice.questions[0].prompt).toContain("1=");
+    expect(choice.questions[0].inputKind).toBe("choice");
+    expect(choice.questions[0].data.choiceLabels).toBeTruthy();
+    expect(choice.questions[0].generatorParams?.uiAdapter).toBeUndefined();
+    expect(choice.questions[0].prompt).not.toContain("1=");
 
-    expect(sequence.questions[0]).toMatchObject({ inputKind: "number" });
-    expect(sequence.questions[0].generatorParams).toMatchObject({
-      semanticInputKind: "sequence",
-      uiAdapter: "sequence_numeric_code_v1",
-    });
-    expect(sequence.questions[0].prompt).toContain("1=");
-    expect(sequence.questions[0].answer).toMatch(/^\d+$/);
+    expect(sequence.questions[0].inputKind).toBe("sequence");
+    expect(sequence.questions[0].data.choiceLabels).toBeTruthy();
+    expect(sequence.questions[0].generatorParams?.uiAdapter).toBeUndefined();
+    expect(sequence.questions[0].answer).toContain(",");
 
-    expect(split.questions[0]).toMatchObject({ inputKind: "number" });
-    expect(split.questions[0].generatorParams).toMatchObject({
-      semanticInputKind: "percent_blocks",
-      uiAdapter: "percent_blocks_numeric_code_v1",
-    });
-    expect(split.questions[0].prompt).toContain("按块依次输入代码");
-    expect(split.questions[0].answer).toMatch(/^\d+$/);
+    expect(split.questions[0].inputKind).toBe("percent_blocks");
+    expect(split.questions[0].generatorParams?.uiAdapter).toBeUndefined();
+    expect(split.questions[0].prompt).not.toContain("按块依次输入代码");
+    expect(split.questions[0].answer).toContain(",");
   });
 
   it("creates batch-7 cross-operation compensation as a structured flow session", () => {

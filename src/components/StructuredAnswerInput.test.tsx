@@ -20,14 +20,37 @@ describe("StructuredAnswerInput", () => {
     expect(onChange).toHaveBeenCalledWith("12.5");
   });
 
-  it("uses the frozen percentage-block set for split training", () => {
+  it("renders semantic choice and sequence alternatives directly", () => {
+    const onChange = vi.fn();
+    const onCommit = vi.fn();
+    render(
+      <StructuredAnswerInput
+        choices={[
+          { value: "2,1", label: "先减13，再减487" },
+          { value: "1,2", label: "先减487，再减13" },
+        ]}
+        kind="sequence"
+        onChange={onChange}
+        onCommit={onCommit}
+        value=""
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "先减13，再减487" }));
+    expect(onChange).toHaveBeenCalledWith("2,1");
+    expect(onCommit).toHaveBeenCalledWith("2,1");
+  });
+
+  it("uses every frozen percentage block required by current split generators", () => {
     expect(DEFAULT_PERCENT_BLOCKS.map((item) => item.value)).toEqual([
       "100",
       "50",
       "25",
       "20",
+      "12.5",
       "10",
       "5",
+      "3",
+      "2.5",
       "2",
       "1",
       "0.1",
@@ -37,10 +60,13 @@ describe("StructuredAnswerInput", () => {
       <StructuredAnswerInput
         kind="percent_blocks"
         onChange={onChange}
-        value="50,20"
+        value="12.5,2.5"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "10%" }));
-    expect(onChange).toHaveBeenCalledWith("50,20,10");
+    expect(screen.getByLabelText("答案已选组合").textContent).toBe(
+      "12.5% + 2.5%",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "3%" }));
+    expect(onChange).toHaveBeenCalledWith("12.5,2.5,3");
   });
 });

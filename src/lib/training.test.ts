@@ -60,7 +60,7 @@ describe("submitCurrentAnswer", () => {
     expect(completed.completedAt).toBe(7_000);
   });
 
-  it("grades a batch-4 semantic choice after its temporary numeric UI encoding", () => {
+  it("grades a batch-4 semantic choice directly without a numeric UI adapter", () => {
     const drill = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
@@ -69,6 +69,8 @@ describe("submitCurrentAnswer", () => {
       generationContext: deterministicContext(),
     });
     const current = drill.questions[0];
+    expect(current.inputKind).toBe("choice");
+    expect(current.generatorParams?.uiAdapter).toBeUndefined();
     const answered = {
       ...drill,
       questions: [current],
@@ -82,10 +84,6 @@ describe("submitCurrentAnswer", () => {
       isCorrect: true,
       accuracyLevel: "exact",
       userAnswer: current.answer,
-    });
-    expect(completed.records[0].question.generatorParams).toMatchObject({
-      semanticInputKind: "choice",
-      uiAdapter: "choice_numeric_code_v1",
     });
   });
 
