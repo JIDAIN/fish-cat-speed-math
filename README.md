@@ -1,6 +1,6 @@
 # 数感 Numera
 
-> 正式中文名：**数感**｜英文名：**Numera**｜小名：**算算**。当前 GitHub 仓库仍使用旧机器标识 `fish-cat-speed-math`，待品牌迁移完成后再统一重命名。
+> 正式中文名：**数感**｜英文名：**Numera**｜小名：**算算**。当前 GitHub 仓库：`JIDAIN/numera`。
 
 页面刷新、浏览器导航、账号三态和移动端首页原则见 [NAVIGATION_RECOVERY.md](./NAVIGATION_RECOVERY.md)。
 
@@ -21,7 +21,7 @@
 - 不含 active 跨设备同步、实时订阅、自动补传队列、PK、每日任务、专项训练或新的 PWA 离线能力。
 - 等级评定标准与版本兼容规则见 [RATING_STANDARDS.md](./RATING_STANDARDS.md)。
 
-[![CI](https://github.com/JIDAIN/fish-cat-speed-math/actions/workflows/ci.yml/badge.svg)](https://github.com/JIDAIN/fish-cat-speed-math/actions/workflows/ci.yml)
+[![CI](https://github.com/JIDAIN/numera/actions/workflows/ci.yml/badge.svg)](https://github.com/JIDAIN/numera/actions/workflows/ci.yml)
 
 面向 PWA 的手机优先行测资料分析基础算力训练本地 Web MVP。本项目尚未具备正式 Service Worker、离线缓存、安装与更新验证；当前只训练列式后的基础计算，不包含基期量、增长量、比重等资料分析公式题。
 
