@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "速算训练",
-  description: "速算训练",
+  title: "数感",
+  description: "数感：面向资料分析的基础算力训练",
   manifest: "/manifest.webmanifest",
 };
 
