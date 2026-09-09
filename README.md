@@ -1,4 +1,6 @@
-# 速算训练
+# 数感 Numera
+
+> 正式中文名：**数感**｜英文名：**Numera**｜小名：**算算**。当前 GitHub 仓库仍使用旧机器标识 `fish-cat-speed-math`，待品牌迁移完成后再统一重命名。
 
 页面刷新、浏览器导航、账号三态和移动端首页原则见 [NAVIGATION_RECOVERY.md](./NAVIGATION_RECOVERY.md)。
 
