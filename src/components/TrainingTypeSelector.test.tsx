@@ -50,12 +50,18 @@ describe("TrainingTypeSelector mobile information architecture", () => {
     render(<StatefulSelector />);
     fireEvent.click(screen.getByRole("button", { name: /专项训练/ }));
 
-    expect(screen.getByRole("button", { name: /邻近倍数反应/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /邻近倍数反应/ }).hasAttribute("disabled"),
+    ).toBe(true);
     expect(screen.getByRole("button", { name: /百化分反应/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /加减法/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /乘法/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^除法/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /分数比较/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /^除法/ }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", { name: /分数比较/ }).hasAttribute("disabled"),
+    ).toBe(true);
 
     expect(screen.getByRole("button", { name: "2～3位加法" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "2～3位减法" })).toBeTruthy();
