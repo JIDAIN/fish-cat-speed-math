@@ -67,14 +67,14 @@ describe("createTrainingSession", () => {
     ).toBe(true);
   });
 
-  it("rejects retired leaf IDs for newly generated skill drills", () => {
+  it("keeps unfinished C task ids reserved but not executable", () => {
     expect(() =>
       createTrainingSession({
         userId: "fish",
         questionType: "skill_drill",
-        subtype: "skill:B-R-03:L2",
+        subtype: "skill:C-DIV-01:L2",
         questionCount: 10,
-        generationContext: deterministicContext("retired"),
+        generationContext: deterministicContext("reserved-c"),
       }),
     ).toThrow("canonical A ability");
   });
