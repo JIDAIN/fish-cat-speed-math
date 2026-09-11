@@ -13,8 +13,12 @@ export const questionTypes = [
 ] as const;
 export type QuestionType = (typeof questionTypes)[number];
 
-/** V2 capability identifiers use the A/B/C pure-computation tree. */
-export type SkillId = `${"A" | "B" | "C"}-${string}`;
+/**
+ * Formal runtime ability IDs are currently the eight A abilities. The C prefix
+ * is reserved for the already-planned C task interface; B is method/explanation
+ * vocabulary and is deliberately not an ability-ID namespace.
+ */
+export type SkillId = `A-${string}` | `C-${string}`;
 export type DifficultyBand = "L1" | "L2" | "L3";
 export type MasteryProfile = "R" | "C" | "D" | "S" | "F";
 
@@ -30,7 +34,7 @@ export type LegacySubtype =
   | "hundred_scaling"
   | "skill_drill";
 export type SkillDrillSubtype = `skill:${SkillId}:${DifficultyBand}`;
-export type SmartTrainingMode = "mixed" | "path_compare";
+export type SmartTrainingMode = "mixed";
 export type SmartTrainingSubtype = `${SmartTrainingMode}:${DifficultyBand}`;
 export type Subtype = LegacySubtype | SkillDrillSubtype | SmartTrainingSubtype;
 
@@ -48,16 +52,13 @@ export function parseSkillDrillSubtype(
   const [, skillId, difficultyBand, extra] = subtype.split(":");
   if (
     extra !== undefined ||
-    !/^[ABC]-.+/.test(skillId ?? "") ||
+    !/^[AC]-.+/.test(skillId ?? "") ||
     (difficultyBand !== "L1" &&
       difficultyBand !== "L2" &&
       difficultyBand !== "L3")
   )
     return undefined;
-  return {
-    skillId: skillId as SkillId,
-    difficultyBand,
-  };
+  return { skillId: skillId as SkillId, difficultyBand };
 }
 
 export function makeSmartTrainingSubtype(
@@ -73,7 +74,7 @@ export function parseSmartTrainingSubtype(
   const [mode, difficultyBand, extra] = subtype.split(":");
   if (
     extra !== undefined ||
-    (mode !== "mixed" && mode !== "path_compare") ||
+    mode !== "mixed" ||
     (difficultyBand !== "L1" &&
       difficultyBand !== "L2" &&
       difficultyBand !== "L3")
@@ -82,13 +83,7 @@ export function parseSmartTrainingSubtype(
   return { mode, difficultyBand };
 }
 
-export type TrainingMode =
-  | "legacy"
-  | "skill"
-  | "flow"
-  | "mixed"
-  | "diagnostic"
-  | "path_compare";
+export type TrainingMode = "legacy" | "skill" | "flow" | "mixed";
 export type TargetPrecision =
   | "exact"
   | "1%"
@@ -116,9 +111,9 @@ export interface QuestionStepChoice {
   label: string;
 }
 
+/** Generic method-step schema retained for future C method UI; steps are not abilities. */
 export interface QuestionStepSpec {
   id: string;
-  stepSkillId?: SkillId;
   stepType: string;
   prompt: string;
   inputKind: StructuredInputKind;
@@ -131,7 +126,6 @@ export interface QuestionStepSpec {
 
 export interface StepRecord {
   stepId: string;
-  stepSkillId?: SkillId;
   stepType: string;
   userValue?: AnswerValue;
   expectedValue?: AnswerValue;
@@ -159,14 +153,11 @@ export interface GeneratedQuestion {
   acceptedRange?: { min: number; max: number };
   data: Record<string, QuestionDataValue>;
   difficulty: { level: 1 | 2 | 3 | 4 | 5; tags: string[] };
-  /** Unique category used for deterministic question-set quotas. */
   primaryStructure: string;
-  /** Additional descriptive traits; unlike primaryStructure, these may overlap. */
   secondaryTags: string[];
   generationRuleVersion: string;
-  /** V2 fields are optional so frozen V1 questions remain readable. */
+  /** Optional so frozen classic questions remain readable without fake A IDs. */
   skillId?: SkillId;
-  secondarySkillIds?: SkillId[];
   difficultyBand?: DifficultyBand;
   structureTags?: string[];
   targetPrecision?: TargetPrecision;
@@ -176,16 +167,15 @@ export interface GeneratedQuestion {
   inputKind?: StructuredInputKind;
   stepSpecs?: QuestionStepSpec[];
 }
+
 export interface QuestionRecord {
   question: GeneratedQuestion;
   userAnswer: string;
   isCorrect: boolean;
   accuracyLevel: "exact" | "accepted" | "wrong";
   timeUsedMs: number;
-  /** Retained so historical records created by the former per-question restart remain readable. */
   restartCount: number;
   usedScratchpad: boolean;
-  /** V2 diagnostics; optional for legacy history. */
   relativeError?: number;
   submitCount?: number;
   editCount?: number;
@@ -193,6 +183,7 @@ export interface QuestionRecord {
   timingInterrupted?: boolean;
   steps?: StepRecord[];
 }
+
 export interface RatingSnapshot {
   version: string;
   level: "优秀" | "良好" | "合格" | "继续加油";
@@ -200,53 +191,43 @@ export interface RatingSnapshot {
   questionCount: number;
   elapsedMs: number;
 }
+
 export interface TrainingSession {
   id: string;
   userId: string;
   questionType: QuestionType;
   subtype: Subtype;
-  /** Chosen count for a new session. Old data receives the saved set length. */
   questionCount: number;
   questions: GeneratedQuestion[];
   currentIndex: number;
   records: QuestionRecord[];
   currentAnswer: string;
-  /** Legacy-compatible field; new whole-training restarts always initialize it to zero. */
   currentRestartCount: number;
   accumulatedMs: number;
   runningSince: number | null;
   pauseDurationMs: number;
   status: "active" | "completed" | "abandoned";
   startedAt: number;
-  /** Real completion time in Unix milliseconds. Old sessions intentionally omit it. */
   completedAt?: number;
-  /** Optional so sessions saved by earlier releases remain readable. */
   updatedAt?: number;
-  /** Auth account that explicitly owns this local run; absent means legacy/unassigned. */
   ownerAccountId?: string;
-  /** Timestamp of a successful idempotent cloud upload. */
   syncedAt?: number;
   syncStatus?: "syncing" | "synced" | "not_synced" | "failed";
-  /** Frozen on completion so later rating-rule changes do not rewrite history. */
   rating?: RatingSnapshot;
-  /** A completed run created from a partner's immutable PK challenge. */
   trainingSource?: "normal" | "pk";
-  /** Present only for a PK response; never changes the frozen question set. */
   pkChallengeId?: string;
-  /** The PK result still needs its separate, idempotent cloud submission. */
   pkSyncStatus?: "not_synced" | "syncing" | "synced" | "failed";
-  /** V2 session metadata. Missing means a legacy schema-v1 record. */
   schemaVersion?: 1 | 2;
   trainingMode?: TrainingMode;
   primarySkillId?: SkillId;
   difficultyBand?: DifficultyBand;
-  /** V2 structured-flow progress. Missing for ordinary one-answer questions. */
   currentStepIndex?: number;
   currentStepAnswer?: string;
   currentStepRecords?: StepRecord[];
   currentStepTimer?: StepTimerSnapshot;
   currentStepEditCount?: number;
 }
+
 export const typeLabels: Record<QuestionType, string> = {
   two_digit_add_subtract: "两位数加减",
   three_digit_add_subtract: "三位数加减",
@@ -260,6 +241,7 @@ export const typeLabels: Record<QuestionType, string> = {
   special_hundred_scaling_division: "专项：整百放缩修正",
   skill_drill: "纯计算能力专项",
 };
+
 export const subtypeLabels: Record<string, string> = {
   standard: "标准训练",
   quotient_first: "求商首位",
@@ -273,7 +255,6 @@ export const subtypeLabels: Record<string, string> = {
   skill_drill: "专项训练",
 };
 
-/** Type-specific presentation names for shared subtypes. */
 export function getSubtypeLabel(
   questionType: QuestionType,
   subtype: Subtype,
@@ -284,7 +265,6 @@ export function getSubtypeLabel(
   const skill = parseSkillDrillSubtype(subtype);
   if (skill) return `${skill.skillId} · ${skill.difficultyBand}`;
   const smart = parseSmartTrainingSubtype(subtype);
-  if (smart)
-    return `${smart.mode === "mixed" ? "混合训练" : "同题路径对比"} · ${smart.difficultyBand}`;
+  if (smart) return `A层混合训练 · ${smart.difficultyBand}`;
   return subtypeLabels[subtype] ?? subtype;
 }
