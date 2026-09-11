@@ -42,7 +42,7 @@ function deterministicContext(): GenerationContext {
   let id = 0;
   return {
     random: () => 0.42,
-    createId: () => `batch4-submit-${id++}`,
+    createId: () => `a-submit-${id++}`,
   };
 }
 
@@ -60,11 +60,11 @@ describe("submitCurrentAnswer", () => {
     expect(completed.completedAt).toBe(7_000);
   });
 
-  it("grades a batch-4 semantic choice directly without a numeric UI adapter", () => {
+  it("grades a canonical A semantic choice directly without a numeric UI adapter", () => {
     const drill = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
-      subtype: "skill:B-R-05:L2",
+      subtype: "skill:A-FRA-01:L2",
       questionCount: 10,
       generationContext: deterministicContext(),
     });
