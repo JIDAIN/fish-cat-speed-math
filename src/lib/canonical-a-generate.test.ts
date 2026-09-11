@@ -20,6 +20,15 @@ function context(seed = 1): GenerationContext {
   };
 }
 
+function contextWithRandoms(values: readonly number[]): GenerationContext {
+  let index = 0;
+  let id = 0;
+  return {
+    random: () => values[index++] ?? 0.42,
+    createId: () => `canonical-a-controlled-${id++}`,
+  };
+}
+
 describe("canonical A ability generators", () => {
   it("contains exactly the eight audited A abilities", () => {
     expect(canonicalAAbilityIds).toEqual([
@@ -141,31 +150,29 @@ describe("canonical A ability generators", () => {
     });
   });
 
-  it("samples all approved percentage anchors under the unified A-PCT-01 ability", () => {
-    const seen = new Set<string>();
-    for (let seed = 1; seed <= 200; seed += 1) {
+  it("contains every approved percentage anchor under the unified A-PCT-01 ability", () => {
+    const approvedAnchors = [
+      "0.1%",
+      "1%",
+      "2%",
+      "2.5%",
+      "3%",
+      "5%",
+      "10%",
+      "12.5%",
+      "20%",
+      "25%",
+      "33.3%",
+      "50%",
+    ] as const;
+
+    approvedAnchors.forEach((expectedAnchor, index) => {
       const generated = generateCanonicalAQuestion(
         "A-PCT-01",
         "L2",
-        context(700 + seed),
+        contextWithRandoms([(index + 0.5) / approvedAnchors.length, 0.42]),
       );
-      seen.add(String(generated.data.rateAnchor));
-    }
-    expect([...seen].sort()).toEqual(
-      [
-        "0.1%",
-        "1%",
-        "2%",
-        "2.5%",
-        "3%",
-        "5%",
-        "10%",
-        "12.5%",
-        "20%",
-        "25%",
-        "33.3%",
-        "50%",
-      ].sort(),
-    );
+      expect(generated.data.rateAnchor).toBe(expectedAnchor);
+    });
   });
 });
