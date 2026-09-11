@@ -4,6 +4,7 @@ import {
   getCanonicalAAbilityDefinition,
   isCanonicalAAbilityId,
 } from "./a-abilities";
+import { SkillId } from "./types";
 
 export type SkillDefinition = (typeof canonicalAAbilityDefinitions)[number];
 
@@ -25,8 +26,8 @@ export function isRegisteredSkillId(
   return isCanonicalAAbilityId(value);
 }
 
-export function getSkillDefinition(
-  skillId: CanonicalAAbilityId,
-): SkillDefinition {
+export function getSkillDefinition(skillId: SkillId): SkillDefinition {
+  if (!isCanonicalAAbilityId(skillId))
+    throw new Error(`Unknown canonical A ability: ${skillId}`);
   return getCanonicalAAbilityDefinition(skillId);
 }
