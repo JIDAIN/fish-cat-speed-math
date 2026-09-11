@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TrainingTypeSelector } from "./TrainingTypeSelector";
 import { skillDrillSelectorSkillIds } from "./SkillDrillSelector";
-import { implementedSkillIds } from "@/lib/implemented-skill-drills";
 import { QuestionType, Subtype } from "@/lib/types";
 
 afterEach(cleanup);
@@ -33,34 +32,46 @@ describe("TrainingTypeSelector mobile information architecture", () => {
     expect(screen.getByRole("button", { name: /智能训练/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /经典训练/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "两位数加减" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /误差 \/ 精度/ })).toBeNull();
   });
 
-  it("keeps all 160 leaf skills reachable behind the specialty hierarchy", () => {
-    expect(skillDrillSelectorSkillIds).toHaveLength(160);
-    expect(new Set(skillDrillSelectorSkillIds).size).toBe(160);
-    expect([...skillDrillSelectorSkillIds].sort()).toEqual(
-      [...implementedSkillIds].sort(),
-    );
+  it("exposes only the eight canonical A abilities in the specialty selector", () => {
+    expect(skillDrillSelectorSkillIds).toEqual([
+      "A-FRA-01",
+      "A-ADD-01",
+      "A-SUB-01",
+      "A-COM-01",
+      "A-MUL-01",
+      "A-MUL-02",
+      "A-MUL-03",
+      "A-PCT-01",
+    ]);
+    expect(new Set(skillDrillSelectorSkillIds).size).toBe(8);
 
     render(<StatefulSelector />);
     fireEvent.click(screen.getByRole("button", { name: /专项训练/ }));
-    expect(screen.getByRole("button", { name: /基础口算/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /百分比 \/ 分数/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^直除/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^包子法/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^补偿放缩/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /误差 \/ 比较/ })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: /误差 \/ 比较/ }));
-    fireEvent.click(screen.getByRole("button", { name: /误差 \/ 精度/ }));
-    fireEvent.click(screen.getByRole("button", { name: "精度停止" }));
+    expect(screen.getByRole("button", { name: /邻近倍数反应/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /百化分反应/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /加减法/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /乘法/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^除法/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /分数比较/ })).toBeDisabled();
+
+    expect(screen.getByRole("button", { name: "2～3位加法" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "2～3位减法" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "近邻小差值" }));
     expect(
       screen.getByRole("button", { name: /难度：L2/ }).getAttribute("aria-expanded"),
     ).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: /难度：L2/ }));
-    fireEvent.click(screen.getByLabelText("专项难度选项").querySelectorAll("button")[2]);
+    const difficultyPanel = screen.getByLabelText("专项难度");
+    fireEvent.click(difficultyPanel.querySelectorAll("button")[3]);
     expect(screen.getByRole("button", { name: /难度：L3/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /百化分反应/ }));
+    expect(
+      screen.getByRole("button", { name: "高频分数 ↔ 百分数" }),
+    ).toBeTruthy();
   });
 
   it("makes daily training a one-tap L2 mixed-training shortcut", () => {
