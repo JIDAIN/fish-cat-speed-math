@@ -8,28 +8,28 @@ const baseSession: TrainingSession = {
   id: "structured-single",
   userId: "fish",
   questionType: "skill_drill",
-  subtype: "skill:B-R-05:L2",
+  subtype: "skill:A-FRA-01:L2",
   questionCount: 10,
   questions: [
     {
       id: "q1",
       type: "skill_drill",
       subtype: "skill_drill",
-      prompt: "分母变大，商应怎样修正？",
-      answer: "down",
+      prompt: "1/7 最接近多少？",
+      answer: "14.3",
       data: {
-        choiceValues: ["up", "down"],
-        choiceLabels: ["向上修正", "向下修正"],
+        choiceValues: ["12.5", "14.3", "16.7", "20"],
+        choiceLabels: ["12.5%", "14.3%", "16.7%", "20%"],
       },
       difficulty: { level: 3, tags: [] },
-      primaryStructure: "direction",
+      primaryStructure: "fraction_to_percent",
       secondaryTags: [],
       generationRuleVersion: "test",
-      skillId: "B-R-05",
+      skillId: "A-FRA-01",
       difficultyBand: "L2",
-      masteryProfile: "D",
+      masteryProfile: "R",
       inputKind: "choice",
-      allowedAnswerSet: ["down"],
+      allowedAnswerSet: ["14.3"],
     },
   ],
   currentIndex: 0,
@@ -59,25 +59,26 @@ describe("StructuredSingleAnswerTraining", () => {
       />,
     );
     expect(screen.queryByText(/1=/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "向下修正" }));
+    fireEvent.click(screen.getByRole("button", { name: "14.3%" }));
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ currentAnswer: "down" }),
+      expect.objectContaining({ currentAnswer: "14.3" }),
     );
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ currentAnswer: "down" }),
+      expect.objectContaining({ currentAnswer: "14.3" }),
     );
   });
 
-  it("keeps percentage-block composition editable until explicit confirmation", () => {
+  it("keeps generic method-block composition editable until explicit confirmation", () => {
     const onChange = vi.fn();
     const onSubmit = vi.fn();
     const session: TrainingSession = {
       ...baseSession,
-      subtype: "skill:B-PSPLIT-01:L2",
+      subtype: "skill_drill",
       questions: [
         {
           ...baseSession.questions[0],
-          skillId: "B-PSPLIT-01",
+          subtype: "skill_drill",
+          skillId: undefined,
           prompt: "把17%拆成基础百分比块",
           answer: "10,5,2",
           inputKind: "percent_blocks",
