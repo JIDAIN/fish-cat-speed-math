@@ -83,7 +83,14 @@ export function parseSmartTrainingSubtype(
   return { mode, difficultyBand };
 }
 
-export type TrainingMode = "legacy" | "skill" | "flow" | "mixed";
+/** diagnostic/path_compare are accepted only to deserialize old experimental records. */
+export type TrainingMode =
+  | "legacy"
+  | "skill"
+  | "flow"
+  | "mixed"
+  | "diagnostic"
+  | "path_compare";
 export type TargetPrecision =
   | "exact"
   | "1%"
@@ -114,6 +121,8 @@ export interface QuestionStepChoice {
 /** Generic method-step schema retained for future C method UI; steps are not abilities. */
 export interface QuestionStepSpec {
   id: string;
+  /** @deprecated Read-only compatibility metadata; never feeds current Mastery. */
+  stepSkillId?: SkillId;
   stepType: string;
   prompt: string;
   inputKind: StructuredInputKind;
@@ -126,6 +135,8 @@ export interface QuestionStepSpec {
 
 export interface StepRecord {
   stepId: string;
+  /** @deprecated Read-only compatibility metadata; never feeds current Mastery. */
+  stepSkillId?: SkillId;
   stepType: string;
   userValue?: AnswerValue;
   expectedValue?: AnswerValue;
@@ -158,6 +169,8 @@ export interface GeneratedQuestion {
   generationRuleVersion: string;
   /** Optional so frozen classic questions remain readable without fake A IDs. */
   skillId?: SkillId;
+  /** @deprecated Compatibility-only metadata; current A Mastery ignores it. */
+  secondarySkillIds?: SkillId[];
   difficultyBand?: DifficultyBand;
   structureTags?: string[];
   targetPrecision?: TargetPrecision;
