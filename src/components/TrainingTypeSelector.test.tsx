@@ -23,18 +23,18 @@ function StatefulSelector() {
   );
 }
 
-describe("TrainingTypeSelector mobile information architecture", () => {
-  it("shows only four top-level training choices before details are expanded", () => {
+describe("TrainingTypeSelector current product boundary", () => {
+  it("shows daily, A specialty and classic training only", () => {
     render(<StatefulSelector />);
 
     expect(screen.getByRole("button", { name: /日常训练/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /专项训练/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /智能训练/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /经典训练/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /智能训练/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "两位数加减" })).toBeNull();
   });
 
-  it("exposes only the eight canonical A abilities in the specialty selector", () => {
+  it("exposes exactly the eight canonical A abilities while reserving C category slots", () => {
     expect(skillDrillSelectorSkillIds).toEqual([
       "A-FRA-01",
       "A-ADD-01",
@@ -66,21 +66,13 @@ describe("TrainingTypeSelector mobile information architecture", () => {
     expect(screen.getByRole("button", { name: "2～3位加法" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "2～3位减法" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "近邻小差值" }));
-    expect(
-      screen.getByRole("button", { name: /难度：L2/ }).getAttribute("aria-expanded"),
-    ).toBe("false");
-    fireEvent.click(screen.getByRole("button", { name: /难度：L2/ }));
-    const difficultyPanel = screen.getByLabelText("专项难度");
-    fireEvent.click(difficultyPanel.querySelectorAll("button")[3]);
-    expect(screen.getByRole("button", { name: /难度：L3/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /难度：L2/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /百化分反应/ }));
-    expect(
-      screen.getByRole("button", { name: "高频分数 ↔ 百分数" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "高频分数 ↔ 百分数" })).toBeTruthy();
   });
 
-  it("makes daily training a one-tap L2 mixed-training shortcut", () => {
+  it("makes daily training a one-tap canonical A mixed shortcut", () => {
     const onSelect = vi.fn();
     render(
       <TrainingTypeSelector
@@ -94,19 +86,7 @@ describe("TrainingTypeSelector mobile information architecture", () => {
     expect(onSelect).toHaveBeenLastCalledWith("skill_drill", "mixed:L2");
   });
 
-  it("keeps smart modes compact and only expands difficulty on demand", () => {
-    render(<StatefulSelector />);
-    fireEvent.click(screen.getByRole("button", { name: /智能训练/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^同题路径对比/ }));
-    expect(screen.getByRole("button", { name: /难度：L2/ })).toBeTruthy();
-    expect(screen.queryByLabelText("智能训练难度选项")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /难度：L2/ }));
-    const options = screen.getByLabelText("智能训练难度选项");
-    fireEvent.click(options.querySelectorAll("button")[2]);
-    expect(screen.getByRole("button", { name: /难度：L3/ })).toBeTruthy();
-  });
-
-  it("keeps legacy comprehensive training behind the classic entry", () => {
+  it("keeps classic training available without mapping it into A", () => {
     render(<StatefulSelector />);
     fireEvent.click(screen.getByRole("button", { name: /经典训练/ }));
     fireEvent.click(screen.getByRole("button", { name: "三位数÷两位数" }));
