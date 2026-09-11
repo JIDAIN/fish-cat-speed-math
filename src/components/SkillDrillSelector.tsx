@@ -70,6 +70,10 @@ const categories: readonly StudentCategory[] = [
   },
 ];
 
+export const skillDrillSelectorSkillIds = categories.flatMap(
+  (category) => category.skillIds,
+);
+
 const difficultyOptions: readonly {
   value: DifficultyBand;
   label: string;
