@@ -123,7 +123,7 @@ export function gradeSkillDrillQuestion(
     return gradeBatch7SkillQuestion(question, input);
   }
   if (isBatch6DivisionScaleSkillId(question.skillId)) {
-    return gradeBatch6DivisionScaleSkillQuestion(question, input);
+    return gradeBatch6DivisionScaleQuestion(question, input);
   }
   if (isBatch5SplitSkillId(question.skillId)) {
     return gradeBatch5SplitQuestion(question, input);
