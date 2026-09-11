@@ -11,57 +11,41 @@ function deterministicContext(prefix: string): GenerationContext {
 }
 
 describe("createTrainingSession", () => {
-  it("creates a clean schema-v2 active session and decorates newly generated questions", () => {
+  it("keeps newly generated classic training outside the A ability model", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "two_digit_add_subtract",
       subtype: "standard",
       questionCount: 10,
       now: 10_000,
-      createSessionId: () => "fresh-session",
-      generationContext: deterministicContext("fresh"),
+      createSessionId: () => "classic-session",
+      generationContext: deterministicContext("classic"),
     });
 
     expect(session).toMatchObject({
-      id: "fresh-session",
+      id: "classic-session",
       userId: "fish",
       questionType: "two_digit_add_subtract",
       subtype: "standard",
       questionCount: 10,
-      currentIndex: 0,
-      records: [],
-      currentAnswer: "",
-      currentRestartCount: 0,
-      accumulatedMs: 0,
-      runningSince: 10_000,
-      pauseDurationMs: 0,
       status: "active",
-      startedAt: 10_000,
       schemaVersion: 2,
-      trainingMode: "skill",
-      primarySkillId: "A-ADD-01",
-      difficultyBand: "L2",
+      trainingMode: "legacy",
     });
     expect(session.questions).toHaveLength(10);
-    expect(session.questions.every((question) => question.skillId)).toBe(true);
-    expect(session.questions[0]).toMatchObject({
-      difficultyBand: "L2",
-      targetPrecision: "exact",
-      inputKind: "number",
-    });
-    expect(session.questions[0].generatorParams).toMatchObject({
-      migrationSource: "existing_generator_v2",
-      legacyQuestionType: "two_digit_add_subtract",
-    });
+    expect(session.questions.every((question) => question.skillId === undefined)).toBe(
+      true,
+    );
+    expect(session.primarySkillId).toBeUndefined();
   });
 
-  it("creates an A-layer drill from the skill and difficulty encoded in subtype", () => {
+  it("creates a canonical A drill from the ability and difficulty encoded in subtype", () => {
     const session = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
       subtype: "skill:A-MUL-02:L3",
       questionCount: 10,
-      generationContext: deterministicContext("foundation"),
+      generationContext: deterministicContext("a-drill"),
     });
 
     expect(session).toMatchObject({
@@ -76,122 +60,30 @@ describe("createTrainingSession", () => {
     expect(
       session.questions.every(
         (question) =>
-          question.skillId === "A-MUL-02" && question.difficultyBand === "L3",
+          question.skillId === "A-MUL-02" &&
+          question.difficultyBand === "L3" &&
+          question.inputKind === "choice",
       ),
     ).toBe(true);
   });
 
-  it("creates B and C batch-4 drills through the same skill session path", () => {
-    const r = createTrainingSession({
-      userId: "fish",
-      questionType: "skill_drill",
-      subtype: "skill:B-R-03:L2",
-      questionCount: 10,
-      generationContext: deterministicContext("r"),
-    });
-    const remainder = createTrainingSession({
-      userId: "fish",
-      questionType: "skill_drill",
-      subtype: "skill:C-DIV-09:L3",
-      questionCount: 10,
-      generationContext: deterministicContext("division"),
-    });
-
-    expect(r).toMatchObject({
-      primarySkillId: "B-R-03",
-      difficultyBand: "L2",
-      trainingMode: "skill",
-    });
-    expect(remainder).toMatchObject({
-      primarySkillId: "C-DIV-09",
-      difficultyBand: "L3",
-      trainingMode: "skill",
-    });
-    expect(r.questions.every((question) => question.skillId === "B-R-03")).toBe(
-      true,
-    );
-    expect(
-      remainder.questions.every(
-        (question) => question.skillId === "C-DIV-09",
-      ),
-    ).toBe(true);
-  });
-
-  it("keeps choice, sequence and percent-block drills semantic in new sessions", () => {
-    const choice = createTrainingSession({
-      userId: "fish",
-      questionType: "skill_drill",
-      subtype: "skill:B-R-05:L2",
-      questionCount: 10,
-      generationContext: deterministicContext("choice"),
-    });
-    const sequence = createTrainingSession({
-      userId: "fish",
-      questionType: "skill_drill",
-      subtype: "skill:B-ORDER-01:L2",
-      questionCount: 10,
-      generationContext: deterministicContext("sequence"),
-    });
-    const split = createTrainingSession({
-      userId: "fish",
-      questionType: "skill_drill",
-      subtype: "skill:B-PSPLIT-01:L2",
-      questionCount: 10,
-      generationContext: deterministicContext("split"),
-    });
-
-    expect(choice.questions[0].inputKind).toBe("choice");
-    expect(choice.questions[0].data.choiceLabels).toBeTruthy();
-    expect(choice.questions[0].generatorParams?.uiAdapter).toBeUndefined();
-    expect(choice.questions[0].prompt).not.toContain("1=");
-
-    expect(sequence.questions[0].inputKind).toBe("sequence");
-    expect(sequence.questions[0].data.choiceLabels).toBeTruthy();
-    expect(sequence.questions[0].generatorParams?.uiAdapter).toBeUndefined();
-    expect(sequence.questions[0].answer).toContain(",");
-
-    expect(split.questions[0].inputKind).toBe("percent_blocks");
-    expect(split.questions[0].generatorParams?.uiAdapter).toBeUndefined();
-    expect(split.questions[0].prompt).not.toContain("按块依次输入代码");
-    expect(split.questions[0].answer).toContain(",");
-  });
-
-  it("creates batch-7 cross-operation compensation as a structured flow session", () => {
-    const session = createTrainingSession({
-      userId: "fish",
-      questionType: "skill_drill",
-      subtype: "skill:C-XP-SCALE-01:L2",
-      questionCount: 10,
-      now: 12_000,
-      generationContext: deterministicContext("xp-scale"),
-    });
-
-    expect(session).toMatchObject({
-      schemaVersion: 2,
-      trainingMode: "flow",
-      primarySkillId: "C-XP-SCALE-01",
-      difficultyBand: "L2",
-      currentStepIndex: 0,
-      currentStepAnswer: "",
-      currentStepRecords: [],
-    });
-    expect(session.questions).toHaveLength(10);
-    expect(
-      session.questions.every(
-        (question) =>
-          question.skillId === "C-XP-SCALE-01" &&
-          question.inputKind === "steps" &&
-          question.stepSpecs?.length === 3,
-      ),
-    ).toBe(true);
-    expect(session.currentStepTimer?.runningSince).toBe(12_000);
+  it("rejects retired leaf IDs for newly generated skill drills", () => {
+    expect(() =>
+      createTrainingSession({
+        userId: "fish",
+        questionType: "skill_drill",
+        subtype: "skill:B-R-03:L2",
+        questionCount: 10,
+        generationContext: deterministicContext("retired"),
+      }),
+    ).toThrow("canonical A ability");
   });
 
   it("creates an independent replacement instead of retaining old progress", () => {
     const original = createTrainingSession({
       userId: "cat",
-      questionType: "three_digit_add_subtract",
-      subtype: "standard",
+      questionType: "skill_drill",
+      subtype: "skill:A-ADD-01:L2",
       questionCount: 20,
       now: 1_000,
       createSessionId: () => "old-session",
@@ -224,25 +116,13 @@ describe("createTrainingSession", () => {
     });
   });
 
-  it("rejects new 30-question sessions but preserves a frozen legacy 30-question PK set", () => {
-    expect(() =>
-      createTrainingSession({
-        userId: "fish",
-        questionType: "two_digit_add_subtract",
-        subtype: "standard",
-        questionCount: 30,
-        generationContext: deterministicContext("invalid"),
-      }),
-    ).toThrow(RangeError);
-
+  it("preserves a frozen legacy 30-question PK set byte-for-byte", () => {
     const frozen = generateSet(
       "two_digit_add_subtract",
       "standard",
       30,
       deterministicContext("legacy"),
     );
-    expect(frozen[0].skillId).toBeUndefined();
-
     const pk = createTrainingSession({
       userId: "cat",
       questionType: "two_digit_add_subtract",
@@ -252,33 +132,42 @@ describe("createTrainingSession", () => {
       pkChallengeId: "legacy-challenge",
       createSessionId: () => "legacy-pk",
     });
-    expect(pk.questions).toHaveLength(30);
+
+    expect(pk.questions).toEqual(frozen);
     expect(pk.questions[0].skillId).toBeUndefined();
     expect(pk.questionCount).toBe(30);
     expect(pk.trainingSource).toBe("pk");
     expect(pk.trainingMode).toBe("legacy");
   });
 
-  it("stores explicit skill-level session metadata while generated questions also carry skill IDs", () => {
-    const session = createTrainingSession({
+  it("preserves a frozen canonical A question set for PK response sessions", () => {
+    const source = createTrainingSession({
       userId: "fish",
-      questionType: "two_by_one_multiply",
-      subtype: "standard",
+      questionType: "skill_drill",
+      subtype: "skill:A-FRA-01:L2",
       questionCount: 10,
-      primarySkillId: "A-MUL-03",
-      difficultyBand: "L2",
-      trainingMode: "skill",
-      generationContext: deterministicContext("skill"),
+      generationContext: deterministicContext("source-a"),
     });
-    expect(session).toMatchObject({
-      schemaVersion: 2,
-      trainingMode: "skill",
-      primarySkillId: "A-MUL-03",
-      difficultyBand: "L2",
-      questionType: "two_by_one_multiply",
+    const pk = createTrainingSession({
+      userId: "cat",
+      questionType: source.questionType,
+      subtype: source.subtype,
+      questionCount: source.questionCount,
+      questions: source.questions,
+      pkChallengeId: "a-challenge",
+      createSessionId: () => "a-pk",
     });
-    expect(
-      session.questions.every((question) => question.skillId === "A-MUL-03"),
-    ).toBe(true);
+
+    expect(pk.questions).toEqual(source.questions);
+    expect(pk.questions[0].skillId).toBe("A-FRA-01");
+    expect(pk.questions[0].data.choiceValues).toEqual(
+      source.questions[0].data.choiceValues,
+    );
+    expect(pk).toMatchObject({
+      trainingSource: "pk",
+      pkChallengeId: "a-challenge",
+      primarySkillId: "A-FRA-01",
+      difficultyBand: "L2",
+    });
   });
 });
