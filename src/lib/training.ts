@@ -18,9 +18,8 @@ function numericRelativeError(answer: string, expected: string) {
 }
 
 /**
- * Creates one normalized step record. Step-specific graders can compute
- * isCorrect before calling this helper; the record shape stays common across
- * direct division, split division and compensation flows.
+ * Creates one normalized method-step record. A step can be diagnosed by its
+ * stepType, but it is not a standalone Mastery ability.
  */
 export function createStepRecord(input: {
   spec: QuestionStepSpec;
@@ -35,7 +34,6 @@ export function createStepRecord(input: {
 }): StepRecord {
   return {
     stepId: input.spec.id,
-    stepSkillId: input.spec.stepSkillId,
     stepType: input.spec.stepType,
     userValue: input.userValue,
     expectedValue: input.spec.expectedValue,
@@ -89,9 +87,8 @@ export function gradeQuestionStep(spec: QuestionStepSpec, input: string) {
 }
 
 /**
- * Submits one structured-flow step. Each step receives its own timer and record;
- * the outer question is written only after the final step so history keeps both
- * per-step diagnostics and one normal question-level result.
+ * Submits one structured method step. The generic step UI is retained as the
+ * reserved interface for future C method training, without creating step skills.
  */
 export function submitCurrentStep(
   session: TrainingSession,
@@ -193,10 +190,7 @@ export function submitCurrentStep(
     : next;
 }
 
-/**
- * Applies one answer at most once. An empty answer or a finished session is a
- * no-op, making duplicate fast taps on submit harmless.
- */
+/** Applies one answer at most once. Empty or finished sessions are no-ops. */
 export function submitCurrentAnswer(
   session: TrainingSession,
   elapsedMs: number,
