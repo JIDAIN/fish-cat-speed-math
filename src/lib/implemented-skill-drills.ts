@@ -26,6 +26,11 @@ import {
   gradeBatch7SkillQuestion,
   isBatch7SkillId,
 } from "./batch7-skill-generate";
+import {
+  generateCanonicalASet,
+  gradeCanonicalAQuestion,
+  isCanonicalAAbilityId,
+} from "./canonical-a-generate";
 import { GenerationContext, productionGenerationContext } from "./generate";
 import {
   FoundationSkillId,
@@ -43,6 +48,11 @@ import {
 } from "./stabilization-skill-generate";
 import { DifficultyBand, GeneratedQuestion, SkillId } from "./types";
 
+/**
+ * The historical implementation list remains intact for technical compatibility.
+ * Canonical A abilities are routed first so the current product semantics win
+ * without deleting older generators that are still useful for legacy/dev paths.
+ */
 export const implementedSkillIds = [
   ...foundationSkillIds,
   ...batch4SkillIds,
@@ -74,6 +84,8 @@ export function generateSkillDrillSet(
   count: number,
   context: GenerationContext = productionGenerationContext,
 ): GeneratedQuestion[] {
+  if (isCanonicalAAbilityId(skillId))
+    return generateCanonicalASet(skillId, difficultyBand, count, context);
   if (isFoundationSkillId(skillId))
     return generateFoundationSkillSet(skillId, difficultyBand, count, context);
   if (isBatch4SkillId(skillId))
@@ -101,6 +113,9 @@ export function gradeSkillDrillQuestion(
   question: GeneratedQuestion,
   input: string,
 ) {
+  if (isCanonicalAAbilityId(question.skillId)) {
+    return gradeCanonicalAQuestion(question, input);
+  }
   if (isStabilizationSkillId(question.skillId)) {
     return gradeStabilizationSkillQuestion(question, input);
   }
@@ -108,7 +123,7 @@ export function gradeSkillDrillQuestion(
     return gradeBatch7SkillQuestion(question, input);
   }
   if (isBatch6DivisionScaleSkillId(question.skillId)) {
-    return gradeBatch6DivisionScaleQuestion(question, input);
+    return gradeBatch6DivisionScaleSkillQuestion(question, input);
   }
   if (isBatch5SplitSkillId(question.skillId)) {
     return gradeBatch5SplitQuestion(question, input);
