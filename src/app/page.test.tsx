@@ -311,11 +311,11 @@ describe("Home active-session interactions", () => {
     expect(screen.queryByText("6.3% ≈")).toBeNull();
   });
 
-  it("renders a new semantic choice drill as buttons and submits the semantic value on tap", async () => {
+  it("renders a canonical A semantic choice drill as buttons and submits the semantic value on tap", async () => {
     const semanticSession = createTrainingSession({
       userId: "fish",
       questionType: "skill_drill",
-      subtype: "skill:B-R-05:L2",
+      subtype: "skill:A-FRA-01:L2",
       questionCount: 10,
       createSessionId: () => "semantic-ui-session",
     });
@@ -395,8 +395,6 @@ describe("Home active-session interactions", () => {
 
     expect(await screen.findByText("重开训练")).toBeTruthy();
     await waitFor(async () => {
-      // The real storage implementation removes stale active records. The
-      // page-level in-flight guard prevents a second local creation request.
       const active = await readActive();
       expect(active?.status).toBe("active");
       expect(active?.questions).toHaveLength(20);
@@ -457,8 +455,6 @@ describe("Home active-session interactions", () => {
       expect(keypad).toBeTruthy();
       expect(keypad?.querySelectorAll("button")).toHaveLength(15);
 
-      // Scrolling is locked by the training-page class, never by a global
-      // body mutation that would also break home and history screens.
       expect(document.body.style.overflow).toBe("");
     },
   );
