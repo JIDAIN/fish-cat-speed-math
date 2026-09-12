@@ -104,7 +104,6 @@ function makeQuestion(input: {
     secondaryTags: input.secondaryTags ?? [],
     generationRuleVersion: CANONICAL_A_GENERATOR_VERSION,
     skillId: input.abilityId,
-    secondarySkillIds: [],
     difficultyBand: input.difficultyBand,
     structureTags,
     targetPrecision: input.targetPrecision ?? "exact",
