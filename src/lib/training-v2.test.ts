@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { createStepRecord } from "./training";
 
 describe("v2 step record", () => {
-  it("normalizes one structured step into the shared diagnostic shape", () => {
+  it("normalizes one structured method step into the shared diagnostic shape", () => {
     const record = createStepRecord({
       spec: {
         id: "choose-baseline",
-        stepSkillId: "C-DIVSCALE-02",
         stepType: "baseline_choice",
         prompt: "选择基准",
         inputKind: "choice",
@@ -21,7 +20,6 @@ describe("v2 step record", () => {
 
     expect(record).toEqual({
       stepId: "choose-baseline",
-      stepSkillId: "C-DIVSCALE-02",
       stepType: "baseline_choice",
       userValue: 200,
       expectedValue: 200,
