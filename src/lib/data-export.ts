@@ -41,7 +41,6 @@ export type QuestionExportRow = {
   question_type: string | null;
   subtype: string | null;
   skill_id: string | null;
-  secondary_skill_ids_json: string;
   difficulty_band: string | null;
   structure_tags_json: string;
   target_precision: string | null;
@@ -264,7 +263,6 @@ export function createDataExport(
         question_type: string(question.type),
         subtype: string(question.subtype),
         skill_id: string(question.skillId),
-        secondary_skill_ids_json: json(question.secondarySkillIds ?? []),
         difficulty_band: string(question.difficultyBand),
         structure_tags_json: json(question.structureTags ?? []),
         target_precision: string(question.targetPrecision),
