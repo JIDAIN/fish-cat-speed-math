@@ -118,7 +118,6 @@ const questionFields: Field[] = [
   ["question_type", "题型", "文本", "", "原始", "旧记录异常时为空"],
   ["subtype", "子模式", "文本", "", "原始", "旧记录异常时为空"],
   ["skill_id", "能力 ID", "文本", "", "原始", "旧记录为空，不强行推断"],
-  ["secondary_skill_ids_json", "辅助能力 ID JSON", "文本", "JSON", "原始", "旧记录为空数组"],
   ["difficulty_band", "能力难度档", "文本", "L1/L2/L3", "原始", "旧记录为空"],
   ["structure_tags_json", "V2 结构标签 JSON", "文本", "JSON", "原始", "旧记录为空数组"],
   ["target_precision", "目标精度", "文本", "", "原始", "旧记录为空"],
