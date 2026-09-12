@@ -59,8 +59,6 @@ const trainingModes: readonly TrainingMode[] = [
   "skill",
   "flow",
   "mixed",
-  "diagnostic",
-  "path_compare",
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -129,14 +127,6 @@ function normalizeSkillId(value: unknown): SkillId | undefined {
   return isRegisteredSkillId(value) ? value : undefined;
 }
 
-function normalizeSkillIdArray(value: unknown): SkillId[] {
-  return Array.isArray(value)
-    ? value
-        .map(normalizeSkillId)
-        .filter((item): item is SkillId => item !== undefined)
-    : [];
-}
-
 function normalizeStepSpec(value: unknown): QuestionStepSpec | undefined {
   if (!isRecord(value)) return undefined;
   if (
@@ -153,7 +143,6 @@ function normalizeStepSpec(value: unknown): QuestionStepSpec | undefined {
     : undefined;
   return {
     id: value.id,
-    stepSkillId: normalizeSkillId(value.stepSkillId),
     stepType: value.stepType,
     prompt: value.prompt,
     inputKind: value.inputKind as StructuredInputKind,
@@ -181,7 +170,6 @@ function normalizeStepRecord(value: unknown): StepRecord | undefined {
     return undefined;
   return {
     stepId: value.stepId,
-    stepSkillId: normalizeSkillId(value.stepSkillId),
     stepType: value.stepType,
     userValue: normalizeAnswerValue(value.userValue),
     expectedValue: normalizeAnswerValue(value.expectedValue),
@@ -271,7 +259,6 @@ function normalizeQuestion(value: unknown): GeneratedQuestion | undefined {
         ? { min: acceptedRange.min, max: acceptedRange.max }
         : undefined,
     skillId: normalizeSkillId(value.skillId),
-    secondarySkillIds: normalizeSkillIdArray(value.secondarySkillIds),
     difficultyBand,
     structureTags: normalizeStringArray(value.structureTags),
     targetPrecision,
@@ -346,8 +333,8 @@ function normalizeRecord(value: unknown): QuestionRecord | undefined {
 }
 
 /**
- * IndexedDB has no schema validation. Normalize only release-added fields at
- * the storage boundary so older sessions remain usable by typed UI code.
+ * IndexedDB has no schema validation. Normalize release-added fields at the
+ * storage boundary so classic sessions remain usable by typed UI code.
  */
 function normalizeSession(value: unknown): TrainingSession | undefined {
   if (!isRecord(value)) return undefined;
