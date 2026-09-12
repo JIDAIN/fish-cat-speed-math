@@ -23,20 +23,35 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Remove final retired leaf field
+      - name: Remove final retired leaf fields
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('src/lib/canonical-a-generate.ts')
-          text = path.read_text()
-          text = text.replace('    secondarySkillIds: [],\n', '')
-          path.write_text(text)
+          replacements = {
+              Path('src/lib/canonical-a-generate.ts'): [
+                  ('    secondarySkillIds: [],\n', ''),
+              ],
+              Path('src/lib/data-export.ts'): [
+                  ('  secondary_skill_ids_json: string;\n', ''),
+                  ('        secondary_skill_ids_json: json(question.secondarySkillIds ?? []),\n', ''),
+              ],
+          }
+          changed = []
+          for path, pairs in replacements.items():
+              text = path.read_text()
+              original = text
+              for old, new in pairs:
+                  text = text.replace(old, new)
+              if text != original:
+                  path.write_text(text)
+                  changed.append(str(path))
+          print('\n'.join(changed))
           PY
-          if ! git diff --quiet -- src/lib/canonical-a-generate.ts; then
+          if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/lib/canonical-a-generate.ts
-            git commit -m "refactor: remove final retired leaf field"
+            git add src/lib/canonical-a-generate.ts src/lib/data-export.ts
+            git commit -m "refactor: remove final retired leaf export fields"
             git push origin HEAD:cleanup/remove-160-leaf
           fi
       - name: Audit runtime leaf remnants
@@ -60,7 +75,10 @@ jobs:
           const problems = [];
           for (const file of files) {
             const text = fs.readFileSync(file, 'utf8');
-            for (const forbidden of ['stepSkillId', 'secondarySkillIds', 'C-DIVSCALE', 'C-DIVSPLIT']) {
+            for (const forbidden of [
+              'stepSkillId', 'secondarySkillIds', 'secondary_skill_ids_json',
+              'C-DIVSCALE', 'C-DIVSPLIT'
+            ]) {
               if (text.includes(forbidden)) problems.push(`${file}: retired field/id ${forbidden}`);
             }
             const ids = text.match(/A-[A-Z]+-\d{2}/g) || [];
