@@ -15,8 +15,8 @@ export type QuestionType = (typeof questionTypes)[number];
 
 /**
  * Formal runtime ability IDs are currently the eight A abilities. The C prefix
- * is reserved for the already-planned C task interface; B is method/explanation
- * vocabulary and is deliberately not an ability-ID namespace.
+ * is reserved for the planned C task interface; B is method/explanation
+ * vocabulary and deliberately has no ability-ID namespace.
  */
 export type SkillId = `A-${string}` | `C-${string}`;
 export type DifficultyBand = "L1" | "L2" | "L3";
@@ -83,14 +83,7 @@ export function parseSmartTrainingSubtype(
   return { mode, difficultyBand };
 }
 
-/** diagnostic/path_compare are accepted only to deserialize old experimental records. */
-export type TrainingMode =
-  | "legacy"
-  | "skill"
-  | "flow"
-  | "mixed"
-  | "diagnostic"
-  | "path_compare";
+export type TrainingMode = "legacy" | "skill" | "flow" | "mixed";
 export type TargetPrecision =
   | "exact"
   | "1%"
@@ -121,8 +114,6 @@ export interface QuestionStepChoice {
 /** Generic method-step schema retained for future C method UI; steps are not abilities. */
 export interface QuestionStepSpec {
   id: string;
-  /** @deprecated Read-only compatibility metadata; never feeds current Mastery. */
-  stepSkillId?: SkillId;
   stepType: string;
   prompt: string;
   inputKind: StructuredInputKind;
@@ -135,8 +126,6 @@ export interface QuestionStepSpec {
 
 export interface StepRecord {
   stepId: string;
-  /** @deprecated Read-only compatibility metadata; never feeds current Mastery. */
-  stepSkillId?: SkillId;
   stepType: string;
   userValue?: AnswerValue;
   expectedValue?: AnswerValue;
@@ -169,8 +158,6 @@ export interface GeneratedQuestion {
   generationRuleVersion: string;
   /** Optional so frozen classic questions remain readable without fake A IDs. */
   skillId?: SkillId;
-  /** @deprecated Compatibility-only metadata; current A Mastery ignores it. */
-  secondarySkillIds?: SkillId[];
   difficultyBand?: DifficultyBand;
   structureTags?: string[];
   targetPrecision?: TargetPrecision;
