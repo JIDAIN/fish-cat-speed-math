@@ -35,6 +35,9 @@ jobs:
                   ('  secondary_skill_ids_json: string;\n', ''),
                   ('        secondary_skill_ids_json: json(question.secondarySkillIds ?? []),\n', ''),
               ],
+              Path('src/lib/data-export-files.ts'): [
+                  ('  ["secondary_skill_ids_json", "辅助能力 ID JSON", "文本", "JSON", "原始", "旧记录为空数组"],\n', ''),
+              ],
           }
           changed = []
           for path, pairs in replacements.items():
@@ -50,8 +53,8 @@ jobs:
           if ! git diff --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/lib/canonical-a-generate.ts src/lib/data-export.ts
-            git commit -m "refactor: remove final retired leaf export fields"
+            git add src/lib/canonical-a-generate.ts src/lib/data-export.ts src/lib/data-export-files.ts
+            git commit -m "refactor: remove retired leaf export column references"
             git push origin HEAD:cleanup/remove-160-leaf
           fi
       - name: Audit runtime leaf remnants
